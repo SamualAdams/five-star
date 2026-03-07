@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate, Route, Routes, useNavigate, useSearchParams } from "react-router-dom";
 import { acceptInvite, listOrganizations, login, me, signup } from "./api";
 import CreateOrgModal from "./components/CreateOrgModal";
+import FeedbackPage from "./components/FeedbackPage";
 import InviteAcceptPage from "./components/InviteAcceptPage";
 import OrganizationSwitcher from "./components/OrganizationSwitcher";
 import OrgSettingsPage from "./components/OrgSettingsPage";
@@ -196,6 +197,7 @@ export default function App() {
           path="/invite/:inviteToken"
           element={<InviteAcceptPage token={token} isAuthenticated={isAuthenticated} />}
         />
+        <Route path="/feedback/:feedbackToken" element={<FeedbackPage />} />
       </Routes>
 
       {showCreateOrg && (

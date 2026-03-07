@@ -30,9 +30,11 @@ class Organization(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     created_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    feedback_token: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
 
     members: Mapped[list["OrganizationMember"]] = relationship(back_populates="organization", cascade="all, delete-orphan")
     invites: Mapped[list["Invite"]] = relationship(back_populates="organization", cascade="all, delete-orphan")
+    feedback: Mapped[list["Feedback"]] = relationship(back_populates="organization", cascade="all, delete-orphan")
     creator: Mapped["User"] = relationship(foreign_keys=[created_by])
 
 
@@ -69,3 +71,17 @@ class Invite(Base):
     organization: Mapped["Organization"] = relationship(back_populates="invites")
     creator: Mapped["User"] = relationship(foreign_keys=[created_by])
     redeemer: Mapped["User | None"] = relationship(foreign_keys=[used_by])
+
+
+class Feedback(Base):
+    __tablename__ = "feedback"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"), nullable=False)
+    content: Mapped[str] = mapped_column(String, nullable=False)
+    submitter_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    submitter_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    is_anonymous: Mapped[bool] = mapped_column(default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+    organization: Mapped["Organization"] = relationship(back_populates="feedback")

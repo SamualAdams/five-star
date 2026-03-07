@@ -133,3 +133,27 @@ export async function acceptInvite(authToken, inviteToken) {
     body: JSON.stringify({ token: inviteToken }),
   });
 }
+
+// Feedback (Public)
+
+export async function getFeedbackFormInfo(feedbackToken) {
+  return request(`/feedback/${feedbackToken}`);
+}
+
+export async function submitFeedback(feedbackToken, content, submitterEmail = null, submitterName = null) {
+  return request(`/feedback/${feedbackToken}/submit`, {
+    method: "POST",
+    body: JSON.stringify({
+      content,
+      submitter_email: submitterEmail || undefined,
+      submitter_name: submitterName || undefined,
+    }),
+  });
+}
+
+// Future: Admin feedback list
+export async function listOrganizationFeedback(token, orgId) {
+  return request(`/organizations/${orgId}/feedback`, {
+    headers: authHeaders(token),
+  });
+}

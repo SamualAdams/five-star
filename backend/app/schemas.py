@@ -46,6 +46,7 @@ class OrganizationOut(BaseModel):
     created_at: datetime
     created_by: int
     role: str
+    feedback_token: str
 
 
 # Member schemas
@@ -88,3 +89,32 @@ class InviteInfo(BaseModel):
 
 class InviteAccept(BaseModel):
     token: str
+
+
+# Feedback schemas
+
+
+class FeedbackSubmit(BaseModel):
+    content: str = Field(min_length=1, max_length=5000)
+    submitter_email: EmailStr | None = None
+    submitter_name: str | None = Field(None, max_length=255)
+
+
+class FeedbackOut(BaseModel):
+    id: int
+    organization_id: int
+    content: str
+    submitter_email: str | None
+    submitter_name: str | None
+    is_anonymous: bool
+    created_at: datetime
+
+
+class FeedbackFormInfo(BaseModel):
+    organization_name: str
+    organization_id: int
+
+
+class FeedbackSubmitResponse(BaseModel):
+    success: bool
+    message: str

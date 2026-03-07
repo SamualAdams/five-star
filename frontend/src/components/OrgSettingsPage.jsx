@@ -11,6 +11,7 @@ export default function OrgSettingsPage({ token, user }) {
   const [editName, setEditName] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [error, setError] = useState("");
+  const [feedbackUrlCopied, setFeedbackUrlCopied] = useState(false);
 
   const isAdmin = org?.role === "admin";
 
@@ -102,6 +103,36 @@ export default function OrgSettingsPage({ token, user }) {
           </div>
         )}
       </div>
+
+      {isAdmin && org.feedback_token && (
+        <div className="settings-section">
+          <h3 className="settings-heading">Public Feedback URL</h3>
+          <p className="settings-meta">Share this link to receive anonymous feedback:</p>
+          <div className="url-display">
+            <input
+              className="url-input"
+              type="text"
+              readOnly
+              value={`${window.location.origin}/feedback/${org.feedback_token}`}
+            />
+            <button
+              type="button"
+              className="btn btn--primary btn--sm"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(`${window.location.origin}/feedback/${org.feedback_token}`);
+                  setFeedbackUrlCopied(true);
+                  setTimeout(() => setFeedbackUrlCopied(false), 2000);
+                } catch {
+                  setError("Failed to copy");
+                }
+              }}
+            >
+              {feedbackUrlCopied ? "Copied!" : "Copy Link"}
+            </button>
+          </div>
+        </div>
+      )}
 
       <MemberList token={token} orgId={Number(id)} currentUserId={user.id} isAdmin={isAdmin} />
       <InviteList token={token} orgId={Number(id)} isAdmin={isAdmin} />
