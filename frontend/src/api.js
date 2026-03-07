@@ -134,6 +134,12 @@ export async function acceptInvite(authToken, inviteToken) {
   });
 }
 
+// Organization Search (Public)
+
+export async function searchOrganizations(query) {
+  return request(`/organizations/search?q=${encodeURIComponent(query)}`);
+}
+
 // Feedback (Public)
 
 export async function getFeedbackFormInfo(feedbackToken) {

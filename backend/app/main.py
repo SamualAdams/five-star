@@ -23,6 +23,7 @@ from .schemas import (
     MemberUpdateRole,
     OrganizationCreate,
     OrganizationOut,
+    OrganizationSearchResult,
     OrganizationUpdate,
     Token,
     UserCreate,
@@ -167,6 +168,24 @@ def list_organizations(
         )
         for m in memberships
     ]
+
+
+@app.get("/organizations/search", response_model=list[OrganizationSearchResult])
+def search_organizations(q: str, db: Session = Depends(get_db)) -> list[OrganizationSearchResult]:
+    """Public endpoint - search for organizations by name"""
+    if not q or len(q.strip()) < 2:
+        return []
+
+    # Case-insensitive partial match search
+    search_pattern = f"%{q.strip()}%"
+    orgs = db.scalars(
+        select(Organization)
+        .where(Organization.name.ilike(search_pattern))
+        .order_by(Organization.name)
+        .limit(20)
+    ).all()
+
+    return [OrganizationSearchResult(name=org.name, feedback_token=org.feedback_token) for org in orgs]
 
 
 @app.get("/organizations/{org_id}", response_model=OrganizationOut)

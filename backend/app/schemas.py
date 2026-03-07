@@ -118,3 +118,11 @@ class FeedbackFormInfo(BaseModel):
 class FeedbackSubmitResponse(BaseModel):
     success: bool
     message: str
+
+
+# Organization Search
+
+
+class OrganizationSearchResult(BaseModel):
+    name: str
+    feedback_token: str

@@ -731,3 +731,132 @@ body {
   font-family: monospace;
   font-size: 0.875rem;
 }
+
+/* Search page */
+.search-page {
+  display: flex;
+  justify-content: center;
+  padding: 3rem 1rem;
+  min-height: calc(100vh - 60px);
+}
+
+.search-container {
+  max-width: 700px;
+  width: 100%;
+}
+
+.search-title {
+  font-size: 2.5rem;
+  margin: 0 0 0.5rem;
+  color: var(--color-ink);
+  text-align: center;
+}
+
+.search-subtitle {
+  color: var(--color-muted);
+  margin: 0 0 2.5rem;
+  text-align: center;
+  font-size: 1.125rem;
+}
+
+.search-box {
+  position: relative;
+  margin-bottom: 2rem;
+}
+
+.search-input {
+  width: 100%;
+  padding: 1rem 1.25rem;
+  border: 2px solid var(--color-border);
+  border-radius: 14px;
+  font-size: 1.125rem;
+  font-family: inherit;
+  transition: all 150ms ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 4px rgba(90, 143, 175, 0.12);
+}
+
+.search-spinner {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-muted);
+  font-size: 0.875rem;
+}
+
+.search-results-count {
+  color: var(--color-muted);
+  font-size: 0.875rem;
+  margin: 0 0 1rem;
+}
+
+.search-results-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.search-result-item {
+  margin: 0;
+}
+
+.search-result-button {
+  width: 100%;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 150ms ease;
+  text-align: left;
+}
+
+.search-result-button:hover {
+  border-color: var(--color-primary);
+  background: #f4f8fb;
+  box-shadow: 0 2px 8px rgba(90, 143, 175, 0.1);
+}
+
+.search-result-name {
+  font-size: 1.125rem;
+  color: var(--color-ink);
+  font-weight: 500;
+}
+
+.search-result-arrow {
+  font-size: 1.5rem;
+  color: var(--color-primary);
+  transition: transform 150ms ease;
+}
+
+.search-result-button:hover .search-result-arrow {
+  transform: translateX(4px);
+}
+
+.search-no-results {
+  text-align: center;
+  color: var(--color-muted);
+  padding: 2rem;
+  background: #f9f9f9;
+  border-radius: 12px;
+}
+
+.search-hint {
+  text-align: center;
+  color: var(--color-muted);
+  padding: 2rem;
+  background: #f9f9f9;
+  border-radius: 12px;
+  margin-top: 2rem;
+}

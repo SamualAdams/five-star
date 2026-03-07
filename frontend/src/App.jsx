@@ -6,6 +6,7 @@ import FeedbackPage from "./components/FeedbackPage";
 import InviteAcceptPage from "./components/InviteAcceptPage";
 import OrganizationSwitcher from "./components/OrganizationSwitcher";
 import OrgSettingsPage from "./components/OrgSettingsPage";
+import SearchPage from "./components/SearchPage";
 
 const TOKEN_KEY = "five-star-token";
 const CURRENT_ORG_KEY = "five-star-current-org";
@@ -145,6 +146,8 @@ export default function App() {
             ) : (
               <div className="menu-section">
                 <p className="menu-note">Sign up or log in to get started.</p>
+                <div className="menu-divider" />
+                <MenuLink to="/search" label="Search Organizations" setIsMenuOpen={setIsMenuOpen} />
               </div>
             )}
           </div>
@@ -197,6 +200,7 @@ export default function App() {
           path="/invite/:inviteToken"
           element={<InviteAcceptPage token={token} isAuthenticated={isAuthenticated} />}
         />
+        <Route path="/search" element={<SearchPage />} />
         <Route path="/feedback/:feedbackToken" element={<FeedbackPage />} />
       </Routes>
 
