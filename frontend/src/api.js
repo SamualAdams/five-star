@@ -9,6 +9,8 @@ async function request(path, options = {}) {
     },
   });
 
+  if (response.status === 204) return null;
+
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     const message = payload?.detail || "Request failed";
@@ -17,6 +19,12 @@ async function request(path, options = {}) {
 
   return payload;
 }
+
+function authHeaders(token) {
+  return { Authorization: `Bearer ${token}` };
+}
+
+// Auth
 
 export async function signup(email, password) {
   return request("/auth/signup", {
@@ -34,8 +42,94 @@ export async function login(email, password) {
 
 export async function me(token) {
   return request("/auth/me", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers: authHeaders(token),
+  });
+}
+
+// Organizations
+
+export async function createOrganization(token, name) {
+  return request("/organizations", {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function listOrganizations(token) {
+  return request("/organizations", {
+    headers: authHeaders(token),
+  });
+}
+
+export async function getOrganization(token, orgId) {
+  return request(`/organizations/${orgId}`, {
+    headers: authHeaders(token),
+  });
+}
+
+export async function updateOrganization(token, orgId, name) {
+  return request(`/organizations/${orgId}`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function deleteOrganization(token, orgId) {
+  return request(`/organizations/${orgId}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+}
+
+// Members
+
+export async function listMembers(token, orgId) {
+  return request(`/organizations/${orgId}/members`, {
+    headers: authHeaders(token),
+  });
+}
+
+export async function updateMemberRole(token, orgId, userId, role) {
+  return request(`/organizations/${orgId}/members/${userId}`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify({ role }),
+  });
+}
+
+export async function removeMember(token, orgId, userId) {
+  return request(`/organizations/${orgId}/members/${userId}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+}
+
+// Invites
+
+export async function createInvite(token, orgId, role, expiresInHours = 168) {
+  return request(`/organizations/${orgId}/invites`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ role, expires_in_hours: expiresInHours }),
+  });
+}
+
+export async function listInvites(token, orgId) {
+  return request(`/organizations/${orgId}/invites`, {
+    headers: authHeaders(token),
+  });
+}
+
+export async function getInviteInfo(inviteToken) {
+  return request(`/invites/${inviteToken}`);
+}
+
+export async function acceptInvite(authToken, inviteToken) {
+  return request("/invites/accept", {
+    method: "POST",
+    headers: authHeaders(authToken),
+    body: JSON.stringify({ token: inviteToken }),
   });
 }
