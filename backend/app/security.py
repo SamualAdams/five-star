@@ -30,3 +30,14 @@ def decode_token(token: str) -> str | None:
     except JWTError:
         return None
     return payload.get("sub")
+
+
+def generate_invite_token() -> str:
+    import secrets
+
+    return secrets.token_urlsafe(32)
+
+
+def is_invite_valid(invite) -> bool:
+    now = datetime.now(timezone.utc)
+    return invite.expires_at.replace(tzinfo=timezone.utc) > now and invite.used_at is None
