@@ -9,6 +9,7 @@ import InviteAcceptPage from "./components/InviteAcceptPage";
 import OrganizationSwitcher from "./components/OrganizationSwitcher";
 import OrgSettingsPage from "./components/OrgSettingsPage";
 import SearchPage from "./components/SearchPage";
+import TopbarSearch from "./components/TopbarSearch";
 
 const TOKEN_KEY = "five-star-token";
 const CURRENT_ORG_KEY = "five-star-current-org";
@@ -96,16 +97,7 @@ export default function App() {
         <img className="topbar-logo" src={LOGO_SRC} alt="five*" />
 
         <div style={{ display: "flex", alignItems: "center", gap: "1rem", flex: 1, justifyContent: "flex-end" }}>
-          {!isAuthenticated && (
-            <button
-              type="button"
-              className="btn btn--ghost btn--sm"
-              onClick={() => navigate("/search")}
-              style={{ marginRight: "auto" }}
-            >
-              Search
-            </button>
-          )}
+          <TopbarSearch />
 
           <div className="menu-wrap">
             {isAuthenticated && organizations.length > 0 && (
@@ -165,8 +157,6 @@ export default function App() {
             ) : (
               <div className="menu-section">
                 <MenuLink to="/" label="Sign up / Log in" setIsMenuOpen={setIsMenuOpen} />
-                <div className="menu-divider" />
-                <MenuLink to="/search" label="Search Organizations" setIsMenuOpen={setIsMenuOpen} />
               </div>
             )}
             </div>

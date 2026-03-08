@@ -1,9 +1,10 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { searchOrganizations } from "../api";
 
 export default function SearchPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -30,6 +31,13 @@ export default function SearchPage() {
       setIsSearching(false);
     }
   }
+
+  useEffect(() => {
+    const q = searchParams.get("q");
+    if (q) {
+      handleSearch(q);
+    }
+  }, []);
 
   function handleResultClick(feedbackToken) {
     navigate(`/feedback/${feedbackToken}`);
