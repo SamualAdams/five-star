@@ -415,32 +415,28 @@ export default function DigestManager({ token, orgId, isAdmin }) {
         Summarize feedback into a structured digest and share it with your organization.
       </p>
 
-      {/* Horizon selector */}
-      <div style={{ marginTop: "1rem", marginBottom: "1rem" }}>
-        <select
-          value={selectedHorizon.days}
-          onChange={(e) => {
-            const horizon = HORIZONS.find((h) => h.days === Number(e.target.value));
-            if (horizon) setSelectedHorizon(horizon);
-          }}
-          className="role-select"
-          style={{
-            width: "100%",
-            maxWidth: "300px",
-            padding: "0.5rem",
-            border: "1px solid var(--color-border)",
-            borderRadius: "8px",
-            fontSize: "0.9rem",
-            background: "#fff",
-            cursor: "pointer",
-          }}
-        >
-          {HORIZONS.map((h) => (
-            <option key={h.days} value={h.days}>
-              {h.label}
-            </option>
-          ))}
-        </select>
+      {/* Horizon selector - pill buttons */}
+      <div style={{ marginTop: "1rem", marginBottom: "1.5rem", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+        {HORIZONS.map((h) => (
+          <button
+            key={h.days}
+            type="button"
+            onClick={() => setSelectedHorizon(h)}
+            style={{
+              padding: "0.5rem 1rem",
+              borderRadius: "20px",
+              border: selectedHorizon.days === h.days ? "2px solid var(--color-primary)" : "1px solid #d1d5db",
+              background: selectedHorizon.days === h.days ? "var(--color-primary)" : "#f3f4f6",
+              color: selectedHorizon.days === h.days ? "white" : "var(--color-ink)",
+              fontSize: "0.85rem",
+              fontWeight: selectedHorizon.days === h.days ? "600" : "500",
+              cursor: "pointer",
+              transition: "all 150ms ease",
+            }}
+          >
+            {h.label}
+          </button>
+        ))}
       </div>
 
       {/* Chart */}
