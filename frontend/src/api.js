@@ -133,3 +133,85 @@ export async function acceptInvite(authToken, inviteToken) {
     body: JSON.stringify({ token: inviteToken }),
   });
 }
+
+// Organization Search (Public)
+
+export async function searchOrganizations(query) {
+  return request(`/organizations/search?q=${encodeURIComponent(query)}`);
+}
+
+// Feedback (Public)
+
+export async function getFeedbackFormInfo(feedbackToken) {
+  return request(`/feedback/${feedbackToken}`);
+}
+
+export async function submitFeedback(feedbackToken, content, submitterEmail = null, submitterName = null) {
+  return request(`/feedback/${feedbackToken}/submit`, {
+    method: "POST",
+    body: JSON.stringify({
+      content,
+      submitter_email: submitterEmail || undefined,
+      submitter_name: submitterName || undefined,
+    }),
+  });
+}
+
+// Future: Admin feedback list
+export async function listOrganizationFeedback(token, orgId) {
+  return request(`/organizations/${orgId}/feedback`, {
+    headers: authHeaders(token),
+  });
+}
+
+// Feedback Stats
+
+export async function getFeedbackStats(token, orgId, days = 7) {
+  return request(`/organizations/${orgId}/feedback/stats?days=${days}`, {
+    headers: authHeaders(token),
+  });
+}
+
+// Digests
+
+export async function generateDigest(token, orgId, periodStart, periodEnd) {
+  return request(`/organizations/${orgId}/digests/generate`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ period_start: periodStart, period_end: periodEnd }),
+  });
+}
+
+export async function listDigests(token, orgId) {
+  return request(`/organizations/${orgId}/digests`, {
+    headers: authHeaders(token),
+  });
+}
+
+export async function getDigest(token, orgId, digestId) {
+  return request(`/organizations/${orgId}/digests/${digestId}`, {
+    headers: authHeaders(token),
+  });
+}
+
+export async function updateDigest(token, orgId, digestId, patch) {
+  return request(`/organizations/${orgId}/digests/${digestId}`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function publishDigest(token, orgId, digestId) {
+  return request(`/organizations/${orgId}/digests/${digestId}/publish`, {
+    method: "POST",
+    headers: authHeaders(token),
+  });
+}
+
+export async function deleteDigest(token, orgId, digestId) {
+  return request(`/organizations/${orgId}/digests/${digestId}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+}

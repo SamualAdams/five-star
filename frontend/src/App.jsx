@@ -2,9 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate, Route, Routes, useNavigate, useSearchParams } from "react-router-dom";
 import { acceptInvite, listOrganizations, login, me, signup } from "./api";
 import CreateOrgModal from "./components/CreateOrgModal";
+import DigestManager from "./components/DigestManager";
+import DigestsPage from "./components/DigestsPage";
+import FeedbackPage from "./components/FeedbackPage";
 import InviteAcceptPage from "./components/InviteAcceptPage";
 import OrganizationSwitcher from "./components/OrganizationSwitcher";
 import OrgSettingsPage from "./components/OrgSettingsPage";
+import SearchPage from "./components/SearchPage";
+import TopbarSearch from "./components/TopbarSearch";
 
 const TOKEN_KEY = "five-star-token";
 const CURRENT_ORG_KEY = "five-star-current-org";
@@ -91,61 +96,70 @@ export default function App() {
       <header className="topbar">
         <img className="topbar-logo" src={LOGO_SRC} alt="five*" />
 
-        <div className="menu-wrap">
-          {isAuthenticated && organizations.length > 0 && (
-            <OrganizationSwitcher
-              organizations={organizations}
-              currentOrgId={currentOrg?.id}
-              onOrgChange={handleOrgChange}
-            />
-          )}
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem", flex: 1, justifyContent: "flex-end" }}>
+          <TopbarSearch />
 
-          <button
-            type="button"
-            className="hamburger"
-            aria-label="Toggle menu"
-            aria-expanded={isMenuOpen}
-            onClick={() => setIsMenuOpen((v) => !v)}
-          >
-            <span className="hamburger-bar" />
-            <span className="hamburger-bar" />
-            <span className="hamburger-bar" />
-          </button>
+          <div className="menu-wrap">
+            {isAuthenticated && organizations.length > 0 && (
+              <OrganizationSwitcher
+                organizations={organizations}
+                currentOrgId={currentOrg?.id}
+                onOrgChange={handleOrgChange}
+              />
+            )}
 
-          <div className={`menu-panel ${isMenuOpen ? "menu-panel--open" : ""}`}>
+            <button
+              type="button"
+              className="hamburger"
+              aria-label="Toggle menu"
+              aria-expanded={isMenuOpen}
+              onClick={() => setIsMenuOpen((v) => !v)}
+            >
+              <span className="hamburger-bar" />
+              <span className="hamburger-bar" />
+              <span className="hamburger-bar" />
+            </button>
+
+            <div className={`menu-panel ${isMenuOpen ? "menu-panel--open" : ""}`}>
             {isAuthenticated ? (
-              <div className="menu-section">
-                <p className="menu-kicker">Account</p>
-                <p className="menu-email">{user.email}</p>
+              <>
+                <div className="menu-section">
+                  <p className="menu-kicker">Navigation</p>
+                  <MenuLink to="/dashboard" label="Dashboard" setIsMenuOpen={setIsMenuOpen} />
+                  {currentOrg && (
+                    <MenuLink
+                      to={`/org/${currentOrg.id}/settings`}
+                      label="Org Settings"
+                      setIsMenuOpen={setIsMenuOpen}
+                    />
+                  )}
+                </div>
                 <div className="menu-divider" />
-                <MenuLink to="/dashboard" label="Dashboard" setIsMenuOpen={setIsMenuOpen} />
-                {currentOrg && (
-                  <MenuLink
-                    to={`/org/${currentOrg.id}/settings`}
-                    label="Org Settings"
-                    setIsMenuOpen={setIsMenuOpen}
-                  />
-                )}
-                <button
-                  type="button"
-                  className="menu-item"
-                  onClick={() => {
-                    setShowCreateOrg(true);
-                    setIsMenuOpen(false);
-                  }}
-                >
-                  + New Organization
-                </button>
-                <div className="menu-divider" />
-                <button type="button" className="menu-item" onClick={logout}>
-                  Log out
-                </button>
-              </div>
+                <div className="menu-section">
+                  <p className="menu-kicker">Account</p>
+                  <p className="menu-email">{user.email}</p>
+                  <div style={{ marginTop: "0.8rem" }} />
+                  <button
+                    type="button"
+                    className="menu-item"
+                    onClick={() => {
+                      setShowCreateOrg(true);
+                      setIsMenuOpen(false);
+                    }}
+                  >
+                    + New Organization
+                  </button>
+                  <button type="button" className="menu-item" onClick={logout}>
+                    Log out
+                  </button>
+                </div>
+              </>
             ) : (
               <div className="menu-section">
-                <p className="menu-note">Sign up or log in to get started.</p>
+                <MenuLink to="/" label="Sign up / Log in" setIsMenuOpen={setIsMenuOpen} />
               </div>
             )}
+            </div>
           </div>
         </div>
       </header>
@@ -196,6 +210,18 @@ export default function App() {
           path="/invite/:inviteToken"
           element={<InviteAcceptPage token={token} isAuthenticated={isAuthenticated} />}
         />
+        <Route
+          path="/org/:id/digests"
+          element={
+            isAuthenticated ? (
+              <DigestsPage token={token} />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+        <Route path="/search" element={<SearchPage />} />
+        <Route path="/feedback/:feedbackToken" element={<FeedbackPage />} />
       </Routes>
 
       {showCreateOrg && (
@@ -337,6 +363,7 @@ function AuthPage({ token, setToken, setUser, loadOrganizations }) {
 
 function Dashboard({ token, user, currentOrg, organizations, onShowCreateOrg }) {
   const navigate = useNavigate();
+  const isAdmin = currentOrg?.role === "admin";
 
   if (!organizations.length) {
     return (
@@ -363,17 +390,9 @@ function Dashboard({ token, user, currentOrg, organizations, onShowCreateOrg }) 
         </button>
       </div>
 
-      <div className="dashboard-card">
-        <p>
-          Logged in as <strong>{user.email}</strong>
-        </p>
-        <p>
-          Role: <strong>{currentOrg?.role}</strong>
-        </p>
-        <p className="dashboard-hint">
-          Your feedback box and dashboard features will appear here.
-        </p>
-      </div>
+      {isAdmin && currentOrg && (
+        <DigestManager token={token} orgId={currentOrg.id} isAdmin={true} />
+      )}
     </div>
   );
 }

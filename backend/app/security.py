@@ -38,6 +38,12 @@ def generate_invite_token() -> str:
     return secrets.token_urlsafe(32)
 
 
+def generate_feedback_token() -> str:
+    import secrets
+
+    return secrets.token_urlsafe(32)
+
+
 def is_invite_valid(invite) -> bool:
     now = datetime.now(timezone.utc)
     return invite.expires_at.replace(tzinfo=timezone.utc) > now and invite.used_at is None

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date as Date, datetime
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -46,6 +46,7 @@ class OrganizationOut(BaseModel):
     created_at: datetime
     created_by: int
     role: str
+    feedback_token: str
 
 
 # Member schemas
@@ -88,3 +89,94 @@ class InviteInfo(BaseModel):
 
 class InviteAccept(BaseModel):
     token: str
+
+
+# Feedback schemas
+
+
+class FeedbackSubmit(BaseModel):
+    content: str = Field(min_length=1, max_length=5000)
+    submitter_email: EmailStr | None = None
+    submitter_name: str | None = Field(None, max_length=255)
+
+
+class FeedbackOut(BaseModel):
+    id: int
+    organization_id: int
+    content: str
+    submitter_email: str | None
+    submitter_name: str | None
+    is_anonymous: bool
+    created_at: datetime
+
+
+class FeedbackFormInfo(BaseModel):
+    organization_name: str
+    organization_id: int
+
+
+class FeedbackSubmitResponse(BaseModel):
+    success: bool
+    message: str
+
+
+# Organization Search
+
+
+class OrganizationSearchResult(BaseModel):
+    name: str
+    feedback_token: str
+
+
+# Feedback Stats
+
+
+class FeedbackStatPoint(BaseModel):
+    date: str
+    count: int
+
+
+class FeedbackStatsOut(BaseModel):
+    data: list[FeedbackStatPoint]
+
+
+# Digest schemas
+
+
+class DigestGenerate(BaseModel):
+    period_start: Date
+    period_end: Date
+
+
+class DigestContent(BaseModel):
+    """Used internally to validate the AI's JSON output."""
+    summary: str
+    insights: list[str]
+    immediate_actions: list[str]
+    long_term_goals: list[str]
+
+
+class DigestUpdate(BaseModel):
+    summary: str | None = None
+    insights: list[str] | None = None
+    immediate_actions: list[str] | None = None
+    long_term_goals: list[str] | None = None
+
+
+class DigestOut(BaseModel):
+    id: int
+    organization_id: int
+    status: str
+    period_start: Date
+    period_end: Date
+    summary: str
+    insights: list[str]
+    immediate_actions: list[str]
+    long_term_goals: list[str]
+    feedback_count: int
+    generated_at: datetime
+    published_at: datetime | None
+    generated_by: int
+    published_by: int | None
+
+    model_config = {"from_attributes": True}
