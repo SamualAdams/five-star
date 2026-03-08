@@ -415,28 +415,56 @@ export default function DigestManager({ token, orgId, isAdmin }) {
         Summarize feedback into a structured digest and share it with your organization.
       </p>
 
-      {/* Horizon selector - pill buttons */}
-      <div style={{ marginTop: "1rem", marginBottom: "1.5rem", display: "flex", gap: "0.3rem" }}>
-        {HORIZONS.map((h) => (
-          <button
-            key={h.days}
-            type="button"
-            onClick={() => setSelectedHorizon(h)}
-            style={{
-              padding: "0.3rem 0.6rem",
-              borderRadius: "6px",
-              border: "none",
-              background: selectedHorizon.days === h.days ? "var(--color-primary)" : "#e5e7eb",
-              color: selectedHorizon.days === h.days ? "white" : "#6b7280",
-              fontSize: "0.75rem",
-              fontWeight: selectedHorizon.days === h.days ? "600" : "500",
-              cursor: "pointer",
-              transition: "all 150ms ease",
-            }}
-          >
-            {h.label}
-          </button>
-        ))}
+      {/* Horizon selector - pills on desktop, dropdown on mobile */}
+      <div style={{ marginTop: "1rem", marginBottom: "1.5rem" }}>
+        {/* Pills - visible on desktop */}
+        <div className="horizon-pills" style={{ display: "flex", gap: "0.3rem" }}>
+          {HORIZONS.map((h) => (
+            <button
+              key={h.days}
+              type="button"
+              onClick={() => setSelectedHorizon(h)}
+              style={{
+                padding: "0.3rem 0.6rem",
+                borderRadius: "6px",
+                border: "none",
+                background: selectedHorizon.days === h.days ? "var(--color-primary)" : "#e5e7eb",
+                color: selectedHorizon.days === h.days ? "white" : "#6b7280",
+                fontSize: "0.75rem",
+                fontWeight: selectedHorizon.days === h.days ? "600" : "500",
+                cursor: "pointer",
+                transition: "all 150ms ease",
+              }}
+            >
+              {h.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Dropdown - visible on mobile */}
+        <select
+          value={selectedHorizon.days}
+          onChange={(e) => {
+            const horizon = HORIZONS.find((h) => h.days === Number(e.target.value));
+            if (horizon) setSelectedHorizon(horizon);
+          }}
+          className="horizon-select"
+          style={{
+            width: "100%",
+            padding: "0.5rem",
+            border: "1px solid #d1d5db",
+            borderRadius: "6px",
+            fontSize: "0.9rem",
+            background: "#fff",
+            cursor: "pointer",
+          }}
+        >
+          {HORIZONS.map((h) => (
+            <option key={h.days} value={h.days}>
+              {h.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Chart */}

@@ -869,3 +869,17 @@ body {
   border-radius: 12px;
   margin-top: 2rem;
 }
+
+/* Responsive horizon selector */
+.horizon-select {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .horizon-pills {
+    display: none !important;
+  }
+  .horizon-select {
+    display: block;
+  }
+}
