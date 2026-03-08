@@ -416,19 +416,19 @@ export default function DigestManager({ token, orgId, isAdmin }) {
       </p>
 
       {/* Horizon selector - pill buttons */}
-      <div style={{ marginTop: "1rem", marginBottom: "1.5rem", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+      <div style={{ marginTop: "1rem", marginBottom: "1.5rem", display: "flex", gap: "0.3rem" }}>
         {HORIZONS.map((h) => (
           <button
             key={h.days}
             type="button"
             onClick={() => setSelectedHorizon(h)}
             style={{
-              padding: "0.5rem 1rem",
-              borderRadius: "20px",
-              border: selectedHorizon.days === h.days ? "2px solid var(--color-primary)" : "1px solid #d1d5db",
-              background: selectedHorizon.days === h.days ? "var(--color-primary)" : "#f3f4f6",
-              color: selectedHorizon.days === h.days ? "white" : "var(--color-ink)",
-              fontSize: "0.85rem",
+              padding: "0.3rem 0.6rem",
+              borderRadius: "6px",
+              border: "none",
+              background: selectedHorizon.days === h.days ? "var(--color-primary)" : "#e5e7eb",
+              color: selectedHorizon.days === h.days ? "white" : "#6b7280",
+              fontSize: "0.75rem",
               fontWeight: selectedHorizon.days === h.days ? "600" : "500",
               cursor: "pointer",
               transition: "all 150ms ease",
