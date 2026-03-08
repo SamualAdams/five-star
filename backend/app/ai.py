@@ -26,30 +26,34 @@ def generate_digest_content(
         feedback_text = "(No feedback was submitted during this period.)"
 
     system = (
-        "You are an expert at synthesizing employee or customer feedback into "
-        "constructive, actionable organizational digests. "
-        "Always respond with a single valid JSON object matching the schema provided. "
+        "You are an assistant that synthesizes employee or customer feedback into structured digests. "
+        "Your output must be grounded strictly in the feedback provided — do not invent insights, "
+        "actions, or themes that are not clearly supported by the actual feedback text. "
+        "If the feedback is absent, too sparse, or too vague to support meaningful conclusions, "
+        "say so honestly rather than fabricating content. "
+        "Always respond with a single valid JSON object. "
         "Never include markdown code fences, prose, or any text outside the JSON object."
     )
 
     user = (
-        f"You have received {len(feedback_items)} piece(s) of feedback for the organization "
-        f'"{org_name}" covering the period {period_start} to {period_end}.\n\n'
-        f"Feedback items:\n{feedback_text}\n\n"
-        "Produce a digest as a JSON object with exactly these keys:\n"
+        f"Feedback for organization \"{org_name}\" ({period_start} to {period_end}):\n\n"
+        f"{feedback_text}\n\n"
+        "Produce a digest JSON object with exactly these keys:\n"
         "{\n"
-        '  "summary": "<2-4 sentence overview, neutral and constructive tone>",\n'
-        '  "insights": ["<insight under 20 words>", ...],\n'
-        '  "immediate_actions": ["<concrete action achievable within weeks>", ...],\n'
-        '  "long_term_goals": ["<strategic goal achievable over months>", ...]\n'
+        '  "summary": "<honest 1-3 sentence overview based only on what was actually said>",\n'
+        '  "insights": ["<insight directly supported by the feedback>", ...],\n'
+        '  "immediate_actions": ["<action clearly warranted by the feedback>", ...],\n'
+        '  "long_term_goals": ["<strategic goal supported by the feedback>", ...]\n'
         "}\n\n"
-        "Rules:\n"
-        "- insights: 3-6 items\n"
-        "- immediate_actions: 2-4 items\n"
-        "- long_term_goals: 2-4 items\n"
+        "Critical rules:\n"
+        "- Only include insights, actions, and goals that are directly supported by the feedback text\n"
+        "- If there is no feedback, or the feedback is too vague to draw conclusions from, "
+        "set summary to explain this honestly and set insights, immediate_actions, and long_term_goals to empty arrays []\n"
+        "- Never invent themes, problems, or recommendations not present in the actual feedback\n"
         "- Never attribute feedback to specific individuals\n"
-        "- Frame negatives as improvement opportunities\n"
-        "- If there is no feedback, note that in the summary and provide placeholder guidance"
+        "- insights: 0-6 items depending on what the feedback actually supports\n"
+        "- immediate_actions: 0-4 items\n"
+        "- long_term_goals: 0-4 items"
     )
 
     response = client.chat.completions.create(
