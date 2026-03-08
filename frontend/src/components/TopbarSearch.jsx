@@ -88,7 +88,7 @@ export default function TopbarSearch() {
   return (
     <div
       ref={containerRef}
-      style={{ position: "relative", flex: 1, maxWidth: 360, marginRight: "auto" }}
+      style={{ position: "relative", width: 220 }}
     >
       <div
         style={{
