@@ -39,12 +39,14 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 2rem;
 }
 
 .topbar-logo {
-  width: 120px;
+  width: 100px;
   height: auto;
   display: block;
+  flex-shrink: 0;
 }
 
 .menu-wrap {
@@ -342,19 +344,26 @@ body {
 .org-switcher {
   border: 1px solid var(--color-border);
   border-radius: 10px;
-  padding: 0.5rem 0.7rem;
+  padding: 0.65rem 0.8rem;
   font-size: 0.9rem;
   font-weight: 700;
   color: var(--color-ink);
   background: #fafcfd;
   margin-right: 0.6rem;
-  max-width: 200px;
+  min-width: 200px;
   cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.org-switcher:hover {
+  border-color: #9bb8ca;
+  background: #f1f7fa;
 }
 
 .org-switcher:focus {
   outline: none;
   border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(90, 143, 175, 0.16);
 }
 
 /* Dashboard */

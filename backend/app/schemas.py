@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date as Date, datetime
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -126,3 +126,57 @@ class FeedbackSubmitResponse(BaseModel):
 class OrganizationSearchResult(BaseModel):
     name: str
     feedback_token: str
+
+
+# Feedback Stats
+
+
+class FeedbackStatPoint(BaseModel):
+    date: str
+    count: int
+
+
+class FeedbackStatsOut(BaseModel):
+    data: list[FeedbackStatPoint]
+
+
+# Digest schemas
+
+
+class DigestGenerate(BaseModel):
+    period_start: Date
+    period_end: Date
+
+
+class DigestContent(BaseModel):
+    """Used internally to validate the AI's JSON output."""
+    summary: str
+    insights: list[str]
+    immediate_actions: list[str]
+    long_term_goals: list[str]
+
+
+class DigestUpdate(BaseModel):
+    summary: str | None = None
+    insights: list[str] | None = None
+    immediate_actions: list[str] | None = None
+    long_term_goals: list[str] | None = None
+
+
+class DigestOut(BaseModel):
+    id: int
+    organization_id: int
+    status: str
+    period_start: Date
+    period_end: Date
+    summary: str
+    insights: list[str]
+    immediate_actions: list[str]
+    long_term_goals: list[str]
+    feedback_count: int
+    generated_at: datetime
+    published_at: datetime | None
+    generated_by: int
+    published_by: int | None
+
+    model_config = {"from_attributes": True}

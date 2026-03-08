@@ -62,7 +62,7 @@ export default function OrgSettingsPage({ token, user }) {
   return (
     <div className="settings-page">
       <button type="button" className="btn btn--ghost btn--sm" onClick={() => navigate("/dashboard")}>
-        &larr; Back to dashboard
+        ← Back to dashboard
       </button>
 
       <div className="settings-section">

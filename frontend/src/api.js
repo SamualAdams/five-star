@@ -163,3 +163,55 @@ export async function listOrganizationFeedback(token, orgId) {
     headers: authHeaders(token),
   });
 }
+
+// Feedback Stats
+
+export async function getFeedbackStats(token, orgId, days = 7) {
+  return request(`/organizations/${orgId}/feedback/stats?days=${days}`, {
+    headers: authHeaders(token),
+  });
+}
+
+// Digests
+
+export async function generateDigest(token, orgId, periodStart, periodEnd) {
+  return request(`/organizations/${orgId}/digests/generate`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ period_start: periodStart, period_end: periodEnd }),
+  });
+}
+
+export async function listDigests(token, orgId) {
+  return request(`/organizations/${orgId}/digests`, {
+    headers: authHeaders(token),
+  });
+}
+
+export async function getDigest(token, orgId, digestId) {
+  return request(`/organizations/${orgId}/digests/${digestId}`, {
+    headers: authHeaders(token),
+  });
+}
+
+export async function updateDigest(token, orgId, digestId, patch) {
+  return request(`/organizations/${orgId}/digests/${digestId}`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function publishDigest(token, orgId, digestId) {
+  return request(`/organizations/${orgId}/digests/${digestId}/publish`, {
+    method: "POST",
+    headers: authHeaders(token),
+  });
+}
+
+export async function deleteDigest(token, orgId, digestId) {
+  return request(`/organizations/${orgId}/digests/${digestId}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+}
