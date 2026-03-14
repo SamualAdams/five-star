@@ -1,8 +1,10 @@
 import json
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
@@ -49,6 +51,19 @@ from .security import (
 )
 
 settings = get_settings()
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+FRONTEND_DIST_DIR = PROJECT_ROOT / "frontend" / "dist"
+RESERVED_PATH_PREFIXES = (
+    "api",
+    "auth",
+    "organizations",
+    "invites",
+    "health",
+    "ready",
+    "docs",
+    "redoc",
+    "openapi.json",
+)
 
 app = FastAPI(title=settings.app_name)
 
@@ -485,7 +500,7 @@ def accept_invite(
 # ---------------------------------------------------------------------------
 
 
-@app.get("/feedback/{feedback_token}", response_model=FeedbackFormInfo)
+@app.get("/api/feedback/{feedback_token}", response_model=FeedbackFormInfo)
 def get_feedback_form_info(feedback_token: str, db: Session = Depends(get_db)) -> FeedbackFormInfo:
     """Public endpoint - get org info for feedback form"""
     org = db.scalar(select(Organization).where(Organization.feedback_token == feedback_token))
@@ -494,7 +509,7 @@ def get_feedback_form_info(feedback_token: str, db: Session = Depends(get_db)) -
     return FeedbackFormInfo(organization_name=org.name, organization_id=org.id)
 
 
-@app.post("/feedback/{feedback_token}/submit", response_model=FeedbackSubmitResponse, status_code=status.HTTP_201_CREATED)
+@app.post("/api/feedback/{feedback_token}/submit", response_model=FeedbackSubmitResponse, status_code=status.HTTP_201_CREATED)
 def submit_feedback(feedback_token: str, payload: FeedbackSubmit, db: Session = Depends(get_db)) -> FeedbackSubmitResponse:
     """Public endpoint - submit anonymous feedback"""
     org = db.scalar(select(Organization).where(Organization.feedback_token == feedback_token))
@@ -757,3 +772,22 @@ def delete_digest(
 
     db.delete(digest)
     db.commit()
+
+
+@app.get("/{full_path:path}", include_in_schema=False)
+def serve_frontend(full_path: str) -> FileResponse:
+    if not FRONTEND_DIST_DIR.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Frontend assets not available")
+
+    if any(full_path == prefix or full_path.startswith(f"{prefix}/") for prefix in RESERVED_PATH_PREFIXES):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+
+    asset_path = (FRONTEND_DIST_DIR / full_path).resolve()
+    if full_path and FRONTEND_DIST_DIR in asset_path.parents and asset_path.is_file():
+        return FileResponse(asset_path)
+
+    index_file = FRONTEND_DIST_DIR / "index.html"
+    if index_file.exists():
+        return FileResponse(index_file)
+
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Frontend assets not available")

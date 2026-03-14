@@ -1,0 +1,16 @@
+.git
+.gitignore
+.DS_Store
+.claude
+.codex
+.dev
+backend/.env
+backend/.venv
+backend/__pycache__
+backend/app/__pycache__
+frontend/.env
+frontend/.vite
+frontend/dist
+frontend/node_modules
+scripts/__pycache__
+**/__pycache__

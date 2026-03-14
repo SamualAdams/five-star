@@ -143,11 +143,11 @@ export async function searchOrganizations(query) {
 // Feedback (Public)
 
 export async function getFeedbackFormInfo(feedbackToken) {
-  return request(`/feedback/${feedbackToken}`);
+  return request(`/api/feedback/${feedbackToken}`);
 }
 
 export async function submitFeedback(feedbackToken, content, submitterEmail = null, submitterName = null) {
-  return request(`/feedback/${feedbackToken}/submit`, {
+  return request(`/api/feedback/${feedbackToken}/submit`, {
     method: "POST",
     body: JSON.stringify({
       content,
