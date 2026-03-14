@@ -100,14 +100,6 @@ export default function App() {
           <TopbarSearch />
 
           <div className="menu-wrap">
-            {isAuthenticated && organizations.length > 0 && (
-              <OrganizationSwitcher
-                organizations={organizations}
-                currentOrgId={currentOrg?.id}
-                onOrgChange={handleOrgChange}
-              />
-            )}
-
             <button
               type="button"
               className="hamburger"
@@ -186,9 +178,10 @@ export default function App() {
             isAuthenticated ? (
               <Dashboard
                 token={token}
-                user={user}
                 currentOrg={currentOrg}
+                currentOrgId={currentOrg?.id}
                 organizations={organizations}
+                onOrgChange={handleOrgChange}
                 onShowCreateOrg={() => setShowCreateOrg(true)}
               />
             ) : (
@@ -361,7 +354,7 @@ function AuthPage({ token, setToken, setUser, loadOrganizations }) {
   );
 }
 
-function Dashboard({ token, user, currentOrg, organizations, onShowCreateOrg }) {
+function Dashboard({ token, currentOrg, currentOrgId, organizations, onOrgChange, onShowCreateOrg }) {
   const navigate = useNavigate();
   const isAdmin = currentOrg?.role === "admin";
 
@@ -381,13 +374,20 @@ function Dashboard({ token, user, currentOrg, organizations, onShowCreateOrg }) 
     <div className="dashboard">
       <div className="dashboard-header">
         <h2 className="dashboard-title">{currentOrg?.name}</h2>
-        <button
-          type="button"
-          className="btn btn--ghost btn--sm"
-          onClick={() => navigate(`/org/${currentOrg?.id}/settings`)}
-        >
-          Org Settings
-        </button>
+        <div className="dashboard-actions">
+          <OrganizationSwitcher
+            organizations={organizations}
+            currentOrgId={currentOrgId}
+            onOrgChange={onOrgChange}
+          />
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm"
+            onClick={() => navigate(`/org/${currentOrg?.id}/settings`)}
+          >
+            Org Settings
+          </button>
+        </div>
       </div>
 
       {isAdmin && currentOrg && (

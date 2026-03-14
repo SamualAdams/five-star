@@ -349,7 +349,6 @@ body {
   font-weight: 700;
   color: var(--color-ink);
   background: #fafcfd;
-  margin-right: 0.6rem;
   min-width: 200px;
   cursor: pointer;
   transition: all 150ms ease;
@@ -381,6 +380,14 @@ body {
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: 1.5rem;
+}
+
+.dashboard-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .dashboard-title {
@@ -423,6 +430,31 @@ body {
 .dashboard-empty p {
   color: var(--color-muted);
   margin: 0 0 1rem;
+}
+
+@media (max-width: 760px) {
+  .dashboard {
+    padding: 1.25rem 1rem 2rem;
+  }
+
+  .dashboard-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .dashboard-actions {
+    width: 100%;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .dashboard-actions > * {
+    width: 100%;
+  }
+
+  .dashboard-actions .org-switcher {
+    width: 100%;
+  }
 }
 
 /* Settings page */
