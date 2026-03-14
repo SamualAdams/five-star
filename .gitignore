@@ -8,10 +8,12 @@ __pycache__/
 # Node
 node_modules/
 dist/
+frontend/.vite/
 
 # Local dev runtime
 .dev/
 .codex/
+.claude/
 
 # OS
 .DS_Store
