@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 const STEPS = [
   {
     number: "01",
-    title: "Create your space",
+    title: "Create your organization",
     description:
       "Set up your organization in minutes and give your business a simple place to receive input.",
   },
