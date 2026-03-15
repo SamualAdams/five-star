@@ -131,6 +131,11 @@ select {
   align-items: center;
 }
 
+/* Public header hamburger — hidden on desktop, shown on mobile */
+.public-menu-wrap {
+  display: none;
+}
+
 .hamburger {
   width: 42px;
   height: 42px;
@@ -821,9 +826,13 @@ select {
     flex-direction: column;
   }
 
-  /* Hide header nav on marketing page — hero already has the CTAs */
+  /* On mobile: hide desktop nav, show hamburger instead */
   .topbar--public .public-nav {
     display: none;
+  }
+
+  .public-menu-wrap {
+    display: flex;
   }
 
   .marketing-cta-band {
