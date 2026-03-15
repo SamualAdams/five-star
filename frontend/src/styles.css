@@ -812,14 +812,16 @@ select {
     font-size: 1.65rem;
   }
 
-  .marketing-actions,
+  .marketing-actions {
+    display: none; /* header already has Log in + Get started on mobile */
+  }
+
   .public-nav {
     width: 100%;
     flex-direction: column;
     align-items: stretch;
   }
 
-  .marketing-actions .btn,
   .public-nav .btn,
   .marketing-cta-band .btn {
     width: 100%;
