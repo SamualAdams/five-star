@@ -98,7 +98,7 @@ export default function MarketingPage() {
 
         <aside className="marketing-panel marketing-panel--aside">
           <p className="section-kicker">What owners get</p>
-          <h2 className="marketing-side-title">A lightweight system that helps businesses listen well.</h2>
+          <h2 className="marketing-side-title">A lightweight system that helps businesses hear what matters.</h2>
           <div className="marketing-benefit-list">
             {BENEFITS.map((benefit) => (
               <div className="marketing-benefit" key={benefit}>
