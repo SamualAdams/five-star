@@ -107,10 +107,7 @@ select {
 }
 
 .brand-tag {
-  max-width: 260px;
-  color: var(--color-muted);
-  font-size: 0.9rem;
-  line-height: 1.4;
+  display: none; /* Already in hero, don't repeat in header */
 }
 
 .public-nav,
