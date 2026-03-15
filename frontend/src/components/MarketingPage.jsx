@@ -155,12 +155,18 @@ export default function MarketingPage() {
 
       <section className="section-shell">
         <div className="section-header">
-          <p className="section-kicker">Why it exists</p>
-          <h2 className="section-title">Built for the problems Baton Rouge owners actually have.</h2>
+          <p className="section-kicker">Our mission</p>
+          <h2 className="section-title">Bringing Baton Rouge customers and businesses closer together.</h2>
           <p className="section-copy">
-            The five* brand in your establishment tells every customer: this business is listening.
-            That signal protects your reputation, invites honest input, and sets you apart from
-            businesses that never ask.
+            Baton Rouge people want to spend money here — on food, dates, gatherings, and everything
+            that makes this city worth living in. But there&apos;s no real medium for customers to
+            work <em>with</em> businesses. Feedback either never happens, turns into gossip, or ends
+            up as a scathing review. five* changes that relationship.
+          </p>
+          <p className="section-copy" style={{marginTop: "0.75rem"}}>
+            The asterisk mark in an establishment is a symbol of unity — it tells every customer:
+            <em> this business is listening, and we believe in them.</em> We don&apos;t put our
+            mark behind a business we wouldn&apos;t stand behind ourselves.
           </p>
         </div>
 
