@@ -9,9 +9,9 @@ const STEPS = [
   },
   {
     number: "02",
-    title: "Share your feedback link",
+    title: "Customers find you and leave feedback",
     description:
-      "Invite customers to tell you what is working and what needs attention through one clean public page.",
+      "Customers search for your business or scan a QR code to leave feedback in seconds on your public page.",
   },
   {
     number: "03",
@@ -76,8 +76,8 @@ export default function MarketingPage() {
             Better feedback for Baton Rouge.
           </h1>
           <p className="marketing-copy">
-            Share a simple feedback link with your customers. Get a clean, actionable digest
-            instead of scattered comments.
+            Customers find you by search or QR code and leave feedback in seconds. You get a
+            clean, actionable digest instead of scattered comments.
           </p>
 
           <div className="marketing-actions">
