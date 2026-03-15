@@ -64,6 +64,7 @@ const BENEFITS = [
   "A shareable link customers use to submit feedback privately",
   "Anonymous submissions with optional contact details",
   "An actionable digest instead of a pile of raw comments",
+  "AI helps customers turn their feedback into a public review — ready to post to Google or Yelp",
 ];
 
 export default function MarketingPage() {
