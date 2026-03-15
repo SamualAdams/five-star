@@ -112,6 +112,22 @@ export default function MarketingPage() {
 
       <section className="section-shell">
         <div className="section-header">
+          <p className="section-kicker">The silent majority</p>
+          <h2 className="section-title">Most customers who could help you never say a word.</h2>
+          <p className="section-copy">
+            Think about the customer who noticed something off but didn&apos;t want to hurt your business.
+            They weren&apos;t going to leave a bad review. They weren&apos;t going to ask for the manager
+            either &mdash; that&apos;s not how most people are wired. So they said nothing, left a polite tip,
+            and you never found out.
+          </p>
+          <p className="section-copy" style={{marginTop: "0.75rem"}}>
+            five* gives those customers somewhere to go. The ones who want to help, finally can.
+          </p>
+        </div>
+      </section>
+
+      <section className="section-shell">
+        <div className="section-header">
           <p className="section-kicker">Sound familiar?</p>
           <h2 className="section-title">The current system is broken.</h2>
           <p className="section-copy">
