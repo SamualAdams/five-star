@@ -201,6 +201,8 @@ export default function App() {
 }
 
 function PublicHeader({ isAuthenticated }) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
   return (
     <header className="topbar topbar--public">
       <Link className="brand-lockup" to={isAuthenticated ? "/dashboard" : "/"}>
@@ -208,6 +210,7 @@ function PublicHeader({ isAuthenticated }) {
         <span className="brand-tag">Built in Baton Rouge for Baton Rouge businesses</span>
       </Link>
 
+      {/* Desktop nav */}
       <div className="public-nav">
         {isAuthenticated ? (
           <Link className="btn btn--primary btn--sm" to="/dashboard">
@@ -223,6 +226,40 @@ function PublicHeader({ isAuthenticated }) {
             </Link>
           </>
         )}
+      </div>
+
+      {/* Mobile hamburger */}
+      <div className="menu-wrap public-menu-wrap">
+        <button
+          type="button"
+          className="hamburger"
+          aria-label="Toggle menu"
+          aria-expanded={isMenuOpen}
+          onClick={() => setIsMenuOpen((v) => !v)}
+        >
+          <span className="hamburger-bar" />
+          <span className="hamburger-bar" />
+          <span className="hamburger-bar" />
+        </button>
+
+        <div className={`menu-panel ${isMenuOpen ? "menu-panel--open" : ""}`}>
+          <div className="menu-section">
+            {isAuthenticated ? (
+              <Link className="menu-item" to="/dashboard" onClick={() => setIsMenuOpen(false)}>
+                Dashboard
+              </Link>
+            ) : (
+              <>
+                <Link className="menu-item" to="/auth?mode=signup" onClick={() => setIsMenuOpen(false)}>
+                  Get started free
+                </Link>
+                <Link className="menu-item" to="/auth?mode=login" onClick={() => setIsMenuOpen(false)}>
+                  Log in
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
       </div>
     </header>
   );

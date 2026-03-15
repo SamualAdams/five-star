@@ -107,10 +107,7 @@ select {
 }
 
 .brand-tag {
-  max-width: 260px;
-  color: var(--color-muted);
-  font-size: 0.9rem;
-  line-height: 1.4;
+  display: none; /* Already in hero, don't repeat in header */
 }
 
 .public-nav,
@@ -129,6 +126,11 @@ select {
   position: relative;
   display: flex;
   align-items: center;
+}
+
+/* Public header hamburger — hidden on desktop, shown on mobile */
+.public-menu-wrap {
+  display: none;
 }
 
 .hamburger {
@@ -708,43 +710,6 @@ select {
   gap: 1.25rem;
 }
 
-.digest-section__intro {
-  display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
-  gap: 1rem;
-  align-items: stretch;
-}
-
-.digest-section__header {
-  margin-bottom: 0;
-}
-
-.digest-callout {
-  display: grid;
-  align-content: start;
-  gap: 0.8rem;
-  padding: 1.35rem;
-  border-radius: 22px;
-  border: 1px solid rgba(24, 57, 43, 0.08);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(248, 240, 229, 0.9) 100%);
-}
-
-.digest-callout__label,
-.digest-alignment-band__label {
-  margin: 0;
-  color: var(--color-primary);
-  font-size: 0.82rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.digest-callout__copy,
-.digest-alignment-band__copy {
-  margin: 0;
-  line-height: 1.75;
-  color: var(--color-text);
-}
 
 .digest-flow-grid {
   display: grid;
@@ -756,28 +721,6 @@ select {
   background: rgba(255, 255, 255, 0.9);
 }
 
-.digest-alignment-band {
-  display: grid;
-  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
-  gap: 1rem 1.5rem;
-  align-items: center;
-  padding: 1.4rem 1.5rem;
-  border-radius: 24px;
-  background: linear-gradient(135deg, rgba(24, 57, 43, 0.96) 0%, rgba(41, 75, 58, 0.96) 100%);
-}
-
-.digest-alignment-band__title {
-  margin: 0.35rem 0 0;
-  font-family: var(--font-serif);
-  font-size: clamp(1.7rem, 3vw, 2.35rem);
-  line-height: 1.08;
-  letter-spacing: -0.03em;
-  color: #f8f2e8;
-}
-
-.digest-alignment-band__copy {
-  color: rgba(248, 242, 232, 0.9);
-}
 
 .marketing-cta-band {
   padding: clamp(1.7rem, 4vw, 2.5rem);
@@ -801,9 +744,7 @@ select {
 @media (max-width: 960px) {
   .auth-shell,
   .marketing-hero,
-  .digest-section__intro,
   .digest-flow-grid,
-  .digest-alignment-band,
   .marketing-grid {
     grid-template-columns: 1fr;
   }
@@ -874,16 +815,21 @@ select {
   }
 
   .marketing-actions,
-  .public-nav {
-    width: 100%;
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .marketing-actions .btn,
-  .public-nav .btn,
   .marketing-cta-band .btn {
     width: 100%;
+  }
+
+  .marketing-actions {
+    flex-direction: column;
+  }
+
+  /* On mobile: hide desktop nav, show hamburger instead */
+  .topbar--public .public-nav {
+    display: none;
+  }
+
+  .public-menu-wrap {
+    display: flex;
   }
 
   .marketing-cta-band {
