@@ -11,7 +11,7 @@ const STEPS = [
     number: "02",
     title: "Customers find you and leave feedback",
     description:
-      "Customers search for your business or scan a QR code to leave feedback in seconds on your public page.",
+      "Customers search for your business or scan a QR code to submit feedback privately in seconds.",
   },
   {
     number: "03",
@@ -61,7 +61,7 @@ const VALUES = [
 ];
 
 const BENEFITS = [
-  "A public feedback link you can share anywhere",
+  "A shareable link customers use to submit feedback privately",
   "Anonymous submissions with optional contact details",
   "An actionable digest instead of a pile of raw comments",
 ];
