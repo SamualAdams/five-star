@@ -812,19 +812,18 @@ select {
     font-size: 1.65rem;
   }
 
-  .marketing-actions {
-    display: none; /* header already has Log in + Get started on mobile */
-  }
-
-  .public-nav {
-    width: 100%;
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .public-nav .btn,
+  .marketing-actions,
   .marketing-cta-band .btn {
     width: 100%;
+  }
+
+  .marketing-actions {
+    flex-direction: column;
+  }
+
+  /* Hide header nav on marketing page — hero already has the CTAs */
+  .topbar--public .public-nav {
+    display: none;
   }
 
   .marketing-cta-band {
