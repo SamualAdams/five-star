@@ -26,7 +26,7 @@ export default function InviteAcceptPage({ token, isAuthenticated }) {
 
   async function handleAccept() {
     if (!isAuthenticated) {
-      navigate(`/?invite=${inviteToken}`);
+      navigate(`/auth?mode=signup&invite=${inviteToken}`);
       return;
     }
     setError("");
