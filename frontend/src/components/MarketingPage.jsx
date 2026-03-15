@@ -174,7 +174,7 @@ export default function MarketingPage() {
       <section className="marketing-cta-band">
         <div>
           <p className="section-kicker">Ready to start</p>
-          <h2 className="section-title">Give your Baton Rouge customers a way to help you improve.</h2>
+          <h2 className="section-title">Give your customers a way to help you improve.</h2>
           <p className="section-copy">
             Create a free account, share your feedback link, and start learning what your business
             needs next.
