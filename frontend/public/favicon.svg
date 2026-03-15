@@ -1,3 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <text x="50" y="58" text-anchor="middle" font-family="'Andale Mono', monospace" font-size="120" fill="#000000" transform="skewX(-3)">*</text>
+  <rect width="100" height="100" rx="22" fill="#ffffff"/>
+  <text x="50" y="62" text-anchor="middle" font-family="'Andale Mono', monospace" font-size="88" fill="#000000">*</text>
 </svg>
