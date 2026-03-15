@@ -4,17 +4,17 @@ const PAIN_POINTS = [
   {
     title: "You don't have time to chase reviews",
     description:
-      "Most owners know something's off before a bad review hits — they just don't have a system to catch it early. five* gives you one, for free.",
+      "Most owners know something's off before a bad review hits. They just don't have a system to catch it early. five* gives you one, for free.",
   },
   {
     title: "Frustrated customers vent to you, not about you",
     description:
-      "When customers know you're listening, they bring problems to you privately instead of venting on Google. five* gives them somewhere to go — before they go public.",
+      "When customers know you're listening, they bring problems to you privately instead of venting on Google. five* gives them somewhere to go before that happens.",
   },
   {
     title: "Too many channels, not enough signal",
     description:
-      "Google, Yelp, Facebook — it's scattered and noisy. five* pulls the signal out so you see what matters without the channel-hopping.",
+      "Google, Yelp, Facebook. It's scattered and noisy. five* pulls the signal out so you see what matters without the channel-hopping.",
   },
 ];
 
@@ -35,7 +35,7 @@ const STEPS = [
     number: "03",
     title: "Turn feedback into next steps",
     description:
-      "five* turns submissions into a digest — a clear summary of patterns, priorities, and actions your team can use.",
+      "five* turns submissions into a clear digest: patterns, priorities, and actions your team can use.",
   },
 ];
 
@@ -61,8 +61,8 @@ const DIGEST_FLOW = [
 ];
 
 const BENEFITS = [
-  "Customers submit feedback privately — not as a public review",
-  "Anonymous or identified — customer's choice",
+  "Customers submit feedback privately, not as a public review",
+  "Anonymous or identified, customer's choice",
   "AI-powered digests that surface what actually matters",
 ];
 
@@ -76,8 +76,8 @@ export default function MarketingPage() {
             Better feedback for Baton Rouge.
           </h1>
           <p className="marketing-copy">
-            Your customers want you to succeed — they just need a way to tell you
-            what&apos;s working and what isn&apos;t. five* gives them that channel,
+            Your customers want you to succeed. They just need a way to tell you
+            what&apos;s working and what isn&apos;t. five* gives them that channel
             and gives you a clear summary of what to do next.
           </p>
 
@@ -115,7 +115,7 @@ export default function MarketingPage() {
           <p className="section-kicker">Sound familiar?</p>
           <h2 className="section-title">The current system is broken.</h2>
           <p className="section-copy">
-            Baton Rouge people want to spend money here — on food, dates, gatherings, and
+            Baton Rouge people want to spend money here: food, dates, gatherings, and
             everything that makes this city work. But there&apos;s no real way for customers
             to work <em>with</em> businesses. Feedback either never happens, turns into gossip,
             or ends up as a bad review.
@@ -154,7 +154,7 @@ export default function MarketingPage() {
           <p className="section-kicker">What&apos;s a digest?</p>
           <h2 className="section-title">One clear summary built from many customer submissions.</h2>
           <p className="section-copy">
-            A digest turns raw feedback into a structured summary — patterns, priorities, and
+            A digest turns raw feedback into a structured summary of patterns, priorities, and
             next steps your team can act on. No more reading every comment one by one.
           </p>
         </div>
@@ -180,8 +180,8 @@ export default function MarketingPage() {
           </p>
           <p className="section-copy" style={{marginTop: "0.75rem"}}>
             We don&apos;t put our mark behind a business we wouldn&apos;t stand behind ourselves.
-            five* exists to bring Baton Rouge customers and businesses closer together — because
-            the best businesses are the ones that never stop listening.
+            five* exists to bring Baton Rouge customers and businesses closer together. The best
+            businesses are the ones that never stop listening.
           </p>
         </div>
       </section>
