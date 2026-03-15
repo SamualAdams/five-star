@@ -76,8 +76,8 @@ export default function MarketingPage() {
             Better feedback for Baton Rouge.
           </h1>
           <p className="marketing-copy">
-            Customers find you by search or QR code and leave feedback in seconds. You get a
-            clean, actionable digest instead of scattered comments.
+            Customers leave private, constructive feedback in seconds. You get a clean,
+            actionable digest — not a pile of public noise.
           </p>
 
           <div className="marketing-actions">
@@ -135,8 +135,9 @@ export default function MarketingPage() {
           <p className="section-kicker">What&apos;s a digest?</p>
           <h2 className="section-title">One clear team update built from many customer submissions.</h2>
           <p className="section-copy">
-            A digest is how five* helps you move from scattered feedback to aligned action.
-            You get a structured summary of what customers are seeing and what needs attention.
+            five* collects private, constructive feedback — separate from public reviews.
+            A digest turns those submissions into a structured summary of patterns, priorities,
+            and next steps your team can act on.
           </p>
         </div>
 
