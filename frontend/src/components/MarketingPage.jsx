@@ -73,12 +73,11 @@ export default function MarketingPage() {
         <div className="marketing-panel marketing-panel--hero">
           <p className="section-kicker">Built in Baton Rouge, for Baton Rouge</p>
           <h1 className="marketing-title">
-            Free feedback tools for Baton Rouge businesses that want to keep getting better.
+            Better feedback for Baton Rouge.
           </h1>
           <p className="marketing-copy">
-            five* is a free service for Baton Rouge business owners who want honest customer
-            feedback, clearer summaries, and practical ways to keep improving the businesses that
-            make this city work.
+            Share a simple feedback link with your customers. Get a clean, actionable digest
+            instead of scattered comments.
           </p>
 
           <div className="marketing-actions">
@@ -93,8 +92,6 @@ export default function MarketingPage() {
           <div className="marketing-pill-row">
             <span className="marketing-pill">Made for Baton Rouge</span>
             <span className="marketing-pill">Free for local businesses</span>
-            <span className="marketing-pill">Simple to share</span>
-            <span className="marketing-pill">Built for improvement</span>
           </div>
         </div>
 
@@ -134,25 +131,13 @@ export default function MarketingPage() {
       </section>
 
       <section className="section-shell digest-section">
-        <div className="digest-section__intro">
-          <div className="section-header digest-section__header">
-            <p className="section-kicker">What&apos;s a digest?</p>
-            <h2 className="section-title">One clear team update built from many customer submissions.</h2>
-            <p className="section-copy">
-              A digest is how five* helps Baton Rouge business owners move from scattered feedback
-              to aligned action. Instead of sorting through every submission one by one, you get a
-              structured, actionable summary of what customers are seeing, what needs attention,
-              and what your team should keep protecting.
-            </p>
-          </div>
-
-          <aside className="digest-callout">
-            <p className="digest-callout__label">Not raw comments</p>
-            <p className="digest-callout__copy">
-              Think of it as a working brief for your business: a digest you can review, modify,
-              and share so your team is focused on the same customer experience priorities.
-            </p>
-          </aside>
+        <div className="section-header">
+          <p className="section-kicker">What&apos;s a digest?</p>
+          <h2 className="section-title">One clear team update built from many customer submissions.</h2>
+          <p className="section-copy">
+            A digest is how five* helps you move from scattered feedback to aligned action.
+            You get a structured summary of what customers are seeing and what needs attention.
+          </p>
         </div>
 
         <div className="digest-flow-grid">
@@ -163,20 +148,6 @@ export default function MarketingPage() {
               <p className="marketing-card-copy">{item.description}</p>
             </article>
           ))}
-        </div>
-
-        <div className="digest-alignment-band">
-          <div>
-            <p className="digest-alignment-band__label">Why it matters</p>
-            <h3 className="digest-alignment-band__title">
-              When the whole team sees the same digest, improvement gets more consistent.
-            </h3>
-          </div>
-          <p className="digest-alignment-band__copy">
-            Owners can use the digest to align staff around what customers want fixed, what should
-            be protected, and how Baton Rouge businesses can keep raising the standard for customer
-            experience.
-          </p>
         </div>
       </section>
 
