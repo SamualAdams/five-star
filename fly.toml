@@ -1,4 +1,4 @@
-app = "replace-with-your-fly-app-name"
+app = "five-star"
 primary_region = "ord"
 
 [env]
