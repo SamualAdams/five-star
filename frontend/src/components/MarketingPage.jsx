@@ -44,19 +44,19 @@ const DIGEST_FLOW = [
 
 const VALUES = [
   {
-    title: "Free community support",
+    title: "You don't have time to chase reviews",
     description:
-      "five* exists to help local businesses improve and thrive without another subscription getting in the way.",
+      "Most owners know something's off before a bad review hits — they just don't have a system to catch it. five* gives you one, for free.",
   },
   {
-    title: "Honest customer input",
+    title: "Customers don't always say it to your face",
     description:
-      "Customers get a respectful place to share feedback, which helps owners listen better and respond with clarity.",
+      "Private feedback surfaces what people actually think. No awkward confrontations, no filtered responses — just honest input you can act on.",
   },
   {
-    title: "Simple summaries",
+    title: "Too many channels, not enough signal",
     description:
-      "Instead of sorting through scattered comments, you get a clearer picture of what to address first.",
+      "Google, Yelp, Facebook — it's scattered and noisy. We pull the signal out so you see what matters without the channel-hopping.",
   },
 ];
 
@@ -76,8 +76,8 @@ export default function MarketingPage() {
             Better feedback for Baton Rouge.
           </h1>
           <p className="marketing-copy">
-            Customers leave private, constructive feedback in seconds. You get a clean,
-            actionable digest — not a pile of public noise.
+            Customers leave private, constructive feedback in seconds. We surface the critical
+            issues and opportunities — so you're not muddling through reviews across every channel.
           </p>
 
           <div className="marketing-actions">
@@ -155,10 +155,10 @@ export default function MarketingPage() {
       <section className="section-shell">
         <div className="section-header">
           <p className="section-kicker">Why it exists</p>
-          <h2 className="section-title">This is a Baton Rouge service, not a software pitch.</h2>
+          <h2 className="section-title">Built for the problems Baton Rouge owners actually have.</h2>
           <p className="section-copy">
-            five* is here to help Baton Rouge businesses improve their customer experience and
-            contribute to a healthier local business community overall.
+            Not another dashboard to ignore. A simple system that works with how you already run
+            your business.
           </p>
         </div>
 
