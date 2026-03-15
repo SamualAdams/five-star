@@ -49,9 +49,9 @@ const VALUES = [
       "Most owners know something's off before a bad review hits — they just don't have a system to catch it. five* gives you one, for free.",
   },
   {
-    title: "Customers don't always say it to your face",
+    title: "Frustrated customers vent to you, not about you",
     description:
-      "Private feedback surfaces what people actually think. No awkward confrontations, no filtered responses — just honest input you can act on.",
+      "When customers know you're listening, they bring problems to you privately instead of venting on Google. five* gives the frustrated customer somewhere to go — before they go public.",
   },
   {
     title: "Too many channels, not enough signal",
@@ -157,8 +157,9 @@ export default function MarketingPage() {
           <p className="section-kicker">Why it exists</p>
           <h2 className="section-title">Built for the problems Baton Rouge owners actually have.</h2>
           <p className="section-copy">
-            Not another dashboard to ignore. A simple system that works with how you already run
-            your business.
+            The five* brand in your establishment tells every customer: this business is listening.
+            That signal protects your reputation, invites honest input, and sets you apart from
+            businesses that never ask.
           </p>
         </div>
 
