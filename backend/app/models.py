@@ -36,6 +36,7 @@ class Organization(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     created_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     feedback_token: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
+    review_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
 
     members: Mapped[list["OrganizationMember"]] = relationship(back_populates="organization", cascade="all, delete-orphan")
     invites: Mapped[list["Invite"]] = relationship(back_populates="organization", cascade="all, delete-orphan")

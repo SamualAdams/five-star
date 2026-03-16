@@ -12,6 +12,8 @@ export default function OrgSettingsPage({ token, user }) {
   const [isEditing, setIsEditing] = useState(false);
   const [error, setError] = useState("");
   const [feedbackUrlCopied, setFeedbackUrlCopied] = useState(false);
+  const [reviewUrl, setReviewUrl] = useState("");
+  const [isEditingReviewUrl, setIsEditingReviewUrl] = useState(false);
 
   const isAdmin = org?.role === "admin";
 
@@ -24,6 +26,7 @@ export default function OrgSettingsPage({ token, user }) {
       const data = await getOrganization(token, id);
       setOrg(data);
       setEditName(data.name);
+      setReviewUrl(data.review_url || "");
     } catch (err) {
       setError(err.message);
     }
@@ -33,7 +36,7 @@ export default function OrgSettingsPage({ token, user }) {
     e.preventDefault();
     setError("");
     try {
-      const updated = await updateOrganization(token, id, editName);
+      const updated = await updateOrganization(token, id, { name: editName });
       setOrg(updated);
       setIsEditing(false);
     } catch (err) {
@@ -131,6 +134,70 @@ export default function OrgSettingsPage({ token, user }) {
               {feedbackUrlCopied ? "Copied!" : "Copy Link"}
             </button>
           </div>
+        </div>
+      )}
+
+      {isAdmin && (
+        <div className="settings-section">
+          <h3 className="settings-heading">Public Review Link</h3>
+          <p className="settings-meta">
+            After submitting feedback, customers will see a button to leave a public review at this URL.
+          </p>
+          {isEditingReviewUrl || !org.review_url ? (
+            <form
+              className="inline-form"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setError("");
+                try {
+                  const updated = await updateOrganization(token, id, { review_url: reviewUrl || "" });
+                  setOrg(updated);
+                  setIsEditingReviewUrl(false);
+                } catch (err) {
+                  setError(err.message);
+                }
+              }}
+            >
+              <input
+                className="field-input"
+                type="url"
+                placeholder="https://g.page/your-business/review"
+                value={reviewUrl}
+                onChange={(e) => setReviewUrl(e.target.value)}
+              />
+              <button type="submit" className="btn btn--primary btn--sm" disabled={!reviewUrl.trim()}>
+                Save
+              </button>
+              {org.review_url && (
+                <button type="button" className="btn btn--ghost btn--sm" onClick={() => { setReviewUrl(org.review_url); setIsEditingReviewUrl(false); }}>
+                  Cancel
+                </button>
+              )}
+            </form>
+          ) : (
+            <div className="url-display">
+              <input className="url-input" type="text" readOnly value={org.review_url} />
+              <button type="button" className="btn btn--ghost btn--sm" onClick={() => setIsEditingReviewUrl(true)}>
+                Edit
+              </button>
+              <button
+                type="button"
+                className="btn btn--danger btn--sm"
+                onClick={async () => {
+                  setError("");
+                  try {
+                    const updated = await updateOrganization(token, id, { review_url: "" });
+                    setOrg(updated);
+                    setReviewUrl("");
+                  } catch (err) {
+                    setError(err.message);
+                  }
+                }}
+              >
+                Remove
+              </button>
+            </div>
+          )}
         </div>
       )}
 

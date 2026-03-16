@@ -82,7 +82,7 @@ app.add_middleware(
 
 @app.on_event("startup")
 def on_startup() -> None:
-    Base.metadata.create_all(bind=engine)
+    pass  # Schema is managed by Alembic migrations (run before app starts)
 
 
 # ---------------------------------------------------------------------------
@@ -166,6 +166,7 @@ def create_organization(
         created_by=org.created_by,
         role=Role.ADMIN.value,
         feedback_token=org.feedback_token,
+        review_url=org.review_url,
     )
 
 
@@ -193,6 +194,7 @@ def list_organizations(
             created_by=m.organization.created_by,
             role=m.role.value,
             feedback_token=m.organization.feedback_token,
+            review_url=m.organization.review_url,
         )
         for m in memberships
     ]
@@ -231,6 +233,7 @@ def get_organization(
         created_by=org.created_by,
         role=membership.role.value,
         feedback_token=org.feedback_token,
+        review_url=org.review_url,
     )
 
 
@@ -243,7 +246,10 @@ def update_organization(
 ) -> OrganizationOut:
     membership = require_org_admin(db, user, org_id)
     org = membership.organization
-    org.name = payload.name
+    if payload.name is not None:
+        org.name = payload.name
+    if payload.review_url is not None:
+        org.review_url = payload.review_url or None  # empty string → clear
     db.commit()
     db.refresh(org)
 
@@ -254,6 +260,7 @@ def update_organization(
         created_by=org.created_by,
         role=membership.role.value,
         feedback_token=org.feedback_token,
+        review_url=org.review_url,
     )
 
 
@@ -492,6 +499,7 @@ def accept_invite(
         created_by=invite.organization.created_by,
         role=membership.role.value,
         feedback_token=invite.organization.feedback_token,
+        review_url=invite.organization.review_url,
     )
 
 
@@ -506,7 +514,7 @@ def get_feedback_form_info(feedback_token: str, db: Session = Depends(get_db)) -
     org = db.scalar(select(Organization).where(Organization.feedback_token == feedback_token))
     if not org:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Feedback form not found")
-    return FeedbackFormInfo(organization_name=org.name, organization_id=org.id)
+    return FeedbackFormInfo(organization_name=org.name, organization_id=org.id, review_url=org.review_url)
 
 
 @app.post("/api/feedback/{feedback_token}/submit", response_model=FeedbackSubmitResponse, status_code=status.HTTP_201_CREATED)

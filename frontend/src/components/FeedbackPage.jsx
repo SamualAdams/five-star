@@ -52,7 +52,20 @@ export default function FeedbackPage() {
         <div className="feedback-card">
           <h2 className="feedback-title">Thank you!</h2>
           <p className="feedback-subtitle">Your feedback has been submitted to <strong>{orgInfo.organization_name}</strong>.</p>
-          <button type="button" className="btn btn--primary" onClick={() => setSubmitted(false)}>Submit another</button>
+          {orgInfo.review_url && (
+            <div className="review-nudge">
+              <p>Enjoyed your experience? We&apos;d love a public review!</p>
+              <a
+                href={orgInfo.review_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn--primary"
+              >
+                Leave a public review
+              </a>
+            </div>
+          )}
+          <button type="button" className="btn btn--ghost" onClick={() => setSubmitted(false)}>Submit another</button>
         </div>
       </div>
     );
