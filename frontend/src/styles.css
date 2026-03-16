@@ -1224,6 +1224,25 @@ select {
   margin: 0 0 2rem;
 }
 
+.review-nudge {
+  text-align: center;
+  margin: 1.5rem 0;
+  padding: 1.25rem;
+  background: var(--color-surface-muted);
+  border-radius: 12px;
+}
+
+.review-nudge p {
+  margin: 0 0 0.75rem;
+  color: var(--color-muted);
+  font-size: 0.95rem;
+}
+
+.review-nudge .btn {
+  display: inline-block;
+  text-decoration: none;
+}
+
 .feedback-form {
   display: flex;
   flex-direction: column;

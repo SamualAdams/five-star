@@ -37,7 +37,8 @@ class OrganizationCreate(BaseModel):
 
 
 class OrganizationUpdate(BaseModel):
-    name: str = Field(min_length=1, max_length=255)
+    name: str | None = Field(None, min_length=1, max_length=255)
+    review_url: str | None = Field(None, max_length=2048)
 
 
 class OrganizationOut(BaseModel):
@@ -47,6 +48,7 @@ class OrganizationOut(BaseModel):
     created_by: int
     role: str
     feedback_token: str
+    review_url: str | None = None
 
 
 # Member schemas
@@ -113,6 +115,7 @@ class FeedbackOut(BaseModel):
 class FeedbackFormInfo(BaseModel):
     organization_name: str
     organization_id: int
+    review_url: str | None = None
 
 
 class FeedbackSubmitResponse(BaseModel):
