@@ -53,7 +53,6 @@ export default function AuthPage({ loadOrganizations, onAuthenticated }) {
     <div className="auth-shell">
       <section className="auth-intro">
         <div>
-          <p className="auth-kicker">Built in Baton Rouge for Baton Rouge business owners</p>
           <h1 className="auth-intro-title">
             {mode === "signup" ? "Create your free five* account" : "Welcome back to five*"}
           </h1>

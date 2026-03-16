@@ -71,7 +71,6 @@ export default function MarketingPage() {
     <div className="marketing-page">
       <section className="marketing-hero">
         <div className="marketing-panel marketing-panel--hero">
-          <p className="section-kicker">Built in Baton Rouge, for Baton Rouge</p>
           <h1 className="marketing-title">
             Better feedback for Baton Rouge.
           </h1>
