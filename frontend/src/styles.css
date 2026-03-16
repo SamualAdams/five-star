@@ -1302,6 +1302,17 @@ select {
   font-size: 0.875rem;
 }
 
+/* Topbar search panel */
+.topbar-search-panel {
+  top: calc(84px + 8px);
+}
+
+@media (max-width: 760px) {
+  .topbar-search-panel {
+    top: calc(72px + 8px);
+  }
+}
+
 /* Search page */
 .search-page {
   display: flex;
