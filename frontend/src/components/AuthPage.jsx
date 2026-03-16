@@ -81,7 +81,7 @@ export default function AuthPage({ loadOrganizations, onAuthenticated }) {
 
       <section className="auth-card">
         <div className="auth-card-head">
-          <span className="auth-brand">five*</span>
+          <img className="auth-brand-logo" src={`${import.meta.env.BASE_URL}brand/five-star-logo.svg`} alt="five*" />
           <Link className="auth-home-link" to="/">
             Back to home
           </Link>

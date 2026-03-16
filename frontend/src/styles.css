@@ -367,6 +367,12 @@ select {
   color: var(--color-ink);
 }
 
+.auth-brand-logo {
+  width: 100px;
+  height: auto;
+  display: block;
+}
+
 .auth-home-link {
   color: var(--color-muted);
   font-size: 0.95rem;
