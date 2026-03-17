@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { getFeedbackFormInfo, submitFeedback } from "../api";
+import { getFeedbackFormInfo, submitFeedback, polishReview } from "../api";
+
+const PLATFORM_LABELS = { google: "Google Reviews", yelp: "Yelp", tripadvisor: "TripAdvisor" };
 
 export default function FeedbackPage() {
   const { feedbackToken } = useParams();
@@ -11,7 +13,14 @@ export default function FeedbackPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [submittedContent, setSubmittedContent] = useState(null);
+
+  // Post-submission AI draft state
+  const [draft, setDraft] = useState("");
+  const [isPolishing, setIsPolishing] = useState(false);
+  const [polishError, setPolishError] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [draftCopied, setDraftCopied] = useState(false);
 
   useEffect(() => {
     async function loadFormInfo() {
@@ -33,7 +42,8 @@ export default function FeedbackPage() {
     setIsSubmitting(true);
     try {
       await submitFeedback(feedbackToken, content, submitterEmail || null, submitterName || null);
-      setSubmitted(true);
+      setSubmittedContent(content);
+      setDraft(content);
       setContent("");
       setSubmitterEmail("");
       setSubmitterName("");
@@ -44,28 +54,110 @@ export default function FeedbackPage() {
     }
   }
 
+  async function handlePolish(style) {
+    setPolishError("");
+    setIsPolishing(true);
+    try {
+      const result = await polishReview(feedbackToken, draft, style);
+      setDraft(result.draft);
+      setDraftCopied(false);
+    } catch (err) {
+      setPolishError(err.message === "AI not configured" ? "AI polish is not available." : err.message);
+    } finally {
+      setIsPolishing(false);
+    }
+  }
+
+  async function copyToClipboard(text, setCopiedState) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedState(true);
+      setTimeout(() => setCopiedState(false), 2000);
+    } catch {
+      // ignore
+    }
+  }
+
   if (isLoading) return <div className="feedback-page"><div className="feedback-card"><p>Loading...</p></div></div>;
   if (error && !orgInfo) return <div className="feedback-page"><div className="feedback-card"><h2>Form Not Found</h2><p className="message message--error">{error}</p></div></div>;
-  if (submitted) {
+
+  if (submittedContent !== null) {
+    const reviewLinks = orgInfo?.review_links || [];
+
     return (
       <div className="feedback-page">
         <div className="feedback-card">
-          <h2 className="feedback-title">Thank you!</h2>
-          <p className="feedback-subtitle">Your feedback has been submitted to <strong>{orgInfo.organization_name}</strong>.</p>
-          {orgInfo.review_url && (
-            <div className="review-nudge">
-              <p>Enjoyed your experience? We&apos;d love a public review!</p>
-              <a
-                href={orgInfo.review_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn btn--primary"
-              >
-                Leave a public review
-              </a>
+<h2 className="feedback-title">Feedback submitted</h2>
+          <p className="feedback-subtitle">Thank you for sharing with <strong>{orgInfo.organization_name}</strong>.</p>
+
+          {reviewLinks.length > 0 && (
+            <div className="review-share-section">
+              <p className="review-share-heading">Want to share publicly?</p>
+              <p className="review-share-desc">Your draft is ready to copy and paste to a review site.</p>
+
+              <div className="review-draft-box">
+                <textarea
+                  className="review-draft-textarea"
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  rows={5}
+                />
+                <div className="review-draft-actions">
+                  <div className="review-polish-buttons">
+                    <button
+                      type="button"
+                      className="btn btn--ghost btn--sm"
+                      onClick={() => handlePolish("shorten")}
+                      disabled={isPolishing}
+                    >
+                      Shorten
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn--ghost btn--sm"
+                      onClick={() => handlePolish("polish")}
+                      disabled={isPolishing}
+                    >
+                      Polish
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn--ghost btn--sm"
+                      onClick={() => handlePolish("simplify")}
+                      disabled={isPolishing}
+                    >
+                      Simplify
+                    </button>
+                    {isPolishing && <span className="review-polish-status">Working...</span>}
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn--primary btn--sm"
+                    onClick={() => copyToClipboard(draft, setDraftCopied)}
+                  >
+                    {draftCopied ? "Copied!" : "Copy"}
+                  </button>
+                </div>
+                {polishError && <p className="message message--error">{polishError}</p>}
+              </div>
+
+              <div className="review-platform-links">
+                {reviewLinks.map((link) => (
+                  <a
+                    key={link.platform}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn--outline"
+                    onClick={() => copyToClipboard(draft, setDraftCopied)}
+                  >
+                    {PLATFORM_LABELS[link.platform] || link.platform}
+                  </a>
+                ))}
+              </div>
+              <p className="review-share-hint">Clicking a platform copies your draft automatically.</p>
             </div>
           )}
-          <button type="button" className="btn btn--ghost" onClick={() => setSubmitted(false)}>Submit another</button>
         </div>
       </div>
     );

@@ -1455,3 +1455,163 @@ select {
     display: block;
   }
 }
+
+/* ── Review links (settings page) ─────────────────────────────────────── */
+
+.review-links-list {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.review-link-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--color-surface-muted);
+  border-radius: 10px;
+  padding: 0.6rem 0.9rem;
+}
+
+.review-link-platform {
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--color-ink);
+  white-space: nowrap;
+  min-width: 110px;
+}
+
+.review-link-url {
+  font-size: 0.82rem;
+  color: var(--color-muted);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.review-link-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.field-select {
+  appearance: none;
+  background: var(--color-surface-strong);
+  border: 1.5px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0.72rem 1rem;
+  font-size: 0.9rem;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.field-select:focus {
+  outline: none;
+  border-color: rgba(214, 106, 61, 0.58);
+  box-shadow: 0 0 0 3px rgba(214, 106, 61, 0.14);
+}
+
+/* ── btn--outline (platform links on success screen) ──────────────────── */
+
+.btn--outline {
+  background: transparent;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.btn--outline:hover {
+  background: rgba(214, 106, 61, 0.06);
+  transform: translateY(-1px);
+}
+
+/* ── Post-submission review share section ─────────────────────────────── */
+
+.review-share-section {
+  margin: 1.5rem 0 1rem;
+  padding: 1.25rem;
+  background: var(--color-surface-muted);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.review-share-heading {
+  font-weight: 700;
+  font-size: 0.98rem;
+  color: var(--color-ink);
+  margin: 0;
+}
+
+.review-share-desc {
+  font-size: 0.88rem;
+  color: var(--color-muted);
+  margin: 0;
+}
+
+.review-draft-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.review-draft-textarea {
+  width: 100%;
+  border: 1.5px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0.75rem;
+  font-size: 0.9rem;
+  color: var(--color-text);
+  background: var(--color-surface-strong);
+  resize: vertical;
+  min-height: 90px;
+}
+
+.review-draft-textarea:focus {
+  outline: none;
+  border-color: rgba(214, 106, 61, 0.58);
+  box-shadow: 0 0 0 3px rgba(214, 106, 61, 0.14);
+}
+
+.review-draft-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.review-polish-buttons {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.review-polish-status {
+  font-size: 0.82rem;
+  color: var(--color-muted);
+}
+
+.review-platform-links {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.review-share-hint {
+  font-size: 0.78rem;
+  color: var(--color-muted);
+  margin: 0;
+}
+
+.review-another-btn {
+  margin-top: 0.5rem;
+  align-self: flex-start;
+}

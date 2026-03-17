@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { deleteOrganization, getOrganization, updateOrganization } from "../api";
+import { deleteOrganization, getOrganization, updateOrganization, updateOrgReviewLinks } from "../api";
 import InviteList from "./InviteList";
 import MemberList from "./MemberList";
+
+const PLATFORM_LABELS = { google: "Google Reviews", yelp: "Yelp", tripadvisor: "TripAdvisor" };
+const PLATFORMS = Object.keys(PLATFORM_LABELS);
 
 export default function OrgSettingsPage({ token, user }) {
   const { id } = useParams();
@@ -15,6 +18,12 @@ export default function OrgSettingsPage({ token, user }) {
   const [reviewUrl, setReviewUrl] = useState("");
   const [isEditingReviewUrl, setIsEditingReviewUrl] = useState(false);
 
+  // Review links state
+  const [reviewLinks, setReviewLinks] = useState([]);
+  const [newPlatform, setNewPlatform] = useState("google");
+  const [newUrl, setNewUrl] = useState("");
+  const [reviewLinksError, setReviewLinksError] = useState("");
+
   const isAdmin = org?.role === "admin";
 
   useEffect(() => {
@@ -26,9 +35,38 @@ export default function OrgSettingsPage({ token, user }) {
       const data = await getOrganization(token, id);
       setOrg(data);
       setEditName(data.name);
-      setReviewUrl(data.review_url || "");
+setReviewLinks(data.review_links || []);
     } catch (err) {
       setError(err.message);
+    }
+  }
+
+  async function handleAddReviewLink(e) {
+    e.preventDefault();
+    setReviewLinksError("");
+    const alreadyAdded = reviewLinks.some((l) => l.platform === newPlatform);
+    if (alreadyAdded) {
+      setReviewLinksError(`A ${PLATFORM_LABELS[newPlatform]} link already exists. Remove it first.`);
+      return;
+    }
+    const updated = [...reviewLinks, { platform: newPlatform, url: newUrl.trim() }];
+    try {
+      const result = await updateOrgReviewLinks(token, id, updated);
+      setReviewLinks(result.review_links || []);
+      setNewUrl("");
+    } catch (err) {
+      setReviewLinksError(err.message);
+    }
+  }
+
+  async function handleRemoveReviewLink(platform) {
+    setReviewLinksError("");
+    const updated = reviewLinks.filter((l) => l.platform !== platform);
+    try {
+      const result = await updateOrgReviewLinks(token, id, updated);
+      setReviewLinks(result.review_links || []);
+    } catch (err) {
+      setReviewLinksError(err.message);
     }
   }
 
@@ -139,65 +177,55 @@ export default function OrgSettingsPage({ token, user }) {
 
       {isAdmin && (
         <div className="settings-section">
-          <h3 className="settings-heading">Public Review Link</h3>
+<h3 className="settings-heading">Public Review Links</h3>
           <p className="settings-meta">
-            After submitting feedback, customers will see a button to leave a public review at this URL.
+            After submitting feedback, customers will see links to leave a public review on these platforms.
           </p>
-          {isEditingReviewUrl || !org.review_url ? (
-            <form
-              className="inline-form"
-              onSubmit={async (e) => {
-                e.preventDefault();
-                setError("");
-                try {
-                  const updated = await updateOrganization(token, id, { review_url: reviewUrl || "" });
-                  setOrg(updated);
-                  setIsEditingReviewUrl(false);
-                } catch (err) {
-                  setError(err.message);
-                }
-              }}
-            >
+
+          {reviewLinks.length > 0 && (
+            <ul className="review-links-list">
+              {reviewLinks.map((link) => (
+                <li key={link.platform} className="review-link-item">
+                  <span className="review-link-platform">{PLATFORM_LABELS[link.platform]}</span>
+                  <span className="review-link-url">{link.url}</span>
+                  <button
+                    type="button"
+                    className="btn btn--danger btn--sm"
+                    onClick={() => handleRemoveReviewLink(link.platform)}
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {reviewLinks.length < PLATFORMS.length && (
+            <form className="review-link-form" onSubmit={handleAddReviewLink}>
+              <select
+                className="field-select"
+                value={newPlatform}
+                onChange={(e) => setNewPlatform(e.target.value)}
+              >
+                {PLATFORMS.filter((p) => !reviewLinks.some((l) => l.platform === p)).map((p) => (
+                  <option key={p} value={p}>{PLATFORM_LABELS[p]}</option>
+                ))}
+              </select>
               <input
                 className="field-input"
                 type="url"
                 placeholder="https://g.page/your-business/review"
-                value={reviewUrl}
-                onChange={(e) => setReviewUrl(e.target.value)}
+value={newUrl}
+                onChange={(e) => setNewUrl(e.target.value)}
+                required
               />
-              <button type="submit" className="btn btn--primary btn--sm" disabled={!reviewUrl.trim()}>
-                Save
+              <button type="submit" className="btn btn--primary btn--sm" disabled={!newUrl.trim()}>
+                Add
               </button>
-              {org.review_url && (
-                <button type="button" className="btn btn--ghost btn--sm" onClick={() => { setReviewUrl(org.review_url); setIsEditingReviewUrl(false); }}>
-                  Cancel
-                </button>
-              )}
             </form>
-          ) : (
-            <div className="url-display">
-              <input className="url-input" type="text" readOnly value={org.review_url} />
-              <button type="button" className="btn btn--ghost btn--sm" onClick={() => setIsEditingReviewUrl(true)}>
-                Edit
-              </button>
-              <button
-                type="button"
-                className="btn btn--danger btn--sm"
-                onClick={async () => {
-                  setError("");
-                  try {
-                    const updated = await updateOrganization(token, id, { review_url: "" });
-                    setOrg(updated);
-                    setReviewUrl("");
-                  } catch (err) {
-                    setError(err.message);
-                  }
-                }}
-              >
-                Remove
-              </button>
-            </div>
           )}
+
+          {reviewLinksError && <p className="message message--error">{reviewLinksError}</p>}
         </div>
       )}
 

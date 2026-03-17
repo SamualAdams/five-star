@@ -41,6 +41,15 @@ class OrganizationUpdate(BaseModel):
     review_url: str | None = Field(None, max_length=2048)
 
 
+class ReviewLink(BaseModel):
+    platform: str = Field(pattern="^(google|yelp|tripadvisor)$")
+    url: str = Field(min_length=1, max_length=2048)
+
+
+class OrganizationReviewLinksUpdate(BaseModel):
+    review_links: list[ReviewLink]
+
+
 class OrganizationOut(BaseModel):
     id: int
     name: str
@@ -48,7 +57,7 @@ class OrganizationOut(BaseModel):
     created_by: int
     role: str
     feedback_token: str
-    review_url: str | None = None
+    review_links: list[ReviewLink] | None = None
 
 
 # Member schemas
@@ -115,12 +124,21 @@ class FeedbackOut(BaseModel):
 class FeedbackFormInfo(BaseModel):
     organization_name: str
     organization_id: int
-    review_url: str | None = None
+    review_links: list[ReviewLink] | None = None
 
 
 class FeedbackSubmitResponse(BaseModel):
     success: bool
     message: str
+
+
+class ReviewPolishRequest(BaseModel):
+    content: str = Field(min_length=1, max_length=5000)
+    style: str = Field(pattern="^(shorten|polish|simplify)$")
+
+
+class ReviewPolishResponse(BaseModel):
+    draft: str
 
 
 # Organization Search
