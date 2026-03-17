@@ -15,6 +15,8 @@ export default function OrgSettingsPage({ token, user }) {
   const [isEditing, setIsEditing] = useState(false);
   const [error, setError] = useState("");
   const [feedbackUrlCopied, setFeedbackUrlCopied] = useState(false);
+  const [reviewUrl, setReviewUrl] = useState("");
+  const [isEditingReviewUrl, setIsEditingReviewUrl] = useState(false);
 
   // Review links state
   const [reviewLinks, setReviewLinks] = useState([]);
@@ -33,7 +35,7 @@ export default function OrgSettingsPage({ token, user }) {
       const data = await getOrganization(token, id);
       setOrg(data);
       setEditName(data.name);
-      setReviewLinks(data.review_links || []);
+setReviewLinks(data.review_links || []);
     } catch (err) {
       setError(err.message);
     }
@@ -72,7 +74,7 @@ export default function OrgSettingsPage({ token, user }) {
     e.preventDefault();
     setError("");
     try {
-      const updated = await updateOrganization(token, id, editName);
+      const updated = await updateOrganization(token, id, { name: editName });
       setOrg(updated);
       setIsEditing(false);
     } catch (err) {
@@ -175,7 +177,7 @@ export default function OrgSettingsPage({ token, user }) {
 
       {isAdmin && (
         <div className="settings-section">
-          <h3 className="settings-heading">Public Review Links</h3>
+<h3 className="settings-heading">Public Review Links</h3>
           <p className="settings-meta">
             After submitting feedback, customers will see links to leave a public review on these platforms.
           </p>
@@ -213,7 +215,7 @@ export default function OrgSettingsPage({ token, user }) {
                 className="field-input"
                 type="url"
                 placeholder="https://g.page/your-business/review"
-                value={newUrl}
+value={newUrl}
                 onChange={(e) => setNewUrl(e.target.value)}
                 required
               />

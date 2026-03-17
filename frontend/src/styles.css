@@ -1224,6 +1224,25 @@ select {
   margin: 0 0 2rem;
 }
 
+.review-nudge {
+  text-align: center;
+  margin: 1.5rem 0;
+  padding: 1.25rem;
+  background: var(--color-surface-muted);
+  border-radius: 12px;
+}
+
+.review-nudge p {
+  margin: 0 0 0.75rem;
+  color: var(--color-muted);
+  font-size: 0.95rem;
+}
+
+.review-nudge .btn {
+  display: inline-block;
+  text-decoration: none;
+}
+
 .feedback-form {
   display: flex;
   flex-direction: column;
@@ -1281,6 +1300,17 @@ select {
   background: rgba(255, 253, 247, 0.96);
   font-family: monospace;
   font-size: 0.875rem;
+}
+
+/* Topbar search panel */
+.topbar-search-panel {
+  top: calc(84px + 8px);
+}
+
+@media (max-width: 760px) {
+  .topbar-search-panel {
+    top: calc(72px + 8px);
+  }
 }
 
 /* Search page */

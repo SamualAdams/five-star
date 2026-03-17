@@ -68,11 +68,11 @@ export async function getOrganization(token, orgId) {
   });
 }
 
-export async function updateOrganization(token, orgId, name) {
+export async function updateOrganization(token, orgId, data) {
   return request(`/organizations/${orgId}`, {
     method: "PATCH",
     headers: authHeaders(token),
-    body: JSON.stringify({ name }),
+    body: JSON.stringify(data),
   });
 }
 

@@ -210,26 +210,30 @@ function PublicHeader({ isAuthenticated }) {
         <span className="brand-tag">Built in Baton Rouge for Baton Rouge businesses</span>
       </Link>
 
-      {/* Desktop nav */}
-      <div className="public-nav">
-        {isAuthenticated ? (
-          <Link className="btn btn--primary btn--sm" to="/dashboard">
-            Dashboard
-          </Link>
-        ) : (
-          <>
-            <Link className="btn btn--ghost btn--sm" to="/auth?mode=login">
-              Log in
-            </Link>
-            <Link className="btn btn--primary btn--sm" to="/auth?mode=signup">
-              Get started free
-            </Link>
-          </>
-        )}
-      </div>
+      {/* Right side — search always visible, nav toggles per breakpoint */}
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <TopbarSearch />
 
-      {/* Mobile hamburger */}
-      <div className="menu-wrap public-menu-wrap">
+        {/* Desktop nav */}
+        <div className="public-nav">
+          {isAuthenticated ? (
+            <Link className="btn btn--primary btn--sm" to="/dashboard">
+              Dashboard
+            </Link>
+          ) : (
+            <>
+              <Link className="btn btn--ghost btn--sm" to="/auth?mode=login">
+                Log in
+              </Link>
+              <Link className="btn btn--primary btn--sm" to="/auth?mode=signup">
+                Get started free
+              </Link>
+            </>
+          )}
+        </div>
+
+        {/* Mobile hamburger */}
+        <div className="menu-wrap public-menu-wrap">
         <button
           type="button"
           className="hamburger"
@@ -260,6 +264,7 @@ function PublicHeader({ isAuthenticated }) {
             )}
           </div>
         </div>
+      </div>
       </div>
     </header>
   );

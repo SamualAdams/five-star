@@ -87,7 +87,7 @@ export default function FeedbackPage() {
     return (
       <div className="feedback-page">
         <div className="feedback-card">
-          <h2 className="feedback-title">Feedback submitted</h2>
+<h2 className="feedback-title">Feedback submitted</h2>
           <p className="feedback-subtitle">Thank you for sharing with <strong>{orgInfo.organization_name}</strong>.</p>
 
           {reviewLinks.length > 0 && (
