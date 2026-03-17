@@ -5,6 +5,39 @@ from pydantic import ValidationError
 
 from .schemas import DigestContent
 
+STYLE_PROMPTS = {
+    "shorten": "Shorten this into a concise public review (2-3 sentences max). Keep the core message.",
+    "polish": "Rewrite this as a polished, natural-sounding public review. Keep the author's genuine opinion.",
+    "simplify": "Simplify this into plain, clear language suitable for a public review.",
+}
+
+
+def polish_review(api_key: str, content: str, style: str) -> str:
+    """Transform feedback text into a public review draft using the requested style."""
+    client = OpenAI(api_key=api_key)
+
+    style_instruction = STYLE_PROMPTS.get(style, STYLE_PROMPTS["polish"])
+
+    system = (
+        "You help people turn their private feedback into public reviews. "
+        "You preserve their honest opinion — positive, negative, or mixed. "
+        "Never add praise that wasn't in the original. Never remove criticism. "
+        "Return only the review text, no preamble, no quotes, no explanation."
+    )
+
+    user = f"{style_instruction}\n\nOriginal feedback:\n{content}"
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        max_tokens=500,
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+    )
+
+    return response.choices[0].message.content.strip()
+
 
 def generate_digest_content(
     api_key: str,

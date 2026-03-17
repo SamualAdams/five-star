@@ -76,6 +76,14 @@ export async function updateOrganization(token, orgId, name) {
   });
 }
 
+export async function updateOrgReviewLinks(token, orgId, reviewLinks) {
+  return request(`/organizations/${orgId}/review-links`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify({ review_links: reviewLinks }),
+  });
+}
+
 export async function deleteOrganization(token, orgId) {
   return request(`/organizations/${orgId}`, {
     method: "DELETE",
@@ -154,6 +162,13 @@ export async function submitFeedback(feedbackToken, content, submitterEmail = nu
       submitter_email: submitterEmail || undefined,
       submitter_name: submitterName || undefined,
     }),
+  });
+}
+
+export async function polishReview(feedbackToken, content, style) {
+  return request(`/api/feedback/${feedbackToken}/polish`, {
+    method: "POST",
+    body: JSON.stringify({ content, style }),
   });
 }
 

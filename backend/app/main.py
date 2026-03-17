@@ -9,7 +9,7 @@ from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
-from .ai import generate_digest_content
+from .ai import generate_digest_content, polish_review
 from .config import get_settings
 from .database import Base, engine, get_db
 from .dependencies import get_current_user, get_user_org_membership, require_org_admin
@@ -34,8 +34,12 @@ from .schemas import (
     MemberUpdateRole,
     OrganizationCreate,
     OrganizationOut,
+    OrganizationReviewLinksUpdate,
     OrganizationSearchResult,
     OrganizationUpdate,
+    ReviewLink,
+    ReviewPolishRequest,
+    ReviewPolishResponse,
     Token,
     UserCreate,
     UserLogin,
@@ -83,6 +87,14 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup() -> None:
     Base.metadata.create_all(bind=engine)
+    # Idempotent migration: add review_links column if not present
+    with engine.connect() as conn:
+        conn.execute(
+            __import__("sqlalchemy").text(
+                "ALTER TABLE organizations ADD COLUMN IF NOT EXISTS review_links JSONB"
+            )
+        )
+        conn.commit()
 
 
 # ---------------------------------------------------------------------------
@@ -166,6 +178,7 @@ def create_organization(
         created_by=org.created_by,
         role=Role.ADMIN.value,
         feedback_token=org.feedback_token,
+        review_links=org.review_links,
     )
 
 
@@ -193,6 +206,7 @@ def list_organizations(
             created_by=m.organization.created_by,
             role=m.role.value,
             feedback_token=m.organization.feedback_token,
+            review_links=m.organization.review_links,
         )
         for m in memberships
     ]
@@ -231,6 +245,7 @@ def get_organization(
         created_by=org.created_by,
         role=membership.role.value,
         feedback_token=org.feedback_token,
+        review_links=org.review_links,
     )
 
 
@@ -254,6 +269,31 @@ def update_organization(
         created_by=org.created_by,
         role=membership.role.value,
         feedback_token=org.feedback_token,
+        review_links=org.review_links,
+    )
+
+
+@app.patch("/organizations/{org_id}/review-links", response_model=OrganizationOut)
+def update_review_links(
+    org_id: int,
+    payload: OrganizationReviewLinksUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> OrganizationOut:
+    membership = require_org_admin(db, user, org_id)
+    org = membership.organization
+    org.review_links = [link.model_dump() for link in payload.review_links]
+    db.commit()
+    db.refresh(org)
+
+    return OrganizationOut(
+        id=org.id,
+        name=org.name,
+        created_at=org.created_at,
+        created_by=org.created_by,
+        role=membership.role.value,
+        feedback_token=org.feedback_token,
+        review_links=org.review_links,
     )
 
 
@@ -492,6 +532,7 @@ def accept_invite(
         created_by=invite.organization.created_by,
         role=membership.role.value,
         feedback_token=invite.organization.feedback_token,
+        review_links=invite.organization.review_links,
     )
 
 
@@ -506,7 +547,7 @@ def get_feedback_form_info(feedback_token: str, db: Session = Depends(get_db)) -
     org = db.scalar(select(Organization).where(Organization.feedback_token == feedback_token))
     if not org:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Feedback form not found")
-    return FeedbackFormInfo(organization_name=org.name, organization_id=org.id)
+    return FeedbackFormInfo(organization_name=org.name, organization_id=org.id, review_links=org.review_links)
 
 
 @app.post("/api/feedback/{feedback_token}/submit", response_model=FeedbackSubmitResponse, status_code=status.HTTP_201_CREATED)
@@ -529,6 +570,28 @@ def submit_feedback(feedback_token: str, payload: FeedbackSubmit, db: Session = 
     db.commit()
 
     return FeedbackSubmitResponse(success=True, message="Thank you for your feedback!")
+
+
+@app.post("/api/feedback/{feedback_token}/polish", response_model=ReviewPolishResponse)
+def polish_feedback_for_review(
+    feedback_token: str,
+    payload: ReviewPolishRequest,
+    db: Session = Depends(get_db),
+) -> ReviewPolishResponse:
+    """Public endpoint - AI-polish feedback text into a public review draft."""
+    org = db.scalar(select(Organization).where(Organization.feedback_token == feedback_token))
+    if not org:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Feedback form not found")
+
+    if not settings.openai_api_key:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="AI not configured")
+
+    try:
+        draft = polish_review(api_key=settings.openai_api_key, content=payload.content, style=payload.style)
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"AI generation failed: {exc}")
+
+    return ReviewPolishResponse(draft=draft)
 
 
 @app.get("/organizations/{org_id}/feedback", response_model=list[FeedbackOut])
