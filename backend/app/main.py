@@ -542,7 +542,7 @@ def get_feedback_form_info(feedback_token: str, db: Session = Depends(get_db)) -
     org = db.scalar(select(Organization).where(Organization.feedback_token == feedback_token))
     if not org:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Feedback form not found")
-return FeedbackFormInfo(organization_name=org.name, organization_id=org.id, review_links=org.review_links)
+    return FeedbackFormInfo(organization_name=org.name, organization_id=org.id, review_links=org.review_links)
 
 
 @app.post("/api/feedback/{feedback_token}/submit", response_model=FeedbackSubmitResponse, status_code=status.HTTP_201_CREATED)
