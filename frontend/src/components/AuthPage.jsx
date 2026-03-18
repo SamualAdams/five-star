@@ -54,18 +54,18 @@ export default function AuthPage({ loadOrganizations, onAuthenticated }) {
       <section className="auth-intro">
         <div>
           <h1 className="auth-intro-title">
-            {mode === "signup" ? "Create your free five* account" : "Welcome back to five*"}
+            {mode === "signup" ? "Create your free account" : "Welcome back"}
           </h1>
           <p className="auth-intro-copy">
-            Collect honest customer feedback, review clear summaries, and keep making your Baton
-            Rouge business better without adding another paid platform to your stack.
+            Collect honest customer feedback, review clear summaries, and keep making your
+            business better without adding another paid platform to your stack.
           </p>
         </div>
 
         <div className="auth-highlight-list">
           <div className="auth-highlight">
             <h2>Free to use</h2>
-            <p>Made to support the Baton Rouge business community, not sell into it.</p>
+            <p>Made to support local businesses, not sell into them.</p>
           </div>
           <div className="auth-highlight">
             <h2>Simple setup</h2>
@@ -91,7 +91,7 @@ export default function AuthPage({ loadOrganizations, onAuthenticated }) {
             {pendingInvite
               ? "Sign up or log in to accept your invite."
               : mode === "signup"
-                ? "Start improving customer experience with a free Baton Rouge account."
+                ? "Start improving customer experience — it's free."
                 : "Pick up where you left off."}
           </p>
 

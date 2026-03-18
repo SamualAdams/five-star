@@ -807,6 +807,10 @@ select {
     border-radius: 24px;
   }
 
+  .auth-card {
+    order: -1;
+  }
+
   .auth-card-head,
   .auth-card-body,
   .auth-intro,
