@@ -1,10 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createOrganization } from "../api";
 
 export default function CreateOrgModal({ token, onCreated, onClose }) {
   const [name, setName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === "Escape" && onClose) onClose();
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -23,6 +31,16 @@ export default function CreateOrgModal({ token, onCreated, onClose }) {
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+        {onClose && (
+          <button
+            type="button"
+            className="modal-close-x"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            ×
+          </button>
+        )}
         <h2 className="modal-title">Create an Organization</h2>
         <p className="modal-subtitle">Name your organization to get started.</p>
 

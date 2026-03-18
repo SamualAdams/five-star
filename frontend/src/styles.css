@@ -1124,11 +1124,37 @@ select {
 }
 
 .modal-card {
+  position: relative;
   width: min(460px, 100%);
   border-radius: 16px;
   background: var(--color-surface);
   padding: 2rem;
   box-shadow: 0 20px 50px rgba(24, 57, 43, 0.18);
+}
+
+.modal-close-x {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: none;
+  background: none;
+  color: var(--color-muted);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.modal-close-x:hover {
+  background: rgba(24, 57, 43, 0.08);
+  color: var(--color-ink);
 }
 
 .modal-title {
