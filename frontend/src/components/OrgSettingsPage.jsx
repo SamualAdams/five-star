@@ -15,14 +15,11 @@ export default function OrgSettingsPage({ token, user }) {
   const [isEditing, setIsEditing] = useState(false);
   const [error, setError] = useState("");
   const [feedbackUrlCopied, setFeedbackUrlCopied] = useState(false);
-  const [reviewUrl, setReviewUrl] = useState("");
-  const [isEditingReviewUrl, setIsEditingReviewUrl] = useState(false);
 
-  // Review links state
-  const [reviewLinks, setReviewLinks] = useState([]);
-  const [newPlatform, setNewPlatform] = useState("google");
-  const [newUrl, setNewUrl] = useState("");
+  // Review links state: one URL per platform, edited all at once
+  const [linkInputs, setLinkInputs] = useState({ google: "", yelp: "", tripadvisor: "" });
   const [reviewLinksError, setReviewLinksError] = useState("");
+  const [reviewLinksSaved, setReviewLinksSaved] = useState(false);
 
   const isAdmin = org?.role === "admin";
 
@@ -35,36 +32,27 @@ export default function OrgSettingsPage({ token, user }) {
       const data = await getOrganization(token, id);
       setOrg(data);
       setEditName(data.name);
-setReviewLinks(data.review_links || []);
+      const inputs = { google: "", yelp: "", tripadvisor: "" };
+      for (const link of data.review_links || []) {
+        if (link.platform in inputs) inputs[link.platform] = link.url;
+      }
+      setLinkInputs(inputs);
     } catch (err) {
       setError(err.message);
     }
   }
 
-  async function handleAddReviewLink(e) {
+  async function handleSaveReviewLinks(e) {
     e.preventDefault();
     setReviewLinksError("");
-    const alreadyAdded = reviewLinks.some((l) => l.platform === newPlatform);
-    if (alreadyAdded) {
-      setReviewLinksError(`A ${PLATFORM_LABELS[newPlatform]} link already exists. Remove it first.`);
-      return;
-    }
-    const updated = [...reviewLinks, { platform: newPlatform, url: newUrl.trim() }];
+    setReviewLinksSaved(false);
+    const updated = PLATFORMS
+      .filter((p) => linkInputs[p].trim())
+      .map((p) => ({ platform: p, url: linkInputs[p].trim() }));
     try {
-      const result = await updateOrgReviewLinks(token, id, updated);
-      setReviewLinks(result.review_links || []);
-      setNewUrl("");
-    } catch (err) {
-      setReviewLinksError(err.message);
-    }
-  }
-
-  async function handleRemoveReviewLink(platform) {
-    setReviewLinksError("");
-    const updated = reviewLinks.filter((l) => l.platform !== platform);
-    try {
-      const result = await updateOrgReviewLinks(token, id, updated);
-      setReviewLinks(result.review_links || []);
+      await updateOrgReviewLinks(token, id, updated);
+      setReviewLinksSaved(true);
+      setTimeout(() => setReviewLinksSaved(false), 2000);
     } catch (err) {
       setReviewLinksError(err.message);
     }
@@ -177,55 +165,29 @@ setReviewLinks(data.review_links || []);
 
       {isAdmin && (
         <div className="settings-section">
-<h3 className="settings-heading">Public Review Links</h3>
+          <h3 className="settings-heading">Public Review Links</h3>
           <p className="settings-meta">
             After submitting feedback, customers will see links to leave a public review on these platforms.
+            Leave a field blank to omit that platform.
           </p>
-
-          {reviewLinks.length > 0 && (
-            <ul className="review-links-list">
-              {reviewLinks.map((link) => (
-                <li key={link.platform} className="review-link-item">
-                  <span className="review-link-platform">{PLATFORM_LABELS[link.platform]}</span>
-                  <span className="review-link-url">{link.url}</span>
-                  <button
-                    type="button"
-                    className="btn btn--danger btn--sm"
-                    onClick={() => handleRemoveReviewLink(link.platform)}
-                  >
-                    Remove
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {reviewLinks.length < PLATFORMS.length && (
-            <form className="review-link-form" onSubmit={handleAddReviewLink}>
-              <select
-                className="field-select"
-                value={newPlatform}
-                onChange={(e) => setNewPlatform(e.target.value)}
-              >
-                {PLATFORMS.filter((p) => !reviewLinks.some((l) => l.platform === p)).map((p) => (
-                  <option key={p} value={p}>{PLATFORM_LABELS[p]}</option>
-                ))}
-              </select>
-              <input
-                className="field-input"
-                type="url"
-                placeholder="https://g.page/your-business/review"
-value={newUrl}
-                onChange={(e) => setNewUrl(e.target.value)}
-                required
-              />
-              <button type="submit" className="btn btn--primary btn--sm" disabled={!newUrl.trim()}>
-                Add
-              </button>
-            </form>
-          )}
-
-          {reviewLinksError && <p className="message message--error">{reviewLinksError}</p>}
+          <form className="review-links-form" onSubmit={handleSaveReviewLinks}>
+            {PLATFORMS.map((p) => (
+              <div key={p} className="review-link-row">
+                <label className="review-link-label">{PLATFORM_LABELS[p]}</label>
+                <input
+                  className="field-input"
+                  type="url"
+                  placeholder={p === "google" ? "https://g.page/your-business/review" : p === "yelp" ? "https://yelp.com/biz/your-business" : "https://tripadvisor.com/your-listing"}
+                  value={linkInputs[p]}
+                  onChange={(e) => setLinkInputs((prev) => ({ ...prev, [p]: e.target.value }))}
+                />
+              </div>
+            ))}
+            {reviewLinksError && <p className="message message--error">{reviewLinksError}</p>}
+            <button type="submit" className="btn btn--primary btn--sm">
+              {reviewLinksSaved ? "Saved!" : "Save"}
+            </button>
+          </form>
         </div>
       )}
 
