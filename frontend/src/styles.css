@@ -348,7 +348,14 @@ select {
   border-radius: 26px;
   background: rgba(255, 255, 255, 0.88);
   box-shadow: 0 16px 38px rgba(24, 57, 43, 0.08);
-  overflow: hidden;
+}
+
+.auth-card-head {
+  border-radius: 26px 26px 0 0;
+}
+
+.auth-card > :last-child {
+  border-radius: 0 0 26px 26px;
 }
 
 .auth-card-head {
