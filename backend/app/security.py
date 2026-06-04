@@ -32,6 +32,18 @@ def decode_token(token: str) -> str | None:
     return payload.get("sub")
 
 
+def generate_reset_token() -> str:
+    import secrets
+
+    return secrets.token_urlsafe(32)
+
+
+def hash_reset_token(raw_token: str) -> str:
+    import hashlib
+
+    return hashlib.sha256(raw_token.encode()).hexdigest()
+
+
 def generate_invite_token() -> str:
     import secrets
 

@@ -46,6 +46,20 @@ export async function me(token) {
   });
 }
 
+export async function requestPasswordReset(email) {
+  return request("/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function resetPassword(token, password) {
+  return request("/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ token, password }),
+  });
+}
+
 // Organizations
 
 export async function createOrganization(token, name) {

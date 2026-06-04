@@ -13,7 +13,7 @@ from .ai import generate_digest_content, polish_review
 from .config import get_settings
 from .database import Base, engine, get_db
 from .dependencies import get_current_user, get_user_org_membership, require_org_admin
-from .models import Digest, DigestStatus, Feedback, Invite, Organization, OrganizationMember, Role, User
+from .models import Digest, DigestStatus, Feedback, Invite, Organization, OrganizationMember, PasswordResetToken, Role, User
 from .schemas import (
     AuthResponse,
     DigestContent,
@@ -40,16 +40,21 @@ from .schemas import (
     ReviewLink,
     ReviewPolishRequest,
     ReviewPolishResponse,
+    ForgotPasswordRequest,
+    ResetPasswordRequest,
     Token,
     UserCreate,
     UserLogin,
     UserOut,
 )
+from .email import send_password_reset_email
 from .security import (
     create_access_token,
     generate_feedback_token,
     generate_invite_token,
+    generate_reset_token,
     hash_password,
+    hash_reset_token,
     is_invite_valid,
     verify_password,
 )
@@ -141,6 +146,43 @@ def login(payload: UserLogin, db: Session = Depends(get_db)) -> AuthResponse:
 @app.get("/auth/me", response_model=UserOut)
 def me(user: User = Depends(get_current_user)) -> UserOut:
     return UserOut.model_validate(user, from_attributes=True)
+
+
+@app.post("/auth/forgot-password", status_code=status.HTTP_204_NO_CONTENT)
+def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)) -> None:
+    user = db.scalar(select(User).where(User.email == payload.email.lower()))
+    if not user:
+        return  # don't reveal whether the email exists
+
+    raw_token = generate_reset_token()
+    reset_record = PasswordResetToken(
+        user_id=user.id,
+        token_hash=hash_reset_token(raw_token),
+        expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+    )
+    db.add(reset_record)
+    db.commit()
+
+    reset_url = f"{settings.app_base_url}/reset-password?token={raw_token}"
+    send_password_reset_email(user.email, reset_url)
+
+
+@app.post("/auth/reset-password", status_code=status.HTTP_204_NO_CONTENT)
+def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)) -> None:
+    token_hash = hash_reset_token(payload.token)
+    record = db.scalar(select(PasswordResetToken).where(PasswordResetToken.token_hash == token_hash))
+
+    now = datetime.now(timezone.utc)
+    if (
+        not record
+        or record.used_at is not None
+        or record.expires_at.replace(tzinfo=timezone.utc) < now
+    ):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired reset link")
+
+    record.user.password_hash = hash_password(payload.password)
+    record.used_at = now
+    db.commit()
 
 
 # ---------------------------------------------------------------------------

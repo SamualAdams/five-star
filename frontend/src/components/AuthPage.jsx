@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { acceptInvite, login, signup } from "../api";
+import { acceptInvite, login, requestPasswordReset, signup } from "../api";
 
 export default function AuthPage({ loadOrganizations, onAuthenticated }) {
   const [email, setEmail] = useState("");
@@ -10,7 +10,8 @@ export default function AuthPage({ loadOrganizations, onAuthenticated }) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const mode = searchParams.get("mode") === "login" ? "login" : "signup";
+  const rawMode = searchParams.get("mode");
+  const mode = rawMode === "login" || rawMode === "forgot" ? rawMode : "signup";
   const pendingInvite = searchParams.get("invite");
 
   function handleModeChange(nextMode) {
@@ -26,6 +27,13 @@ export default function AuthPage({ loadOrganizations, onAuthenticated }) {
     setIsLoading(true);
 
     try {
+      if (mode === "forgot") {
+        await requestPasswordReset(email);
+        setMessage("If that email is registered, you'll receive a reset link shortly.");
+        setEmail("");
+        return;
+      }
+
       const action = mode === "signup" ? signup : login;
       const response = await action(email, password);
       const accessToken = response.token.access_token;
@@ -86,31 +94,37 @@ export default function AuthPage({ loadOrganizations, onAuthenticated }) {
           </Link>
         </div>
         <div className="auth-card-body">
-          <h2 className="auth-title">{mode === "signup" ? "Create your account" : "Log in"}</h2>
+          <h2 className="auth-title">
+            {mode === "forgot" ? "Reset your password" : mode === "signup" ? "Create your account" : "Log in"}
+          </h2>
           <p className="auth-subtitle">
-            {pendingInvite
-              ? "Sign up or log in to accept your invite."
-              : mode === "signup"
-                ? "Start improving customer experience — it's free."
-                : "Pick up where you left off."}
+            {mode === "forgot"
+              ? "Enter your email and we'll send you a reset link."
+              : pendingInvite
+                ? "Sign up or log in to accept your invite."
+                : mode === "signup"
+                  ? "Start improving customer experience — it's free."
+                  : "Pick up where you left off."}
           </p>
 
-          <div className="tabs">
-            <button
-              type="button"
-              className={`tab ${mode === "signup" ? "tab--active" : ""}`}
-              onClick={() => handleModeChange("signup")}
-            >
-              Sign up
-            </button>
-            <button
-              type="button"
-              className={`tab ${mode === "login" ? "tab--active" : ""}`}
-              onClick={() => handleModeChange("login")}
-            >
-              Log in
-            </button>
-          </div>
+          {mode !== "forgot" && (
+            <div className="tabs">
+              <button
+                type="button"
+                className={`tab ${mode === "signup" ? "tab--active" : ""}`}
+                onClick={() => handleModeChange("signup")}
+              >
+                Sign up
+              </button>
+              <button
+                type="button"
+                className={`tab ${mode === "login" ? "tab--active" : ""}`}
+                onClick={() => handleModeChange("login")}
+              >
+                Log in
+              </button>
+            </div>
+          )}
 
           <form className="auth-form" onSubmit={handleSubmit}>
             <label className="field-label" htmlFor="email">
@@ -126,23 +140,49 @@ export default function AuthPage({ loadOrganizations, onAuthenticated }) {
               required
             />
 
-            <label className="field-label" htmlFor="password">
-              Password (8+ chars)
-            </label>
-            <input
-              className="field-input"
-              id="password"
-              type="password"
-              autoComplete={mode === "signup" ? "new-password" : "current-password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              minLength={8}
-              required
-            />
+            {mode !== "forgot" && (
+              <>
+                <label className="field-label" htmlFor="password">
+                  Password (8+ chars)
+                </label>
+                <input
+                  className="field-input"
+                  id="password"
+                  type="password"
+                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  minLength={8}
+                  required
+                />
+              </>
+            )}
 
             <button className="btn btn--primary" type="submit" disabled={isLoading}>
-              {isLoading ? "Working..." : mode === "signup" ? "Create account" : "Log in"}
+              {isLoading ? "Working..." : mode === "forgot" ? "Send reset link" : mode === "signup" ? "Create account" : "Log in"}
             </button>
+
+            {mode === "login" && (
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm"
+                style={{ alignSelf: "flex-start" }}
+                onClick={() => handleModeChange("forgot")}
+              >
+                Forgot password?
+              </button>
+            )}
+
+            {mode === "forgot" && (
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm"
+                style={{ alignSelf: "flex-start" }}
+                onClick={() => handleModeChange("login")}
+              >
+                Back to log in
+              </button>
+            )}
           </form>
 
           {message && <p className="message">{message}</p>}

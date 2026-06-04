@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60
     frontend_origin: str = "http://localhost:5173"
     openai_api_key: str = ""
+    sendgrid_api_key: str = ""
+    sender_email: str = "noreply@fivestarfeedback.app"
+    app_base_url: str = "http://localhost:5173"
 
     model_config = SettingsConfigDict(env_file=str(_ENV_FILE), env_file_encoding="utf-8", extra="ignore")
 

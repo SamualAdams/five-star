@@ -10,6 +10,7 @@ import InviteAcceptPage from "./components/InviteAcceptPage";
 import MarketingPage from "./components/MarketingPage";
 import OrganizationSwitcher from "./components/OrganizationSwitcher";
 import OrgSettingsPage from "./components/OrgSettingsPage";
+import ResetPasswordPage from "./components/ResetPasswordPage";
 import SearchPage from "./components/SearchPage";
 import TopbarSearch from "./components/TopbarSearch";
 
@@ -185,6 +186,7 @@ export default function App() {
           />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/feedback/:feedbackToken" element={<FeedbackPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="*" element={<Navigate to={isAuthenticated ? "/dashboard" : "/"} replace />} />
         </Routes>
       </main>
