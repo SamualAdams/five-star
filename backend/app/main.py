@@ -2,10 +2,12 @@ import json
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Query, status
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import ValidationError
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
@@ -48,6 +50,7 @@ from .schemas import (
     UserOut,
 )
 from .email import send_password_reset_email
+from .ratelimit import limiter
 from .security import (
     create_access_token,
     generate_feedback_token,
@@ -60,6 +63,12 @@ from .security import (
 )
 
 settings = get_settings()
+
+if settings.sentry_dsn:
+    import sentry_sdk
+
+    sentry_sdk.init(dsn=settings.sentry_dsn, traces_sample_rate=0.1)
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 FRONTEND_DIST_DIR = PROJECT_ROOT / "frontend" / "dist"
 RESERVED_PATH_PREFIXES = (
@@ -75,6 +84,8 @@ RESERVED_PATH_PREFIXES = (
 )
 
 app = FastAPI(title=settings.app_name)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -119,7 +130,8 @@ def ready(db: Session = Depends(get_db)) -> dict[str, str]:
 
 
 @app.post("/auth/signup", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
-def signup(payload: UserCreate, db: Session = Depends(get_db)) -> AuthResponse:
+@limiter.limit("10/minute")
+def signup(request: Request, payload: UserCreate, db: Session = Depends(get_db)) -> AuthResponse:
     existing_user = db.scalar(select(User).where(User.email == payload.email.lower()))
     if existing_user:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already exists")
@@ -134,7 +146,8 @@ def signup(payload: UserCreate, db: Session = Depends(get_db)) -> AuthResponse:
 
 
 @app.post("/auth/login", response_model=AuthResponse)
-def login(payload: UserLogin, db: Session = Depends(get_db)) -> AuthResponse:
+@limiter.limit("20/minute")
+def login(request: Request, payload: UserLogin, db: Session = Depends(get_db)) -> AuthResponse:
     user = db.scalar(select(User).where(User.email == payload.email.lower()))
     if not user or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
@@ -149,7 +162,8 @@ def me(user: User = Depends(get_current_user)) -> UserOut:
 
 
 @app.post("/auth/forgot-password", status_code=status.HTTP_204_NO_CONTENT)
-def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)) -> None:
+@limiter.limit("5/minute")
+def forgot_password(request: Request, payload: ForgotPasswordRequest, db: Session = Depends(get_db)) -> None:
     user = db.scalar(select(User).where(User.email == payload.email.lower()))
     if not user:
         return  # don't reveal whether the email exists
@@ -168,7 +182,8 @@ def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db
 
 
 @app.post("/auth/reset-password", status_code=status.HTTP_204_NO_CONTENT)
-def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)) -> None:
+@limiter.limit("10/minute")
+def reset_password(request: Request, payload: ResetPasswordRequest, db: Session = Depends(get_db)) -> None:
     token_hash = hash_reset_token(payload.token)
     record = db.scalar(select(PasswordResetToken).where(PasswordResetToken.token_hash == token_hash))
 
@@ -247,7 +262,8 @@ review_links=m.organization.review_links,
 
 
 @app.get("/organizations/search", response_model=list[OrganizationSearchResult])
-def search_organizations(q: str, db: Session = Depends(get_db)) -> list[OrganizationSearchResult]:
+@limiter.limit("30/minute")
+def search_organizations(request: Request, q: str, db: Session = Depends(get_db)) -> list[OrganizationSearchResult]:
     """Public endpoint - search for organizations by name"""
     if not q or len(q.strip()) < 2:
         return []
@@ -294,8 +310,6 @@ def update_organization(
     org = membership.organization
     if payload.name is not None:
         org.name = payload.name
-    if payload.review_url is not None:
-        org.review_url = payload.review_url or None  # empty string → clear
     db.commit()
     db.refresh(org)
 
@@ -588,7 +602,8 @@ def get_feedback_form_info(feedback_token: str, db: Session = Depends(get_db)) -
 
 
 @app.post("/api/feedback/{feedback_token}/submit", response_model=FeedbackSubmitResponse, status_code=status.HTTP_201_CREATED)
-def submit_feedback(feedback_token: str, payload: FeedbackSubmit, db: Session = Depends(get_db)) -> FeedbackSubmitResponse:
+@limiter.limit("10/minute")
+def submit_feedback(request: Request, feedback_token: str, payload: FeedbackSubmit, db: Session = Depends(get_db)) -> FeedbackSubmitResponse:
     """Public endpoint - submit anonymous feedback"""
     org = db.scalar(select(Organization).where(Organization.feedback_token == feedback_token))
     if not org:
@@ -610,7 +625,9 @@ def submit_feedback(feedback_token: str, payload: FeedbackSubmit, db: Session = 
 
 
 @app.post("/api/feedback/{feedback_token}/polish", response_model=ReviewPolishResponse)
+@limiter.limit("5/minute")
 def polish_feedback_for_review(
+    request: Request,
     feedback_token: str,
     payload: ReviewPolishRequest,
     db: Session = Depends(get_db),
