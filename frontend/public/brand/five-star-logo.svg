@@ -6,7 +6,8 @@
             <text x="608.006px" y="850.581px" style="font-family:'AvenirNext-DemiBold', 'Avenir Next', sans-serif;font-weight:600;font-size:288px;">ﬁ<tspan x="775.91px " y="850.581px ">v</tspan></text>
             <text x="920.774px" y="850.581px" style="font-family:'AvenirNext-DemiBold', 'Avenir Next', sans-serif;font-weight:600;font-size:288px;">e</text>
             <g transform="matrix(1,0,-0.0524078,1,44.053,0)">
-                <text x="1031.37px" y="840.581px" style="font-family:'AndaleMono', 'Andale Mono', monospace;font-size:350px;">*</text>
+                <!-- Asterisk baked as a path (from Andale Mono's glyph) so it renders identically on every device, regardless of installed fonts -->
+                <path d="M1196.629,693.950 L1186.375,711.040 L1145.872,684.209 L1145.872,733.086 L1126.902,733.086 L1126.902,684.209 L1085.887,711.382 L1075.804,693.950 L1118.870,665.923 L1075.804,637.895 L1085.887,620.806 L1126.902,648.149 L1126.902,599.443 L1145.872,599.443 L1145.872,647.808 L1186.375,620.806 L1196.629,637.895 L1154.246,665.923 Z"/>
             </g>
         </g>
     </g>
