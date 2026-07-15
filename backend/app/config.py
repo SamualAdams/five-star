@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     sendgrid_api_key: str = ""
     sender_email: str = "noreply@fivestarfeedback.app"
     app_base_url: str = "http://localhost:5173"
+    rate_limit_enabled: bool = True
+    sentry_dsn: str = ""
 
     model_config = SettingsConfigDict(env_file=str(_ENV_FILE), env_file_encoding="utf-8", extra="ignore")
 

@@ -47,7 +47,6 @@ class OrganizationCreate(BaseModel):
 
 class OrganizationUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=255)
-    review_url: str | None = Field(None, max_length=2048)
 
 
 class ReviewLink(BaseModel):
