@@ -73,7 +73,7 @@ export default function MarketingPage() {
       <section className="marketing-hero">
         <div className="marketing-panel marketing-panel--hero">
           <h1 className="marketing-title">
-            Better feedback for Louisiana businesses.
+            Better feedback for businesses that listen.
           </h1>
           <p className="marketing-copy">
             Your customers want you to succeed. They just need a way to tell you
@@ -94,7 +94,7 @@ export default function MarketingPage() {
           </div>
 
           <div className="marketing-pill-row">
-            <span className="marketing-pill">Serving North, Central &amp; South Louisiana</span>
+            <span className="marketing-pill">Proudly built in Louisiana</span>
             <span className="marketing-pill">Just 2 cents per customer submission</span>
           </div>
         </div>
