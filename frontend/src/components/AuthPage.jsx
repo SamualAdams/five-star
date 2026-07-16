@@ -62,18 +62,18 @@ export default function AuthPage({ loadOrganizations, onAuthenticated }) {
       <section className="auth-intro">
         <div>
           <h1 className="auth-intro-title">
-            {mode === "signup" ? "Create your free account" : "Welcome back"}
+            {mode === "signup" ? "Create your account" : "Welcome back"}
           </h1>
           <p className="auth-intro-copy">
             Collect honest customer feedback, review clear summaries, and keep making your
-            business better without adding another paid platform to your stack.
+            business better for just 2 cents per customer submission.
           </p>
         </div>
 
         <div className="auth-highlight-list">
           <div className="auth-highlight">
-            <h2>Free to use</h2>
-            <p>Made to support local businesses, not sell into them.</p>
+            <h2>Just 2 cents per submission</h2>
+            <p>No subscriptions, no hidden fees — just pay for what you use.</p>
           </div>
           <div className="auth-highlight">
             <h2>Simple setup</h2>
@@ -103,7 +103,7 @@ export default function AuthPage({ loadOrganizations, onAuthenticated }) {
               : pendingInvite
                 ? "Sign up or log in to accept your invite."
                 : mode === "signup"
-                  ? "Start improving customer experience — it's free."
+                  ? "Start improving customer experience — just 2 cents per submission."
                   : "Pick up where you left off."}
           </p>
 

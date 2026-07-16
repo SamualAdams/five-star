@@ -209,7 +209,7 @@ function PublicHeader({ isAuthenticated }) {
     <header className="topbar topbar--public">
       <Link className="brand-lockup" to={isAuthenticated ? "/dashboard" : "/"}>
         <img className="topbar-logo" src={LOGO_SRC} alt="five*" />
-        <span className="brand-tag">Built in Baton Rouge for Baton Rouge businesses</span>
+        <span className="brand-tag">Built in Baton Rouge, serving businesses across Louisiana</span>
       </Link>
 
       {/* Right side — search always visible, nav toggles per breakpoint */}
@@ -228,7 +228,7 @@ function PublicHeader({ isAuthenticated }) {
                 Log in
               </Link>
               <Link className="btn btn--primary btn--sm" to="/auth?mode=signup">
-                Get started free
+                Get started
               </Link>
             </>
           )}
@@ -257,7 +257,7 @@ function PublicHeader({ isAuthenticated }) {
             ) : (
               <>
                 <Link className="menu-item" to="/auth?mode=signup" onClick={() => setIsMenuOpen(false)}>
-                  Get started free
+                  Get started
                 </Link>
                 <Link className="menu-item" to="/auth?mode=login" onClick={() => setIsMenuOpen(false)}>
                   Log in

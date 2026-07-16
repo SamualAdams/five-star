@@ -4,7 +4,7 @@ const PAIN_POINTS = [
   {
     title: "You don't have time to chase reviews",
     description:
-      "Most owners know something's off before a bad review hits. They just don't have a system to catch it early. five* gives you one, for free.",
+      "Most owners know something's off before a bad review hits. They just don't have a system to catch it early. five* gives you one, for just 2 cents per customer submission.",
   },
   {
     title: "Frustrated customers vent to you, not about you",
@@ -72,7 +72,7 @@ export default function MarketingPage() {
       <section className="marketing-hero">
         <div className="marketing-panel marketing-panel--hero">
           <h1 className="marketing-title">
-            Better feedback for Baton Rouge.
+            Better feedback for Louisiana businesses.
           </h1>
           <p className="marketing-copy">
             Your customers want you to succeed. They just need a way to tell you
@@ -82,7 +82,7 @@ export default function MarketingPage() {
 
           <div className="marketing-actions">
             <Link className="btn btn--primary" to="/auth?mode=signup">
-              Get started free
+              Get started
             </Link>
             <Link className="btn btn--ghost" to="/auth?mode=login">
               Log in
@@ -90,8 +90,8 @@ export default function MarketingPage() {
           </div>
 
           <div className="marketing-pill-row">
-            <span className="marketing-pill">Made for Baton Rouge</span>
-            <span className="marketing-pill">Free for local businesses</span>
+            <span className="marketing-pill">Serving North, Central &amp; South Louisiana</span>
+            <span className="marketing-pill">Just 2 cents per customer submission</span>
           </div>
         </div>
 
@@ -130,8 +130,8 @@ export default function MarketingPage() {
           <p className="section-kicker">Sound familiar?</p>
           <h2 className="section-title">The current system is broken.</h2>
           <p className="section-copy">
-            Baton Rouge people want to spend money here: food, dates, gatherings, and
-            everything that makes this city work. But there&apos;s no real way for customers
+            Louisiana people want to spend money here: food, dates, gatherings, and
+            everything that makes their communities work. But there&apos;s no real way for customers
             to work <em>with</em> businesses. Feedback either never happens, turns into gossip,
             or ends up as a bad review.
           </p>
@@ -195,8 +195,9 @@ export default function MarketingPage() {
           </p>
           <p className="section-copy" style={{marginTop: "0.75rem"}}>
             We don&apos;t put our mark behind a business we wouldn&apos;t stand behind ourselves.
-            five* exists to bring Baton Rouge customers and businesses closer together. The best
-            businesses are the ones that never stop listening.
+            five* exists to bring Louisiana customers and businesses closer together, from the
+            northern parishes down to the coast. The best businesses are the ones that never stop
+            listening.
           </p>
         </div>
       </section>
@@ -206,13 +207,13 @@ export default function MarketingPage() {
           <p className="section-kicker">Ready to start</p>
           <h2 className="section-title">Give your customers a way to help you improve.</h2>
           <p className="section-copy">
-            Create a free account, share your feedback link, and start learning what your business
-            needs next.
+            Create your account, share your feedback link, and start learning what your business
+            needs next &mdash; just 2 cents per customer submission.
           </p>
         </div>
 
         <Link className="btn btn--primary" to="/auth?mode=signup">
-          Get started free
+          Get started
         </Link>
       </section>
     </div>
