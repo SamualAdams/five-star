@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import HomeDemo from "./demo/HomeDemo";
 
 const PAIN_POINTS = [
   {
@@ -9,12 +10,12 @@ const PAIN_POINTS = [
   {
     title: "Frustrated customers vent to you, not about you",
     description:
-      "When customers know you're listening, they bring problems to you privately instead of venting on Google. five* gives them somewhere to go before that happens.",
+      "When customers know you're listening, they bring problems to you privately instead of venting on Google and other review boards. five* gives them somewhere to go before that happens.",
   },
   {
     title: "Too many channels, not enough signal",
     description:
-      "Google, Yelp, Facebook. It's scattered and noisy. five* pulls the signal out so you see what matters without the channel-hopping.",
+      "Google, Yelp, Facebook. It's scattered and noisy. five* delivers what matters without the channel-hopping.",
   },
 ];
 
@@ -35,35 +36,35 @@ const STEPS = [
     number: "03",
     title: "Turn feedback into next steps",
     description:
-      "five* turns submissions into a clear digest: patterns, priorities, and actions your team can use.",
+      "five* turns submissions into usable data including patterns, priorities, and actions your team can use.",
   },
 ];
 
 const DIGEST_FLOW = [
   {
-    number: "01",
+    marker: "›",
     title: "Gather many submissions",
     description:
       "Customers share feedback over time, giving you more than a few isolated comments to react to.",
   },
   {
-    number: "02",
-    title: "Turn patterns into a digest",
+    marker: "›",
+    title: "Turn patterns into a report",
     description:
-      "five* converts those submissions into an insight-driven digest with a summary, clear themes, and practical next steps.",
+      "five* converts those submissions into an insight-driven report with a summary, clear themes, and practical next steps.",
   },
   {
-    number: "03",
+    marker: "›",
     title: "Review, refine, and share",
     description:
-      "Review and modify the digest, then share it with your team so everyone is aligned on what to improve and what to protect.",
+      "Review and modify the report, then share it with your team so everyone is aligned on what to improve and what to protect.",
   },
 ];
 
 const BENEFITS = [
-  "Customers submit feedback privately, not as a public review",
-  "Anonymous or identified, customer's choice",
-  "AI-powered digests that surface what actually matters",
+  "Customers submit feedback privately, not publicly",
+  "Customers can remain anonymous or identify themselves for follow up discussion",
+  "AI-powered to provide your business with what actually matters",
 ];
 
 export default function MarketingPage() {
@@ -84,6 +85,9 @@ export default function MarketingPage() {
             <Link className="btn btn--primary" to="/auth?mode=signup">
               Get started
             </Link>
+            <a className="btn btn--outline" href="#demo">
+              See a live demo
+            </a>
             <Link className="btn btn--ghost" to="/auth?mode=login">
               Log in
             </Link>
@@ -117,10 +121,10 @@ export default function MarketingPage() {
             Think about the customer who noticed something off but didn&apos;t want to hurt your business.
             They weren&apos;t going to leave a bad review. They weren&apos;t going to ask for the manager
             either &mdash; that&apos;s not how most people are wired. So they said nothing, left a polite tip,
-            and you never found out.
+            and you never found out &ndash; and you never saw them again.
           </p>
           <p className="section-copy" style={{marginTop: "0.75rem"}}>
-            five* gives those customers somewhere to go. The ones who want to help, finally can.
+            five* gives those customers somewhere to go. The ones who want to help, finally can &ndash; but in private.
           </p>
         </div>
       </section>
@@ -164,20 +168,22 @@ export default function MarketingPage() {
         </div>
       </section>
 
+      <HomeDemo />
+
       <section className="section-shell digest-section">
         <div className="section-header">
-          <p className="section-kicker">What&apos;s a digest?</p>
-          <h2 className="section-title">One clear summary built from many customer submissions.</h2>
+          <p className="section-kicker">The payoff</p>
+          <h2 className="section-title">One clear report built from many customer submissions.</h2>
           <p className="section-copy">
-            A digest turns raw feedback into a structured summary of patterns, priorities, and
+            We call this a report. five* turns raw feedback into a structured summary of patterns, priorities, and
             next steps your team can act on. No more reading every comment one by one.
           </p>
         </div>
 
         <div className="digest-flow-grid">
           {DIGEST_FLOW.map((item) => (
-            <article className="marketing-card digest-flow-card" key={item.number}>
-              <p className="marketing-step-number">{item.number}</p>
+            <article className="marketing-card digest-flow-card" key={item.title}>
+              <p className="marketing-step-number digest-flow-marker">{item.marker}</p>
               <h3 className="marketing-card-title">{item.title}</h3>
               <p className="marketing-card-copy">{item.description}</p>
             </article>

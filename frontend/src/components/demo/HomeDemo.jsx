@@ -1,0 +1,192 @@
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import DemoSearchScreen from "./DemoSearchScreen";
+import DemoFeedbackScreen from "./DemoFeedbackScreen";
+import DemoDashboardScreen from "./DemoDashboardScreen";
+import DemoShareScreen from "./DemoShareScreen";
+import { DEMO_ORG, DEMO_PREFILLED_REVIEW, DEMO_STEPS } from "./demoData";
+
+const DASHBOARD_STEP = 5; // index of the owner-dashboard step
+
+export default function HomeDemo() {
+  const [stepIndex, setStepIndex] = useState(0);
+  const [draft, setDraft] = useState(DEMO_PREFILLED_REVIEW.text);
+  const [digestGenerated, setDigestGenerated] = useState(false);
+  const [digestPublished, setDigestPublished] = useState(false);
+  const [digestFormat, setDigestFormat] = useState("full");
+
+  const step = DEMO_STEPS[stepIndex];
+  const isLast = stepIndex === DEMO_STEPS.length - 1;
+
+  function goTo(index) {
+    // Keep later steps consistent even if scripted actions were skipped
+    if (index > DASHBOARD_STEP) setDigestGenerated(true);
+    setStepIndex(Math.max(0, Math.min(index, DEMO_STEPS.length - 1)));
+  }
+
+  function restart() {
+    setStepIndex(0);
+    setDraft(DEMO_PREFILLED_REVIEW.text);
+    setDigestGenerated(false);
+    setDigestPublished(false);
+    setDigestFormat("full");
+  }
+
+  function renderStep() {
+    switch (step.id) {
+      case "intro":
+        return (
+          <div className="demo-screen">
+            <div className="demo-inter-card">
+              <p className="section-kicker">Interactive demo</p>
+              <h3 className="demo-inter-title">See five* from both sides.</h3>
+              <p className="demo-inter-copy">
+                First you&apos;ll play the customer leaving feedback for{" "}
+                <strong>{DEMO_ORG.name}</strong>, a (fictional) café in {DEMO_ORG.city}. Then
+                you&apos;ll switch sides and see exactly what the owner gets.
+              </p>
+              <button type="button" className="btn btn--primary" onClick={() => goTo(1)}>
+                Start the demo →
+              </button>
+            </div>
+          </div>
+        );
+      case "search":
+        return <DemoSearchScreen onSelect={() => goTo(2)} />;
+      case "feedback":
+        return (
+          <DemoFeedbackScreen
+            stage="form"
+            onSubmitted={(content) => {
+              setDraft(content);
+              goTo(3);
+            }}
+          />
+        );
+      case "boost":
+        return <DemoFeedbackScreen stage="boost" draft={draft} onDraftChange={setDraft} />;
+      case "flip":
+        return (
+          <div className="demo-screen">
+            <div className="demo-inter-card">
+              <p className="section-kicker">Switching sides</p>
+              <h3 className="demo-inter-title">That took your customer about 30 seconds.</h3>
+              <p className="demo-inter-copy">
+                No account, no public post, no awkward conversation. Now see what all that
+                honest feedback turns into for <strong>you</strong>, the owner.
+              </p>
+              <button type="button" className="btn btn--primary" onClick={() => goTo(5)}>
+                View the owner dashboard →
+              </button>
+            </div>
+          </div>
+        );
+      case "dashboard":
+        return (
+          <DemoDashboardScreen
+            digestGenerated={digestGenerated}
+            onGenerated={() => setDigestGenerated(true)}
+            format={digestFormat}
+            onFormatChange={setDigestFormat}
+          />
+        );
+      case "formats":
+        return (
+          <DemoDashboardScreen
+            focus="formats"
+            digestGenerated
+            onGenerated={() => setDigestGenerated(true)}
+            format={digestFormat}
+            onFormatChange={setDigestFormat}
+          />
+        );
+      case "share":
+        return (
+          <DemoShareScreen
+            published={digestPublished}
+            onPublish={() => setDigestPublished(true)}
+          />
+        );
+      default:
+        return null;
+    }
+  }
+
+  return (
+    <section className="section-shell home-demo" id="demo">
+      <div className="section-header">
+        <p className="section-kicker">Try it</p>
+        <h2 className="section-title">See the whole loop in 60 seconds.</h2>
+        <p className="section-copy">
+          Click through a real example — first as your customer, then as you. Nothing here is
+          live and no account is needed.
+        </p>
+      </div>
+
+      <div className="home-demo-captionbar">
+        <span className="demo-kicker-chip">{step.kicker}</span>
+        <p className="demo-caption">{step.caption}</p>
+        <span className="demo-step-count">Step {stepIndex + 1} of {DEMO_STEPS.length}</span>
+      </div>
+
+      <div className="home-demo-frame">
+        <div className="home-demo-chrome">
+          <span className="home-demo-chrome-dots" aria-hidden="true">
+            <span className="home-demo-chrome-dot" />
+            <span className="home-demo-chrome-dot" />
+            <span className="home-demo-chrome-dot" />
+          </span>
+          <span className="home-demo-url">{step.url}</span>
+        </div>
+        <div
+          className={`home-demo-stage ${stepIndex === DASHBOARD_STEP ? "home-demo-stage--flip" : ""}`}
+          key={stepIndex}
+        >
+          {renderStep()}
+        </div>
+      </div>
+
+      <div className="home-demo-controls">
+        <button
+          type="button"
+          className="btn btn--ghost btn--sm"
+          onClick={() => goTo(stepIndex - 1)}
+          disabled={stepIndex === 0}
+        >
+          ← Back
+        </button>
+
+        <div className="demo-dots" role="tablist" aria-label="Demo steps">
+          {DEMO_STEPS.map((s, i) => (
+            <button
+              key={s.id}
+              type="button"
+              className={`demo-dot ${i === stepIndex ? "demo-dot--active" : ""}`}
+              onClick={() => goTo(i)}
+              aria-label={`Go to step ${i + 1}`}
+            />
+          ))}
+        </div>
+
+        <div className="demo-controls-right">
+          <button type="button" className="demo-restart" onClick={restart}>
+            Restart
+          </button>
+          {isLast ? (
+            <Link className="btn btn--primary btn--sm" to="/auth?mode=signup">
+              Get started
+            </Link>
+          ) : (
+            <button
+              type="button"
+              className="btn btn--primary btn--sm"
+              onClick={() => goTo(stepIndex + 1)}
+            >
+              Next →
+            </button>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
