@@ -1,20 +1,21 @@
 import { Link } from "react-router-dom";
+import HomeDemo from "./demo/HomeDemo";
 
 const PAIN_POINTS = [
   {
     title: "You don't have time to chase reviews",
     description:
-      "Most owners know something's off before a bad review hits. They just don't have a system to catch it early. five* gives you one, for just 2 cents per customer submission.",
+      "You often know something's off before a bad review hits. You just don't have a system to catch it early. five* gives you one, for just 2 cents per customer submission.",
   },
   {
     title: "Frustrated customers vent to you, not about you",
     description:
-      "When customers know you're listening, they bring problems to you privately instead of venting on Google. five* gives them somewhere to go before that happens.",
+      "When customers know you're listening, they bring problems to you privately instead of venting on Google and other review boards. five* gives them somewhere to go before that happens.",
   },
   {
-    title: "Too many channels, not enough signal",
+    title: "Stars don't tell you what to fix",
     description:
-      "Google, Yelp, Facebook. It's scattered and noisy. five* pulls the signal out so you see what matters without the channel-hopping.",
+      "Google, Yelp, and Facebook shape how new customers judge you, so they matter. But a rating alone won't tell you what to change. five* gives you the honest feedback behind the scores, so you know exactly what to improve.",
   },
 ];
 
@@ -35,35 +36,35 @@ const STEPS = [
     number: "03",
     title: "Turn feedback into next steps",
     description:
-      "five* turns submissions into a clear digest: patterns, priorities, and actions your team can use.",
+      "five* turns submissions into usable data including patterns, priorities, and actions your team can use.",
   },
 ];
 
 const DIGEST_FLOW = [
   {
-    number: "01",
+    marker: "›",
     title: "Gather many submissions",
     description:
       "Customers share feedback over time, giving you more than a few isolated comments to react to.",
   },
   {
-    number: "02",
-    title: "Turn patterns into a digest",
+    marker: "›",
+    title: "Turn patterns into a report",
     description:
-      "five* converts those submissions into an insight-driven digest with a summary, clear themes, and practical next steps.",
+      "five* converts those submissions into an insight-driven report with a summary, clear themes, and practical next steps.",
   },
   {
-    number: "03",
+    marker: "›",
     title: "Review, refine, and share",
     description:
-      "Review and modify the digest, then share it with your team so everyone is aligned on what to improve and what to protect.",
+      "Review and modify the report, then share it with your team so everyone is aligned on what to improve and what to protect.",
   },
 ];
 
 const BENEFITS = [
-  "Customers submit feedback privately, not as a public review",
-  "Anonymous or identified, customer's choice",
-  "AI-powered digests that surface what actually matters",
+  "Customers submit feedback privately, not publicly",
+  "Customers can remain anonymous or identify themselves for follow up discussion",
+  "AI-powered to provide your business with what actually matters",
 ];
 
 export default function MarketingPage() {
@@ -72,7 +73,7 @@ export default function MarketingPage() {
       <section className="marketing-hero">
         <div className="marketing-panel marketing-panel--hero">
           <h1 className="marketing-title">
-            Better feedback for Louisiana businesses.
+            Better feedback for businesses that listen.
           </h1>
           <p className="marketing-copy">
             Your customers want you to succeed. They just need a way to tell you
@@ -84,20 +85,23 @@ export default function MarketingPage() {
             <Link className="btn btn--primary" to="/auth?mode=signup">
               Get started
             </Link>
+            <a className="btn btn--outline" href="#demo">
+              See a live demo
+            </a>
             <Link className="btn btn--ghost" to="/auth?mode=login">
               Log in
             </Link>
           </div>
 
           <div className="marketing-pill-row">
-            <span className="marketing-pill">Serving North, Central &amp; South Louisiana</span>
+            <span className="marketing-pill">Proudly built in Louisiana</span>
             <span className="marketing-pill">Just 2 cents per customer submission</span>
           </div>
         </div>
 
         <aside className="marketing-panel marketing-panel--aside">
-          <p className="section-kicker">What owners get</p>
-          <h2 className="marketing-side-title">A lightweight system that helps businesses hear what matters.</h2>
+          <p className="section-kicker">What you get</p>
+          <h2 className="marketing-side-title">A lightweight system that helps you hear what matters.</h2>
           <div className="marketing-benefit-list">
             {BENEFITS.map((benefit) => (
               <div className="marketing-benefit" key={benefit}>
@@ -114,13 +118,13 @@ export default function MarketingPage() {
           <p className="section-kicker">The silent majority</p>
           <h2 className="section-title">Most customers who could help you never say a word.</h2>
           <p className="section-copy">
-            Think about the customer who noticed something off but didn&apos;t want to hurt your business.
-            They weren&apos;t going to leave a bad review. They weren&apos;t going to ask for the manager
-            either &mdash; that&apos;s not how most people are wired. So they said nothing, left a polite tip,
-            and you never found out.
+            Think about the customer who noticed something was off but didn&apos;t want to hurt your business.
+            They weren&apos;t going to leave a bad review, and they weren&apos;t going to ask for the manager
+            &mdash; that&apos;s just not how most people are wired. So they said nothing, left a polite tip,
+            and walked out &mdash; you never found out, and you never saw them again.
           </p>
           <p className="section-copy" style={{marginTop: "0.75rem"}}>
-            five* gives those customers somewhere to go. The ones who want to help, finally can.
+            five* gives those customers somewhere to go &mdash; so the ones who want to help finally can, in private.
           </p>
         </div>
       </section>
@@ -130,7 +134,7 @@ export default function MarketingPage() {
           <p className="section-kicker">Sound familiar?</p>
           <h2 className="section-title">The current system is broken.</h2>
           <p className="section-copy">
-            Louisiana people want to spend money here: food, dates, gatherings, and
+            People want to spend money at the places they love: food, dates, gatherings, and
             everything that makes their communities work. But there&apos;s no real way for customers
             to work <em>with</em> businesses. Feedback either never happens, turns into gossip,
             or ends up as a bad review.
@@ -164,20 +168,22 @@ export default function MarketingPage() {
         </div>
       </section>
 
+      <HomeDemo />
+
       <section className="section-shell digest-section">
         <div className="section-header">
-          <p className="section-kicker">What&apos;s a digest?</p>
-          <h2 className="section-title">One clear summary built from many customer submissions.</h2>
+          <p className="section-kicker">The result</p>
+          <h2 className="section-title">One clear report built from many customer submissions.</h2>
           <p className="section-copy">
-            A digest turns raw feedback into a structured summary of patterns, priorities, and
+            We call this a report. five* turns raw feedback into a structured summary of patterns, priorities, and
             next steps your team can act on. No more reading every comment one by one.
           </p>
         </div>
 
         <div className="digest-flow-grid">
           {DIGEST_FLOW.map((item) => (
-            <article className="marketing-card digest-flow-card" key={item.number}>
-              <p className="marketing-step-number">{item.number}</p>
+            <article className="marketing-card digest-flow-card" key={item.title}>
+              <p className="marketing-step-number digest-flow-marker">{item.marker}</p>
               <h3 className="marketing-card-title">{item.title}</h3>
               <p className="marketing-card-copy">{item.description}</p>
             </article>
@@ -195,9 +201,8 @@ export default function MarketingPage() {
           </p>
           <p className="section-copy" style={{marginTop: "0.75rem"}}>
             We don&apos;t put our mark behind a business we wouldn&apos;t stand behind ourselves.
-            five* exists to bring Louisiana customers and businesses closer together, from the
-            northern parishes down to the coast. The best businesses are the ones that never stop
-            listening.
+            five* exists to bring customers and businesses closer together. The best businesses
+            are the ones that never stop listening.
           </p>
         </div>
       </section>
