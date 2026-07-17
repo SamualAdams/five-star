@@ -13,9 +13,9 @@ const PAIN_POINTS = [
       "When customers know you're listening, they bring problems to you privately instead of venting on Google and other review boards. five* gives them somewhere to go before that happens.",
   },
   {
-    title: "Too many channels, not enough signal",
+    title: "Stars don't tell you what to fix",
     description:
-      "Google, Yelp, Facebook. It's scattered and noisy. five* delivers what matters without the channel-hopping.",
+      "Google, Yelp, and Facebook shape how new customers judge you, so they matter. But a rating alone won't tell you what to change. five* gives you the honest feedback behind the scores, so you know exactly what to improve.",
   },
 ];
 
@@ -118,13 +118,13 @@ export default function MarketingPage() {
           <p className="section-kicker">The silent majority</p>
           <h2 className="section-title">Most customers who could help you never say a word.</h2>
           <p className="section-copy">
-            Think about the customer who noticed something off but didn&apos;t want to hurt your business.
-            They weren&apos;t going to leave a bad review. They weren&apos;t going to ask for the manager
-            either &mdash; that&apos;s not how most people are wired. So they said nothing, left a polite tip,
-            and you never found out &ndash; and you never saw them again.
+            Think about the customer who noticed something was off but didn&apos;t want to hurt your business.
+            They weren&apos;t going to leave a bad review, and they weren&apos;t going to ask for the manager
+            &mdash; that&apos;s just not how most people are wired. So they said nothing, left a polite tip,
+            and walked out &mdash; you never found out, and you never saw them again.
           </p>
           <p className="section-copy" style={{marginTop: "0.75rem"}}>
-            five* gives those customers somewhere to go. The ones who want to help, finally can &ndash; but in private.
+            five* gives those customers somewhere to go &mdash; so the ones who want to help finally can, in private.
           </p>
         </div>
       </section>
@@ -134,7 +134,7 @@ export default function MarketingPage() {
           <p className="section-kicker">Sound familiar?</p>
           <h2 className="section-title">The current system is broken.</h2>
           <p className="section-copy">
-            Louisiana people want to spend money here: food, dates, gatherings, and
+            People want to spend money at the places they love: food, dates, gatherings, and
             everything that makes their communities work. But there&apos;s no real way for customers
             to work <em>with</em> businesses. Feedback either never happens, turns into gossip,
             or ends up as a bad review.
@@ -172,7 +172,7 @@ export default function MarketingPage() {
 
       <section className="section-shell digest-section">
         <div className="section-header">
-          <p className="section-kicker">The payoff</p>
+          <p className="section-kicker">The result</p>
           <h2 className="section-title">One clear report built from many customer submissions.</h2>
           <p className="section-copy">
             We call this a report. five* turns raw feedback into a structured summary of patterns, priorities, and
@@ -201,9 +201,8 @@ export default function MarketingPage() {
           </p>
           <p className="section-copy" style={{marginTop: "0.75rem"}}>
             We don&apos;t put our mark behind a business we wouldn&apos;t stand behind ourselves.
-            five* exists to bring Louisiana customers and businesses closer together, from the
-            northern parishes down to the coast. The best businesses are the ones that never stop
-            listening.
+            five* exists to bring customers and businesses closer together. The best businesses
+            are the ones that never stop listening.
           </p>
         </div>
       </section>
