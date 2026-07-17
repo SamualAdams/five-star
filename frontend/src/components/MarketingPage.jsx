@@ -77,8 +77,8 @@ export default function MarketingPage() {
           </h1>
           <p className="marketing-copy">
             Your customers want you to succeed. They just need a way to tell you
-            what&apos;s working and what isn&apos;t. five* gives them that channel
-            and gives you a clear summary of what to do next.
+            what&apos;s working &mdash; and what isn&apos;t. <strong>five*</strong> gives them that
+            channel and gives you a clear summary of what to do next.
           </p>
 
           <div className="marketing-actions">

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import DemoSearchScreen from "./DemoSearchScreen";
 import DemoFeedbackScreen from "./DemoFeedbackScreen";
@@ -14,9 +14,23 @@ export default function HomeDemo() {
   const [digestGenerated, setDigestGenerated] = useState(false);
   const [digestPublished, setDigestPublished] = useState(false);
   const [digestFormat, setDigestFormat] = useState("full");
+  const frameRef = useRef(null);
+  const hasMounted = useRef(false);
 
   const step = DEMO_STEPS[stepIndex];
   const isLast = stepIndex === DEMO_STEPS.length - 1;
+
+  // Screens vary a lot in height (e.g. the share screen starts short, then
+  // grows once published). Re-anchor to the top of the frame on every step
+  // change so a shrinking screen never leaves the viewport scrolled past
+  // the part the user is meant to see.
+  useEffect(() => {
+    if (!hasMounted.current) {
+      hasMounted.current = true;
+      return;
+    }
+    frameRef.current?.scrollIntoView({ block: "start" });
+  }, [stepIndex]);
 
   function goTo(index) {
     // Keep later steps consistent even if scripted actions were skipped
@@ -129,7 +143,7 @@ export default function HomeDemo() {
         <span className="demo-step-count">Step {stepIndex + 1} of {DEMO_STEPS.length}</span>
       </div>
 
-      <div className="home-demo-frame">
+      <div className="home-demo-frame" ref={frameRef}>
         <div className="home-demo-chrome">
           <span className="home-demo-chrome-dots" aria-hidden="true">
             <span className="home-demo-chrome-dot" />
