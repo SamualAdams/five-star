@@ -1,3 +1,4 @@
+import BrandName from "../BrandName";
 import { DEMO_DIGEST, DEMO_ORG } from "./demoData";
 
 export const DIGEST_FORMATS = [
@@ -93,7 +94,7 @@ export default function DemoDigestView({ format = "full" }) {
               <li key={i}>{item}</li>
             ))}
           </ol>
-          <p>— sent with five*</p>
+          <p>&mdash; sent with <BrandName /></p>
         </div>
       </div>
     );
