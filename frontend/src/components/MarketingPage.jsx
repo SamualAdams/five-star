@@ -5,7 +5,7 @@ const PAIN_POINTS = [
   {
     title: "You don't have time to chase reviews",
     description:
-      "Most owners know something's off before a bad review hits. They just don't have a system to catch it early. five* gives you one, for just 2 cents per customer submission.",
+      "You often know something's off before a bad review hits. You just don't have a system to catch it early. five* gives you one, for just 2 cents per customer submission.",
   },
   {
     title: "Frustrated customers vent to you, not about you",
@@ -100,8 +100,8 @@ export default function MarketingPage() {
         </div>
 
         <aside className="marketing-panel marketing-panel--aside">
-          <p className="section-kicker">What owners get</p>
-          <h2 className="marketing-side-title">A lightweight system that helps businesses hear what matters.</h2>
+          <p className="section-kicker">What you get</p>
+          <h2 className="marketing-side-title">A lightweight system that helps you hear what matters.</h2>
           <div className="marketing-benefit-list">
             {BENEFITS.map((benefit) => (
               <div className="marketing-benefit" key={benefit}>
