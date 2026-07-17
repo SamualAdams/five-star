@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import BrandName from "../BrandName";
 import DemoSearchScreen from "./DemoSearchScreen";
 import DemoFeedbackScreen from "./DemoFeedbackScreen";
 import DemoDashboardScreen from "./DemoDashboardScreen";
@@ -53,7 +54,7 @@ export default function HomeDemo() {
           <div className="demo-screen">
             <div className="demo-inter-card">
               <p className="section-kicker">Interactive demo</p>
-              <h3 className="demo-inter-title">See five* from both sides.</h3>
+              <h3 className="demo-inter-title">See <BrandName /> from both sides.</h3>
               <p className="demo-inter-copy">
                 First you&apos;ll play the customer leaving feedback for{" "}
                 <strong>{DEMO_ORG.name}</strong>, a (fictional) café in {DEMO_ORG.city}. Then
@@ -127,19 +128,14 @@ export default function HomeDemo() {
   }
 
   return (
-    <section className="section-shell home-demo" id="demo">
+    <section className="home-demo" id="demo">
       <div className="section-header">
         <p className="section-kicker">Try it</p>
         <h2 className="section-title">See the whole loop in 60 seconds.</h2>
-        <p className="section-copy">
-          Click through a real example — first as your customer, then as you. Nothing here is
-          live and no account is needed.
-        </p>
       </div>
 
       <div className="home-demo-captionbar">
         <span className="demo-kicker-chip">{step.kicker}</span>
-        <p className="demo-caption">{step.caption}</p>
         <span className="demo-step-count">Step {stepIndex + 1} of {DEMO_STEPS.length}</span>
       </div>
 

@@ -1,21 +1,22 @@
 import { Link } from "react-router-dom";
+import BrandName, { BrandedText } from "./BrandName";
 import HomeDemo from "./demo/HomeDemo";
 
 const PAIN_POINTS = [
   {
     title: "You don't have time to chase reviews",
     description:
-      "You often know something's off before a bad review hits. You just don't have a system to catch it early. five* gives you one, for just 2 cents per customer submission.",
+      "You often sense something is off before a bad review appears. five* gives you a simple way to catch it early.",
   },
   {
     title: "Frustrated customers vent to you, not about you",
     description:
-      "When customers know you're listening, they bring problems to you privately instead of venting on Google and other review boards. five* gives them somewhere to go before that happens.",
+      "When customers know you're listening, they bring problems to you privately instead of venting on public review sites.",
   },
   {
     title: "Stars don't tell you what to fix",
     description:
-      "Google, Yelp, and Facebook shape how new customers judge you, so they matter. But a rating alone won't tell you what to change. five* gives you the honest feedback behind the scores, so you know exactly what to improve.",
+      "Ratings shape first impressions, but they rarely explain what to fix. five* gives you the feedback behind the score.",
   },
 ];
 
@@ -42,19 +43,19 @@ const STEPS = [
 
 const DIGEST_FLOW = [
   {
-    marker: "›",
+    number: "01",
     title: "Gather many submissions",
     description:
       "Customers share feedback over time, giving you more than a few isolated comments to react to.",
   },
   {
-    marker: "›",
+    number: "02",
     title: "Turn patterns into a report",
     description:
       "five* converts those submissions into an insight-driven report with a summary, clear themes, and practical next steps.",
   },
   {
-    marker: "›",
+    number: "03",
     title: "Review, refine, and share",
     description:
       "Review and modify the report, then share it with your team so everyone is aligned on what to improve and what to protect.",
@@ -77,7 +78,7 @@ export default function MarketingPage() {
           </h1>
           <p className="marketing-copy">
             Your customers want you to succeed. They just need a way to tell you
-            what&apos;s working &mdash; and what isn&apos;t. <strong>five*</strong> gives them that
+            what&apos;s working &mdash; and what isn&apos;t. <strong><BrandName /></strong> gives them that
             channel and gives you a clear summary of what to do next.
           </p>
 
@@ -93,10 +94,6 @@ export default function MarketingPage() {
             </Link>
           </div>
 
-          <div className="marketing-pill-row">
-            <span className="marketing-pill">Proudly built in Louisiana</span>
-            <span className="marketing-pill">Just 2 cents per customer submission</span>
-          </div>
         </div>
 
         <aside className="marketing-panel marketing-panel--aside">
@@ -124,7 +121,7 @@ export default function MarketingPage() {
             and walked out &mdash; you never found out, and you never saw them again.
           </p>
           <p className="section-copy" style={{marginTop: "0.75rem"}}>
-            five* gives those customers somewhere to go &mdash; so the ones who want to help finally can, in private.
+            <BrandName /> gives those customers somewhere to go &mdash; so the ones who want to help finally can, in private.
           </p>
         </div>
       </section>
@@ -145,7 +142,7 @@ export default function MarketingPage() {
           {PAIN_POINTS.map((point) => (
             <article className="marketing-card" key={point.title}>
               <h3 className="marketing-card-title">{point.title}</h3>
-              <p className="marketing-card-copy">{point.description}</p>
+              <p className="marketing-card-copy"><BrandedText>{point.description}</BrandedText></p>
             </article>
           ))}
         </div>
@@ -162,7 +159,7 @@ export default function MarketingPage() {
             <article className="marketing-card marketing-card--step" key={step.number}>
               <p className="marketing-step-number">{step.number}</p>
               <h3 className="marketing-card-title">{step.title}</h3>
-              <p className="marketing-card-copy">{step.description}</p>
+              <p className="marketing-card-copy"><BrandedText>{step.description}</BrandedText></p>
             </article>
           ))}
         </div>
@@ -175,35 +172,45 @@ export default function MarketingPage() {
           <p className="section-kicker">The result</p>
           <h2 className="section-title">One clear report built from many customer submissions.</h2>
           <p className="section-copy">
-            We call this a report. five* turns raw feedback into a structured summary of patterns, priorities, and
+            We call this a report. <BrandName /> turns raw feedback into a structured summary of patterns, priorities, and
             next steps your team can act on. No more reading every comment one by one.
           </p>
         </div>
 
         <div className="digest-flow-grid">
           {DIGEST_FLOW.map((item) => (
-            <article className="marketing-card digest-flow-card" key={item.title}>
-              <p className="marketing-step-number digest-flow-marker">{item.marker}</p>
+            <article className="marketing-card digest-flow-card" key={item.number}>
+              <p className="marketing-step-number">{item.number}</p>
               <h3 className="marketing-card-title">{item.title}</h3>
-              <p className="marketing-card-copy">{item.description}</p>
+              <p className="marketing-card-copy"><BrandedText>{item.description}</BrandedText></p>
             </article>
           ))}
         </div>
       </section>
 
-      <section className="section-shell">
-        <div className="section-header">
-          <p className="section-kicker">Why five*</p>
-          <h2 className="section-title">The asterisk means this business is listening.</h2>
-          <p className="section-copy">
-            The five* mark in an establishment is a symbol of unity between a business and its
-            community. It tells every customer: <em>we care, and we want to hear from you.</em>
-          </p>
-          <p className="section-copy" style={{marginTop: "0.75rem"}}>
-            We don&apos;t put our mark behind a business we wouldn&apos;t stand behind ourselves.
-            five* exists to bring customers and businesses closer together. The best businesses
-            are the ones that never stop listening.
-          </p>
+      <section className="section-shell why-five-section">
+        <div className="why-five-layout">
+          <div className="section-header">
+            <p className="section-kicker">Why <BrandName /></p>
+            <h2 className="section-title">The asterisk means this business is listening.</h2>
+            <p className="section-copy">
+              Displaying the <BrandName /> mark is always optional. When a partner wants it, its
+              size, material, and placement are tailored to feel at home in the space. It quietly
+              tells customers: <em>we welcome feedback.</em>
+            </p>
+            <p className="section-copy" style={{marginTop: "0.75rem"}}>
+              That might be a discreet window mark, a small counter detail, or no physical mark at
+              all. The partnership is about listening; the symbol is simply one way to show it.
+            </p>
+          </div>
+
+          <figure className="why-five-figure">
+            <img
+              className="why-five-image"
+              src="/brand/five-star-mark.png"
+              alt="A subtle five-star mark displayed on a storefront window"
+            />
+          </figure>
         </div>
       </section>
 

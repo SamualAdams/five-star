@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { listOrganizations, me } from "./api";
 import AuthPage from "./components/AuthPage";
+import BrandName from "./components/BrandName";
 import CreateOrgModal from "./components/CreateOrgModal";
 import DigestManager from "./components/DigestManager";
 import DigestsPage from "./components/DigestsPage";
@@ -354,7 +355,7 @@ function Dashboard({ token, currentOrg, currentOrgId, organizations, onOrgChange
   if (!organizations.length) {
     return (
       <div className="dashboard-empty">
-        <h2>Welcome to five*</h2>
+        <h2>Welcome to <BrandName /></h2>
         <p>Create your first organization to get started.</p>
         <button type="button" className="btn btn--primary" onClick={onShowCreateOrg}>
           Create organization

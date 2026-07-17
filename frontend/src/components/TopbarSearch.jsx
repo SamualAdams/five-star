@@ -2,6 +2,23 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { searchOrganizations } from "../api";
 
+function SearchIcon({ muted = false }) {
+  return (
+    <svg
+      className={`search-icon-svg${muted ? " search-icon-svg--muted" : ""}`}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      <circle cx="10.8" cy="10.8" r="6.6" />
+      <path d="m16 16 4.4 4.4" />
+    </svg>
+  );
+}
+
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(() => window.matchMedia("(max-width: 480px)").matches);
   useEffect(() => {
@@ -178,7 +195,7 @@ export default function TopbarSearch() {
             }}
             className="topbar-search-wrap"
           >
-            <span style={{ color: "#8a9aaa", fontSize: "1.2rem", flexShrink: 0 }}>⌕</span>
+            <SearchIcon muted />
             <input
               ref={inputRef}
               type="text"
@@ -210,7 +227,7 @@ export default function TopbarSearch() {
             aria-label="Search organizations"
             onClick={expand}
           >
-            <span style={{ fontSize: "1.6rem", lineHeight: 1, color: "var(--color-ink)" }}>⌕</span>
+            <SearchIcon />
           </button>
         )}
         {resultList}
@@ -227,7 +244,7 @@ export default function TopbarSearch() {
         aria-label="Search organizations"
         onClick={isExpanded ? collapse : expand}
       >
-        <span style={{ fontSize: "1.6rem", lineHeight: 1, color: "var(--color-ink)" }}>⌕</span>
+        <SearchIcon />
       </button>
 
       {isExpanded && (
@@ -259,7 +276,7 @@ export default function TopbarSearch() {
                 boxShadow: "0 4px 20px rgba(45, 27, 66, 0.12)",
               }}
             >
-              <span style={{ color: "#8a9aaa", fontSize: "1.2rem", flexShrink: 0 }}>⌕</span>
+              <SearchIcon muted />
               <input
                 ref={inputRef}
                 type="text"
