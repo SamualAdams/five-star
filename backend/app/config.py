@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     frontend_origin: str = "http://localhost:5173"
     openai_api_key: str = ""
     sendgrid_api_key: str = ""
-    sender_email: str = "noreply@fivestarfeedback.app"
+    sender_email: str = "noreply@fivestar.fyi"
     app_base_url: str = "http://localhost:5173"
     rate_limit_enabled: bool = True
     sentry_dsn: str = ""
