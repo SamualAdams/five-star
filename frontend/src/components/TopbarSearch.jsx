@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { MessageSquarePlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { searchOrganizations } from "../api";
 
@@ -223,11 +224,13 @@ export default function TopbarSearch() {
         ) : (
           <button
             type="button"
-            className="hamburger"
-            aria-label="Search organizations"
+            className="topbar-feedback-trigger"
+            aria-label="Give feedback"
+            aria-expanded={false}
             onClick={expand}
           >
-            <SearchIcon />
+            <MessageSquarePlus className="topbar-feedback-icon" strokeWidth={2} aria-hidden="true" />
+            <span>Give feedback</span>
           </button>
         )}
         {resultList}
@@ -240,11 +243,13 @@ export default function TopbarSearch() {
     <>
       <button
         type="button"
-        className="hamburger"
-        aria-label="Search organizations"
+        className={`topbar-feedback-trigger${isExpanded ? " topbar-feedback-trigger--active" : ""}`}
+        aria-label="Give feedback"
+        aria-expanded={isExpanded}
         onClick={isExpanded ? collapse : expand}
       >
-        <SearchIcon />
+        <MessageSquarePlus className="topbar-feedback-icon" strokeWidth={2} aria-hidden="true" />
+        <span>Give feedback</span>
       </button>
 
       {isExpanded && (

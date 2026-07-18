@@ -72,7 +72,7 @@ export default function AuthPage({ loadOrganizations, onAuthenticated }) {
 
         <div className="auth-highlight-list">
           <div className="auth-highlight">
-            <h2>Just 2 cents per submission</h2>
+            <h2>Just 2 cents per customer submission</h2>
             <p>No subscriptions, no hidden fees — just pay for what you use.</p>
           </div>
           <div className="auth-highlight">
@@ -103,7 +103,7 @@ export default function AuthPage({ loadOrganizations, onAuthenticated }) {
               : pendingInvite
                 ? "Sign up or log in to accept your invite."
                 : mode === "signup"
-                  ? "Start improving customer experience — just 2 cents per submission."
+                  ? "Start improving customer experience — just 2 cents per customer submission."
                   : "Pick up where you left off."}
           </p>
 

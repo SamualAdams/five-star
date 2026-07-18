@@ -16,7 +16,7 @@ export default function HomeDemo() {
   const [digestPublished, setDigestPublished] = useState(false);
   const [digestFormat, setDigestFormat] = useState("full");
   const frameRef = useRef(null);
-  const hasMounted = useRef(false);
+  const previousStepIndex = useRef(stepIndex);
 
   const step = DEMO_STEPS[stepIndex];
   const isLast = stepIndex === DEMO_STEPS.length - 1;
@@ -26,10 +26,9 @@ export default function HomeDemo() {
   // change so a shrinking screen never leaves the viewport scrolled past
   // the part the user is meant to see.
   useEffect(() => {
-    if (!hasMounted.current) {
-      hasMounted.current = true;
-      return;
-    }
+    if (previousStepIndex.current === stepIndex) return;
+
+    previousStepIndex.current = stepIndex;
     frameRef.current?.scrollIntoView({ block: "start" });
   }, [stepIndex]);
 
