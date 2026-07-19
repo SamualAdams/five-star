@@ -44,7 +44,6 @@ export default function DemoShareScreen({ published, onPublish }) {
                 >
                   {isPublishing ? "Publishing…" : "Share with Organization"}
                 </button>
-                <p className="demo-note">Publishing makes the report visible to everyone on your team.</p>
               </div>
             )}
           </div>

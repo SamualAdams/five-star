@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Ban, Inbox, Mail, Megaphone, MessageCircleQuestion } from "lucide-react";
 import { Link } from "react-router-dom";
 import BrandName, { BrandedText } from "./BrandName";
@@ -196,9 +196,52 @@ const WHY_FIVE_PHOTOS = [
 
 export default function MarketingPage() {
   const [whyFivePhotoIndex, setWhyFivePhotoIndex] = useState(0);
+  const whyFiveSwipeRef = useRef(null);
+  const whyFiveSuppressClickRef = useRef(false);
 
-  function cycleWhyFivePhoto() {
-    setWhyFivePhotoIndex((index) => (index + 1) % WHY_FIVE_PHOTOS.length);
+  function cycleWhyFivePhoto(direction = 1) {
+    setWhyFivePhotoIndex(
+      (index) => (index + direction + WHY_FIVE_PHOTOS.length) % WHY_FIVE_PHOTOS.length
+    );
+  }
+
+  function handleWhyFivePointerDown(event) {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+
+    whyFiveSwipeRef.current = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+    };
+  }
+
+  function handleWhyFivePointerUp(event) {
+    const swipe = whyFiveSwipeRef.current;
+    whyFiveSwipeRef.current = null;
+
+    if (!swipe || swipe.pointerId !== event.pointerId) return;
+
+    const deltaX = event.clientX - swipe.x;
+    const deltaY = event.clientY - swipe.y;
+    const isHorizontalSwipe = Math.abs(deltaX) >= 44 && Math.abs(deltaX) > Math.abs(deltaY);
+
+    if (!isHorizontalSwipe) return;
+
+    whyFiveSuppressClickRef.current = true;
+    cycleWhyFivePhoto(deltaX < 0 ? 1 : -1);
+
+    window.setTimeout(() => {
+      whyFiveSuppressClickRef.current = false;
+    }, 0);
+  }
+
+  function handleWhyFiveClick() {
+    if (whyFiveSuppressClickRef.current) {
+      whyFiveSuppressClickRef.current = false;
+      return;
+    }
+
+    cycleWhyFivePhoto();
   }
 
   return (
@@ -246,9 +289,9 @@ export default function MarketingPage() {
         <div className="silent-majority-layout">
           <div className="constructive-chart" aria-label="Feedback channels ranked by useful context">
             <div className="constructive-context-scale" aria-hidden="true">
-              <span className="constructive-context-label">More useful context</span>
+              <span className="constructive-context-label">More useful</span>
               <span className="constructive-context-track" />
-              <span className="constructive-context-label">Less useful context</span>
+              <span className="constructive-context-label">Less useful</span>
             </div>
 
             <div className="constructive-stack">
@@ -406,10 +449,12 @@ export default function MarketingPage() {
             className="why-five-figure"
             role="button"
             tabIndex={0}
-            aria-label="Cycle through five-star placement photos"
-            onClick={cycleWhyFivePhoto}
-            onPointerEnter={(event) => {
-              if (event.pointerType === "mouse") cycleWhyFivePhoto();
+            aria-label={`Placement photo ${whyFivePhotoIndex + 1} of ${WHY_FIVE_PHOTOS.length}. Swipe left or right, or activate, to change photo.`}
+            onClick={handleWhyFiveClick}
+            onPointerDown={handleWhyFivePointerDown}
+            onPointerUp={handleWhyFivePointerUp}
+            onPointerCancel={() => {
+              whyFiveSwipeRef.current = null;
             }}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") {
@@ -429,6 +474,7 @@ export default function MarketingPage() {
                     src={photo.src}
                     alt={position === 0 ? photo.alt : ""}
                     aria-hidden={position === 0 ? undefined : "true"}
+                    draggable="false"
                     style={{ objectPosition: photo.objectPosition }}
                   />
                 );

@@ -65,7 +65,6 @@ function FeedbackForm({ onSubmitted }) {
         <button className="btn btn--primary btn--large" type="submit" disabled={isSubmitting}>
           {isSubmitting ? "Submitting..." : "Submit Feedback"}
         </button>
-        <p className="demo-note">We prefilled this one for you — edit it if you like, then hit submit.</p>
       </form>
     </div>
   );
@@ -175,9 +174,6 @@ function ShareBoost({ draft, onDraftChange }) {
         ) : (
           <p className="review-share-hint">Clicking a platform copies your draft automatically.</p>
         )}
-        <p className="demo-note">
-          These links are set by the business — you pick which platforms to send your customers to.
-        </p>
       </div>
     </div>
   );

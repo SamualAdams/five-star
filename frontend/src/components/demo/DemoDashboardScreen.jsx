@@ -112,11 +112,6 @@ export default function DemoDashboardScreen({ focus, digestGenerated, onGenerate
           </DemoDigestCard>
         )}
 
-        {showFormats && (
-          <p className="demo-note">
-            One report, five ways to read it — try the formats above. You can also edit any line before sharing.
-          </p>
-        )}
       </div>
     </div>
   );
