@@ -110,51 +110,50 @@ export const DEMO_MEMBERS = [
 export const DEMO_STEPS = [
   {
     id: "intro",
-    kicker: "The demo",
     caption: "A 60-second tour of five* — first as your customer, then as you.",
     url: "fivestar.fyi",
   },
   {
     id: "search",
-    kicker: "Customer view",
     caption: "Your customer searches for your business — no account, no app.",
+    guidance: "Select Magnolia Roux Coffee & Kitchen to continue.",
     url: "fivestar.fyi/search",
   },
   {
     id: "feedback",
-    kicker: "Customer view",
     caption: "They write honest, private feedback. It goes to you — not to the internet.",
+    guidance: "Review the prefilled feedback, edit it if you like, then submit it.",
     url: "fivestar.fyi/feedback/magnolia-roux",
   },
   {
     id: "boost",
-    kicker: "Customer view",
     caption:
       "Then five* nudges them to post publicly too — on the platforms you choose. It never pulls reviews away from Google or Yelp.",
+    guidance: "Try a writing style or copy the draft, then continue to the owner view.",
     url: "fivestar.fyi/feedback/magnolia-roux",
   },
   {
     id: "flip",
-    kicker: "Switching sides",
     caption: "That took your customer about 30 seconds. Now see what you get.",
+    guidance: "Switch to the owner dashboard to see where the feedback lands.",
     url: "fivestar.fyi/dashboard",
   },
   {
     id: "dashboard",
-    kicker: "Owner view",
     caption: "Every submission lands on your private dashboard. One click turns them into a report.",
+    guidance: "Generate the report, then continue to explore its formats.",
     url: "fivestar.fyi/dashboard",
   },
   {
     id: "formats",
-    kicker: "Owner view",
     caption: "Same report, your format — bullets, an action plan, or a ready-to-send email.",
+    guidance: "Choose a format to change how the same report is presented.",
     url: "fivestar.fyi/dashboard",
   },
   {
     id: "share",
-    kicker: "Owner view",
     caption: "Publish the report and your whole team sees the same priorities.",
+    guidance: "Share the report to reveal what the whole team sees.",
     url: "fivestar.fyi/dashboard",
   },
 ];

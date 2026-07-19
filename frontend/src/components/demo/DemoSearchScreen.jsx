@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { DEMO_ORG, DEMO_SEARCH_RESULTS } from "./demoData";
+import { DEMO_SEARCH_RESULTS } from "./demoData";
 
 export default function DemoSearchScreen({ onSelect }) {
   const [query, setQuery] = useState("magnolia");
@@ -45,9 +45,6 @@ export default function DemoSearchScreen({ onSelect }) {
                 </li>
               ))}
             </ul>
-            <p className="demo-note">
-              Click <strong>{DEMO_ORG.name}</strong> to leave them feedback.
-            </p>
           </div>
         ) : (
           <p className="search-no-results">
