@@ -8,14 +8,14 @@
   /* Brand */
   --color-primary: #087c80;
   --color-primary-hover: #076a6d;
-  --color-primary-soft: #eef7f6;
+  --color-primary-soft: #f4f8f7;
   --color-ink: #173c45;
   --color-ink-soft: #2a5660;
   --color-text: #304d4f;
   --color-muted: #6b7978;
 
   /* Surfaces and borders */
-  --color-bg: #ffffff;
+  --color-bg: #fdfdfc;
   --color-surface: #ffffff;
   --color-surface-strong: #ffffff;
   --color-surface-alt: #fafaf8;
@@ -45,6 +45,7 @@
   --color-neutral-soft: #e8ecf0;
   --color-star-muted: #d8d8d3;
   --color-avatar: #727a76;
+  --color-shadow: #222222;
 
   /* Shape */
   --radius-sm: 8px;
@@ -55,8 +56,8 @@
   --radius-pill: 999px;
 
   /* Elevation */
-  --shadow-control: 0 4px 12px color-mix(in srgb, var(--color-ink) 10%, transparent);
-  --shadow-card: 0 16px 36px color-mix(in srgb, var(--color-ink) 8%, transparent);
-  --shadow-soft: 0 22px 50px color-mix(in srgb, var(--color-ink) 7%, transparent);
-  --shadow-overlay: 0 20px 50px color-mix(in srgb, var(--color-ink) 18%, transparent);
+  --shadow-control: 0 4px 12px color-mix(in srgb, var(--color-shadow) 8%, transparent);
+  --shadow-card: 0 16px 36px color-mix(in srgb, var(--color-shadow) 6%, transparent);
+  --shadow-soft: 0 22px 50px color-mix(in srgb, var(--color-shadow) 5%, transparent);
+  --shadow-overlay: 0 20px 50px color-mix(in srgb, var(--color-shadow) 16%, transparent);
 }
