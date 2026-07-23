@@ -182,42 +182,77 @@ export default function HomeDemo() {
 
       <div className="home-demo-experience" ref={frameRef}>
         {stepIndex > 0 && (
-          <div className="demo-guidance">
-            <div className="demo-guidance-content">
-              <p className="demo-guidance-label">
-                {playbackMode ? (
-                  <Play size={14} fill="currentColor" aria-hidden="true" />
-                ) : (
-                  <MousePointerClick size={14} aria-hidden="true" />
-                )}
-                {playbackMode
-                  ? isPlaying
-                    ? "Playing automatically"
-                    : "Autoplay paused"
-                  : "Demo guide"}
-              </p>
-              <p className="demo-guidance-copy" aria-live="polite">
-                {playbackMode || (step.id === "share" && digestPublished)
-                  ? step.caption
-                  : step.guidance}
-              </p>
+          <>
+            <div className="demo-guidance">
+              <div className="demo-guidance-content">
+                <p className="demo-guidance-label">
+                  {playbackMode ? (
+                    <Play size={14} fill="currentColor" aria-hidden="true" />
+                  ) : (
+                    <MousePointerClick size={14} aria-hidden="true" />
+                  )}
+                  {playbackMode
+                    ? isPlaying
+                      ? "Playing automatically"
+                      : "Autoplay paused"
+                    : "Demo guide"}
+                </p>
+                <p className="demo-guidance-copy" aria-live="polite">
+                  {playbackMode || (step.id === "share" && digestPublished)
+                    ? step.caption
+                    : step.guidance}
+                </p>
+              </div>
+              {playbackMode && (
+                <button
+                  type="button"
+                  className="demo-playback-control"
+                  onClick={togglePlayback}
+                  aria-label={isPlaying ? "Pause autoplay" : "Resume autoplay"}
+                >
+                  {isPlaying ? (
+                    <Pause size={15} aria-hidden="true" />
+                  ) : (
+                    <Play size={15} fill="currentColor" aria-hidden="true" />
+                  )}
+                  {isPlaying ? "Pause" : "Resume"}
+                </button>
+              )}
             </div>
-            {playbackMode && (
+
+            <div className="home-demo-controls">
               <button
                 type="button"
-                className="demo-playback-control"
-                onClick={togglePlayback}
-                aria-label={isPlaying ? "Pause autoplay" : "Resume autoplay"}
+                className="btn btn--ghost btn--sm"
+                onClick={() => goTo(stepIndex - 1)}
               >
-                {isPlaying ? (
-                  <Pause size={15} aria-hidden="true" />
-                ) : (
-                  <Play size={15} fill="currentColor" aria-hidden="true" />
-                )}
-                {isPlaying ? "Pause" : "Resume"}
+                ← Back
               </button>
-            )}
-          </div>
+
+              <span className="demo-progress" aria-live="polite">
+                Step {stepIndex} of {DEMO_STEPS.length - 1}
+              </span>
+
+              <div className="demo-controls-right">
+                <button type="button" className="demo-restart" onClick={restart}>
+                  Restart
+                </button>
+                {isLast ? (
+                  <Link className="btn btn--primary btn--sm" to="/auth?mode=signup">
+                    Get started
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn--primary btn--sm"
+                    onClick={() => goTo(stepIndex + 1)}
+                  >
+                    Next →
+                  </button>
+                )}
+              </div>
+            </div>
+          </>
         )}
 
         <div className="home-demo-frame">
@@ -238,40 +273,6 @@ export default function HomeDemo() {
         </div>
       </div>
 
-      {stepIndex > 0 && (
-        <div className="home-demo-controls">
-          <button
-            type="button"
-            className="btn btn--ghost btn--sm"
-            onClick={() => goTo(stepIndex - 1)}
-          >
-            ← Back
-          </button>
-
-          <span className="demo-progress" aria-live="polite">
-            Step {stepIndex} of {DEMO_STEPS.length - 1}
-          </span>
-
-          <div className="demo-controls-right">
-            <button type="button" className="demo-restart" onClick={restart}>
-              Restart
-            </button>
-            {isLast ? (
-              <Link className="btn btn--primary btn--sm" to="/auth?mode=signup">
-                Get started
-              </Link>
-            ) : (
-              <button
-                type="button"
-                className="btn btn--primary btn--sm"
-                onClick={() => goTo(stepIndex + 1)}
-              >
-                Next →
-              </button>
-            )}
-          </div>
-        </div>
-      )}
     </section>
   );
 }

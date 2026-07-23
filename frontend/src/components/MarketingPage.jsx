@@ -192,6 +192,11 @@ const WHY_FIVE_PHOTOS = [
     alt: "A five-star feedback sign displayed on a gym counter",
     objectPosition: "50% center",
   },
+  {
+    src: "/brand/five-star-water-cooler-qr.png",
+    alt: "A horizontal QR feedback sign displayed above an office water cooler",
+    objectPosition: "60% center",
+  },
 ];
 
 export default function MarketingPage() {
@@ -287,11 +292,12 @@ export default function MarketingPage() {
 
       <section className="section-shell silent-majority-section">
         <div className="silent-majority-layout">
-          <div className="constructive-chart" aria-label="Feedback channels ranked by useful context">
+          <div className="constructive-chart" aria-label="Feedback channels ranked from useful to impractical and noisy">
             <div className="constructive-context-scale" aria-hidden="true">
-              <span className="constructive-context-label">More useful</span>
+              <span className="constructive-context-label">Useful</span>
+              <span className="constructive-context-label constructive-context-label--middle">Impractical</span>
               <span className="constructive-context-track" />
-              <span className="constructive-context-label">Less useful</span>
+              <span className="constructive-context-label">Noisy</span>
             </div>
 
             <div className="constructive-stack">
