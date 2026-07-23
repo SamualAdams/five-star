@@ -603,7 +603,7 @@ select {
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--color-ink) 10%, transparent);
   border-radius: 28px;
-  background: color-mix(in srgb, var(--color-white) 98%, transparent);
+  background: var(--color-surface);
   box-shadow: var(--shadow-soft);
 }
 
