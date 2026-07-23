@@ -11,7 +11,7 @@ function DigestSection({ label, items }) {
           margin: "0 0 0.4rem",
           fontWeight: 700,
           fontSize: "0.82rem",
-          color: "#5e6770",
+          color: "var(--color-neutral)",
           textTransform: "uppercase",
           letterSpacing: "0.04em",
         }}
@@ -35,9 +35,9 @@ function DigestCard({ digest }) {
   return (
     <div
       style={{
-        border: "1px solid #d6dfe6",
+        border: "1px solid var(--color-border)",
         borderRadius: "12px",
-        background: "#fff",
+        background: "var(--color-white)",
         overflow: "hidden",
       }}
     >
@@ -66,8 +66,8 @@ function DigestCard({ digest }) {
               fontSize: "0.78rem",
               fontWeight: 700,
               flexShrink: 0,
-              background: "#e0f7ea",
-              color: "#1a7a3a",
+              background: "var(--color-success-bg)",
+              color: "var(--color-success)",
             }}
           >
             Published
@@ -76,7 +76,7 @@ function DigestCard({ digest }) {
             style={{
               fontSize: "0.95rem",
               fontWeight: 700,
-              color: "#2d1b42",
+              color: "var(--color-ink)",
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
@@ -86,25 +86,25 @@ function DigestCard({ digest }) {
               ? digest.period_start
               : `${digest.period_start} → ${digest.period_end}`}
           </span>
-          <span style={{ fontSize: "0.82rem", color: "#5e6770", flexShrink: 0 }}>
+          <span style={{ fontSize: "0.82rem", color: "var(--color-neutral)", flexShrink: 0 }}>
             {digest.feedback_count} submission{digest.feedback_count !== 1 ? "s" : ""}
           </span>
         </div>
-        <span style={{ color: "#5e6770", fontSize: "0.8rem", flexShrink: 0 }}>
+        <span style={{ color: "var(--color-neutral)", fontSize: "0.8rem", flexShrink: 0 }}>
           {expanded ? "▲" : "▼"}
         </span>
       </button>
 
       {expanded && (
         <div style={{ padding: "0 1rem 1rem" }}>
-          <div style={{ borderTop: "1px solid #f0f3f6", paddingTop: "1rem" }}>
+          <div style={{ borderTop: "1px solid var(--color-border-muted)", paddingTop: "1rem" }}>
             <div style={{ marginBottom: "1rem" }}>
               <p
                 style={{
                   margin: "0 0 0.4rem",
                   fontWeight: 700,
                   fontSize: "0.82rem",
-                  color: "#5e6770",
+                  color: "var(--color-neutral)",
                   textTransform: "uppercase",
                   letterSpacing: "0.04em",
                 }}
@@ -118,7 +118,7 @@ function DigestCard({ digest }) {
             <DigestSection label="Long-Term Goals" items={digest.long_term_goals} />
 
             {digest.published_at && (
-              <p style={{ margin: "0.75rem 0 0", fontSize: "0.82rem", color: "#5e6770" }}>
+              <p style={{ margin: "0.75rem 0 0", fontSize: "0.82rem", color: "var(--color-neutral)" }}>
                 Published {new Date(digest.published_at).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}
               </p>
             )}

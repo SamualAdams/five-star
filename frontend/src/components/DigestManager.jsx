@@ -46,7 +46,7 @@ function ListEditor({ label, items, onChange }) {
 
   return (
     <div style={{ marginBottom: "1rem" }}>
-      <p style={{ margin: "0 0 0.4rem", fontWeight: 700, fontSize: "0.88rem", color: "#4f5a66" }}>
+      <p style={{ margin: "0 0 0.4rem", fontWeight: 700, fontSize: "0.88rem", color: "var(--color-neutral-strong)" }}>
         {label}
       </p>
       <div style={{ display: "grid", gap: "0.4rem" }}>
@@ -84,7 +84,7 @@ function DigestViewer({ digest }) {
   return (
     <div style={{ display: "grid", gap: "1rem" }}>
       <div>
-        <p style={{ margin: "0 0 0.3rem", fontWeight: 700, fontSize: "0.88rem", color: "#4f5a66", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+        <p style={{ margin: "0 0 0.3rem", fontWeight: 700, fontSize: "0.88rem", color: "var(--color-neutral-strong)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
           Summary
         </p>
         <p style={{ margin: 0, lineHeight: 1.6 }}>{digest.summary}</p>
@@ -96,7 +96,7 @@ function DigestViewer({ digest }) {
         { key: "long_term_goals", label: "Long-Term Goals" },
       ].map(({ key, label }) => (
         <div key={key}>
-          <p style={{ margin: "0 0 0.4rem", fontWeight: 700, fontSize: "0.88rem", color: "#4f5a66", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+          <p style={{ margin: "0 0 0.4rem", fontWeight: 700, fontSize: "0.88rem", color: "var(--color-neutral-strong)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
             {label}
           </p>
           <ul style={{ margin: 0, paddingLeft: "1.2rem" }}>
@@ -158,7 +158,7 @@ function DigestEditor({ digest, token, orgId, onSaved, onPublished, onCancel }) 
       {error && <p className="message message--error">{error}</p>}
 
       <div>
-        <p style={{ margin: "0 0 0.4rem", fontWeight: 700, fontSize: "0.88rem", color: "#4f5a66", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+        <p style={{ margin: "0 0 0.4rem", fontWeight: 700, fontSize: "0.88rem", color: "var(--color-neutral-strong)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
           Summary
         </p>
         <textarea
@@ -187,7 +187,7 @@ function DigestEditor({ digest, token, orgId, onSaved, onPublished, onCancel }) 
           className="btn btn--sm"
           onClick={handlePublish}
           disabled={isSaving || isPublishing}
-          style={{ background: "#1a7a3a", color: "#fff", border: "1px solid transparent" }}
+          style={{ background: "var(--color-success)", color: "var(--color-white)", border: "1px solid transparent" }}
         >
           {isPublishing ? "Publishing…" : "Share with Organization"}
         </button>
@@ -227,9 +227,9 @@ function DigestCard({ digest, token, orgId, isAdmin, onUpdate, onDelete }) {
   return (
     <div
       style={{
-        border: "1px solid #d6dfe6",
+        border: "1px solid var(--color-border)",
         borderRadius: "12px",
-        background: "#fff",
+        background: "var(--color-white)",
         overflow: "hidden",
       }}
     >
@@ -259,28 +259,28 @@ function DigestCard({ digest, token, orgId, isAdmin, onUpdate, onDelete }) {
               fontSize: "0.78rem",
               fontWeight: 700,
               flexShrink: 0,
-              background: isDraft ? "#fff3cd" : "#e0f7ea",
-              color: isDraft ? "#856404" : "#1a7a3a",
+              background: isDraft ? "var(--color-warning-bg)" : "var(--color-success-bg)",
+              color: isDraft ? "var(--color-warning)" : "var(--color-success)",
             }}
           >
             {isDraft ? "Draft" : "Published"}
           </span>
-          <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "#2d1b42", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--color-ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {digest.period_start === digest.period_end
               ? digest.period_start
               : `${digest.period_start} → ${digest.period_end}`}
           </span>
-          <span style={{ fontSize: "0.82rem", color: "#5e6770", flexShrink: 0 }}>
+          <span style={{ fontSize: "0.82rem", color: "var(--color-neutral)", flexShrink: 0 }}>
             {digest.feedback_count} submission{digest.feedback_count !== 1 ? "s" : ""}
           </span>
         </div>
-        <span style={{ color: "#5e6770", fontSize: "0.8rem", flexShrink: 0 }}>{expanded ? "▲" : "▼"}</span>
+        <span style={{ color: "var(--color-neutral)", fontSize: "0.8rem", flexShrink: 0 }}>{expanded ? "▲" : "▼"}</span>
       </button>
 
       {/* Expanded body */}
       {expanded && (
         <div style={{ padding: "0 1rem 1rem" }}>
-          <div style={{ borderTop: "1px solid #f0f3f6", paddingTop: "1rem" }}>
+          <div style={{ borderTop: "1px solid var(--color-border-muted)", paddingTop: "1rem" }}>
             {editing ? (
               <DigestEditor
                 digest={digest}
@@ -405,8 +405,8 @@ export default function DigestManager({ token, orgId, isAdmin }) {
                 padding: "0.3rem 0.6rem",
                 borderRadius: "6px",
                 border: "none",
-                background: selectedHorizon.days === h.days ? "var(--color-primary)" : "#e5e7eb",
-                color: selectedHorizon.days === h.days ? "white" : "#6b7280",
+                background: selectedHorizon.days === h.days ? "var(--color-primary)" : "var(--color-border)",
+                color: selectedHorizon.days === h.days ? "var(--color-white)" : "var(--color-muted)",
                 fontSize: "0.75rem",
                 fontWeight: selectedHorizon.days === h.days ? "600" : "500",
                 cursor: "pointer",
@@ -429,10 +429,10 @@ export default function DigestManager({ token, orgId, isAdmin }) {
           style={{
             width: "100%",
             padding: "0.5rem",
-            border: "1px solid #d1d5db",
+            border: "1px solid var(--color-border)",
             borderRadius: "6px",
             fontSize: "0.9rem",
-            background: "#fff",
+            background: "var(--color-white)",
             cursor: "pointer",
           }}
         >
@@ -475,7 +475,7 @@ export default function DigestManager({ token, orgId, isAdmin }) {
       {/* Digest list */}
       {digests.length > 0 ? (
         <div style={{ display: "grid", gap: "0.6rem" }}>
-          <p style={{ margin: "0 0 0.4rem", fontWeight: 700, fontSize: "0.88rem", color: "#4f5a66", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+          <p style={{ margin: "0 0 0.4rem", fontWeight: 700, fontSize: "0.88rem", color: "var(--color-neutral-strong)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
             {digests.length} digest{digests.length !== 1 ? "s" : ""}
           </p>
           {digests.map((d) => (

@@ -74,8 +74,8 @@ export default function SubmissionsChart({ data, days, loading = false, total, h
     <div
       ref={chartRef}
       style={{
-        background: "#fafcfd",
-        border: "1px solid #e3eaf0",
+        background: "var(--color-surface-alt)",
+        border: "1px solid var(--color-border-muted)",
         borderRadius: "12px",
         padding: "1rem 0.5rem 0.5rem",
         marginBottom: "1rem",
@@ -83,26 +83,26 @@ export default function SubmissionsChart({ data, days, loading = false, total, h
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 0.75rem", marginBottom: "0.5rem" }}>
-        <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#5e6770", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+        <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--color-neutral)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
           Submissions
         </span>
         {!loading && (
-          <span style={{ fontSize: "0.82rem", color: "#5e6770" }}>
+          <span style={{ fontSize: "0.82rem", color: "var(--color-neutral)" }}>
             {total} total
           </span>
         )}
       </div>
       {loading ? (
-        <div style={{ height, display: "grid", placeItems: "center", color: "#5e6770", fontSize: "0.9rem" }}>
+        <div style={{ height, display: "grid", placeItems: "center", color: "var(--color-neutral)", fontSize: "0.9rem" }}>
           Loading…
         </div>
       ) : (
         <ResponsiveContainer width="100%" height={height}>
           <LineChart data={formattedData} margin={axisMargin}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e3eaf0" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-muted)" vertical={false} />
             <XAxis
               dataKey="label"
-              tick={{ fontSize: compact ? 10 : 11, fill: "#5e6770" }}
+              tick={{ fontSize: compact ? 10 : 11, fill: "var(--color-neutral)" }}
               tickLine={false}
               axisLine={false}
               interval={tickInterval}
@@ -111,23 +111,23 @@ export default function SubmissionsChart({ data, days, loading = false, total, h
             />
             <YAxis
               allowDecimals={false}
-              tick={{ fontSize: 11, fill: "#5e6770" }}
+              tick={{ fontSize: 11, fill: "var(--color-neutral)" }}
               tickLine={false}
               axisLine={false}
               width={32}
             />
             <Tooltip
-              contentStyle={{ borderRadius: "8px", border: "1px solid #d6dfe6", fontSize: "0.88rem" }}
-              labelStyle={{ fontWeight: 700, color: "#2d1b42" }}
-              itemStyle={{ color: "#5a8faf" }}
+              contentStyle={{ borderRadius: "8px", border: "1px solid var(--color-border)", fontSize: "0.88rem" }}
+              labelStyle={{ fontWeight: 700, color: "var(--color-ink)" }}
+              itemStyle={{ color: "var(--color-primary)" }}
               formatter={(val) => [val, "submissions"]}
             />
             <Line
               type="monotone"
               dataKey="count"
-              stroke="#5a8faf"
+              stroke="var(--color-primary)"
               strokeWidth={2}
-              dot={days <= 14 ? { r: 3, fill: "#5a8faf" } : false}
+              dot={days <= 14 ? { r: 3, fill: "var(--color-primary)" } : false}
               activeDot={{ r: 5 }}
             />
           </LineChart>

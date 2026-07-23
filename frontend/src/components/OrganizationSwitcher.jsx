@@ -23,7 +23,7 @@ export default function OrganizationSwitcher({ organizations, currentOrgId, onOr
         }}
       >
         <span style={{ flex: 1, textAlign: "left" }}>{displayLabel}</span>
-        <span style={{ fontSize: "0.75rem", color: "#5e6770" }}>▼</span>
+        <span style={{ fontSize: "0.75rem", color: "var(--color-neutral)" }}>▼</span>
       </button>
 
       {isOpen && (
@@ -33,10 +33,10 @@ export default function OrganizationSwitcher({ organizations, currentOrgId, onOr
             top: "calc(100% + 8px)",
             left: 0,
             minWidth: "100%",
-            border: "1px solid #d6dfe6",
+            border: "1px solid var(--color-border)",
             borderRadius: "12px",
-            background: "white",
-            boxShadow: "0 4px 12px rgba(45, 27, 66, 0.1)",
+            background: "var(--color-white)",
+            boxShadow: "0 4px 12px color-mix(in srgb, var(--color-ink) 10%, transparent)",
             zIndex: 40,
             overflow: "hidden",
           }}
@@ -54,17 +54,17 @@ export default function OrganizationSwitcher({ organizations, currentOrgId, onOr
                 textAlign: "left",
                 padding: "0.65rem 0.8rem",
                 border: "none",
-                background: org.id === currentOrgId ? "#f4f8fb" : "white",
+                background: org.id === currentOrgId ? "var(--color-primary-soft)" : "var(--color-white)",
                 cursor: "pointer",
                 fontSize: "0.95rem",
-                color: "#2d1b42",
+                color: "var(--color-ink)",
                 fontWeight: org.id === currentOrgId ? 700 : 400,
-                borderBottom: "1px solid #f0f3f6",
+                borderBottom: "1px solid var(--color-border-muted)",
               }}
-              onMouseEnter={(e) => (e.target.style.background = "#f9fafb")}
+              onMouseEnter={(e) => (e.target.style.background = "var(--color-surface-alt)")}
               onMouseLeave={(e) =>
                 (e.target.style.background =
-                  org.id === currentOrgId ? "#f4f8fb" : "white")
+                  org.id === currentOrgId ? "var(--color-primary-soft)" : "var(--color-white)")
               }
             >
               {org.name} ({org.role})
