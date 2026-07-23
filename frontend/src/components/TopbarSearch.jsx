@@ -139,10 +139,10 @@ export default function TopbarSearch() {
         top: "calc(100% + 6px)",
         right: 0,
         width: isMobile ? "100%" : 260,
-        border: "1px solid #d6dfe6",
+        border: "1px solid var(--color-border)",
         borderRadius: "12px",
-        background: "white",
-        boxShadow: "0 4px 12px rgba(45, 27, 66, 0.1)",
+        background: "var(--color-white)",
+        boxShadow: "0 4px 12px color-mix(in srgb, var(--color-ink) 10%, transparent)",
         zIndex: 50,
         overflow: "hidden",
       }}
@@ -161,8 +161,8 @@ export default function TopbarSearch() {
             textAlign: "left",
             padding: "0.65rem 0.9rem",
             border: "none",
-            borderBottom: idx < results.length - 1 ? "1px solid #f0f3f6" : "none",
-            background: idx === activeIndex ? "#f4f8fb" : "white",
+            borderBottom: idx < results.length - 1 ? "1px solid var(--color-border-muted)" : "none",
+            background: idx === activeIndex ? "var(--color-primary-soft)" : "var(--color-white)",
             cursor: "pointer",
             fontSize: "0.9rem",
             color: "var(--color-ink)",
@@ -172,7 +172,7 @@ export default function TopbarSearch() {
           }}
         >
           <span>{org.name}</span>
-          <span style={{ color: "#aab4be", fontSize: "0.8rem" }}>→</span>
+          <span style={{ color: "var(--color-muted)", fontSize: "0.8rem" }}>→</span>
         </button>
       ))}
     </div>
@@ -189,7 +189,7 @@ export default function TopbarSearch() {
               alignItems: "center",
               border: "1px solid var(--color-border)",
               borderRadius: "12px",
-              background: "rgba(255, 253, 247, 0.92)",
+              background: "color-mix(in srgb, var(--color-surface) 92%, transparent)",
               padding: "0 0.75rem",
               gap: "0.4rem",
               width: 220,
@@ -218,7 +218,7 @@ export default function TopbarSearch() {
               aria-expanded={isOpen}
             />
             {isSearching && (
-              <span style={{ color: "#aab4be", fontSize: "0.75rem", flexShrink: 0 }}>…</span>
+              <span style={{ color: "var(--color-muted)", fontSize: "0.75rem", flexShrink: 0 }}>…</span>
             )}
           </div>
         ) : (
@@ -273,12 +273,12 @@ export default function TopbarSearch() {
               style={{
                 display: "flex",
                 alignItems: "center",
-                background: "white",
+                background: "var(--color-white)",
                 border: "1px solid var(--color-border)",
                 borderRadius: results.length > 0 && isOpen ? "16px 16px 0 0" : "16px",
                 padding: "0 1rem",
                 gap: "0.5rem",
-                boxShadow: "0 4px 20px rgba(45, 27, 66, 0.12)",
+                boxShadow: "0 4px 20px color-mix(in srgb, var(--color-ink) 12%, transparent)",
               }}
             >
               <SearchIcon muted />
@@ -303,7 +303,7 @@ export default function TopbarSearch() {
                 aria-expanded={isOpen}
               />
               {isSearching && (
-                <span style={{ color: "#aab4be", fontSize: "0.8rem", flexShrink: 0 }}>…</span>
+                <span style={{ color: "var(--color-muted)", fontSize: "0.8rem", flexShrink: 0 }}>…</span>
               )}
             </div>
 
@@ -313,8 +313,8 @@ export default function TopbarSearch() {
                   border: "1px solid var(--color-border)",
                   borderTop: "none",
                   borderRadius: "0 0 16px 16px",
-                  background: "white",
-                  boxShadow: "0 8px 20px rgba(45, 27, 66, 0.1)",
+                  background: "var(--color-white)",
+                  boxShadow: "0 8px 20px color-mix(in srgb, var(--color-ink) 10%, transparent)",
                   overflow: "hidden",
                 }}
                 role="listbox"
@@ -332,8 +332,8 @@ export default function TopbarSearch() {
                       textAlign: "left",
                       padding: "0.75rem 1rem",
                       border: "none",
-                      borderBottom: idx < results.length - 1 ? "1px solid #f0f3f6" : "none",
-                      background: idx === activeIndex ? "#f4f8fb" : "white",
+                      borderBottom: idx < results.length - 1 ? "1px solid var(--color-border-muted)" : "none",
+                      background: idx === activeIndex ? "var(--color-primary-soft)" : "var(--color-white)",
                       cursor: "pointer",
                       fontSize: "0.95rem",
                       color: "var(--color-ink)",
@@ -343,7 +343,7 @@ export default function TopbarSearch() {
                     }}
                   >
                     <span>{org.name}</span>
-                    <span style={{ color: "#aab4be", fontSize: "0.85rem" }}>→</span>
+                    <span style={{ color: "var(--color-muted)", fontSize: "0.85rem" }}>→</span>
                   </button>
                 ))}
               </div>
