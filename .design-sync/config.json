@@ -1,0 +1,22 @@
+{
+  "projectId": "57c8084f-4afd-4ca0-af3f-3b3e558cbb8c",
+  "pkg": "five-star-frontend",
+  "globalName": "FiveStar",
+  "shape": "package",
+  "buildCmd": "node scripts/build-ds-css.mjs",
+  "srcDir": "src",
+  "cssEntry": ".ds-css/design-system.css",
+  "componentSrcMap": {
+    "BrandName": "src/components/BrandName.jsx",
+    "BrandedText": "src/components/BrandName.jsx"
+  },
+  "dtsPropsFor": {
+    "BrandName": "className?: string;",
+    "BrandedText": "children?: React.ReactNode;"
+  },
+  "readmeHeader": ".design-sync/conventions.md",
+  "overrides": {
+    "BrandName": { "cardMode": "column" },
+    "BrandedText": { "cardMode": "column" }
+  }
+}
