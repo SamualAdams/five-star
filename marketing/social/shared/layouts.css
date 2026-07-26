@@ -1,0 +1,221 @@
+/* ============================================================================
+   five* social — INTERIOR LAYOUTS
+   A library of composition modules that drop into .body. Posts pick one.
+
+   Rules every module must obey (this is what keeps 8 different layouts feeling
+   like one campaign):
+     1. Never restyle .brand, .kicker, .rule or .foot — those belong to frame.css
+     2. Use the shared type scale (.headline / .sub) wherever there is a headline
+     3. At most ONE red element per post. Red marks the problem; it stops meaning
+        anything if every element shouts.
+     4. Stay inside --content-w (888px)
+
+   Height budget: the square canvas is the tightest — roughly 670px of interior
+   between the top bar and the footer rule. Every module below is sized to fit
+   there, which means it also fits portrait and story with room to spare.
+
+   Shape of a module: a MOTIF on top (stars, struck list, timeline, numeral),
+   then the headline, then optional supporting copy. Repeating that rhythm while
+   swapping the motif is what makes the set feel designed rather than templated.
+   ============================================================================ */
+
+
+/* --- 1. STATEMENT ---------------------------------------------------------
+   Motif + headline + supporting line. The workhorse: a single sharp claim.
+   Used by: 01 (score, not a clue) */
+
+.l-statement .headline { margin-top: 52px; }
+
+/* five-star rating motif. .lit stars carry the post's one red accent. */
+.stars { display: flex; gap: 14px; }
+.stars svg { width: 52px; height: 52px; display: block; }
+.stars .lit { fill: var(--danger); }
+.stars .dim { fill: var(--star-muted); }
+
+
+/* --- 2. STRUCK ------------------------------------------------------------
+   A short list of things the customer *could* have done, all crossed out. The
+   motif argues the headline before you read it.
+   Used by: 02 (the silent majority) */
+
+.l-struck .headline { margin-top: 56px; }
+
+.struck { list-style: none; display: flex; flex-direction: column; gap: 16px; }
+.struck li {
+  position: relative;
+  align-self: flex-start;   /* strike ends at the text, not at 888px */
+  font-size: 34px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--muted);
+}
+/* Drawn rather than text-decoration so the rule can be red while the text
+   stays muted — one red element, and the words don't shout. */
+.struck li::after {
+  content: "";
+  position: absolute;
+  left: -6px; right: -6px; top: 54%;
+  height: 3px;
+  background: var(--danger);
+  border-radius: 2px;
+}
+
+
+/* --- 3. SPLIT -------------------------------------------------------------
+   Two columns, same shape, different content. Carries the comparison itself,
+   so this module drops .sub — the columns are the body copy.
+   Used by: 03 (public review vs private feedback) */
+
+.l-split .split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  margin-top: 60px;
+}
+.l-split .col {
+  border-top: 3px solid var(--border);
+  padding-top: 26px;
+}
+.l-split .col--problem { border-top-color: var(--danger); }
+.l-split .col--fix     { border-top-color: var(--primary); }
+
+.l-split .col-title {
+  font-size: 25px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 22px;
+}
+.l-split .col--fix .col-title { color: var(--primary); }
+
+.l-split .col ul { list-style: none; display: flex; flex-direction: column; gap: 15px; }
+.l-split .col li {
+  font-size: 31px;
+  font-weight: 500;
+  line-height: 1.28;
+  color: var(--text);
+}
+
+
+/* --- 4. TIMELINE ----------------------------------------------------------
+   One lone marker, then an ongoing run of them. The whole argument of the post
+   is in the spacing.
+   Used by: 04 (a review is one moment) */
+
+.l-timeline .timeline { margin-top: 66px; }
+
+.tl-track { display: flex; align-items: center; }
+.tl-dot {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: var(--star-muted);
+  flex: 0 0 auto;
+}
+.tl-dot--alert { width: 34px; height: 34px; background: var(--danger); }
+.tl-dot--live  { background: var(--primary); }
+/* The gap between the lone review and everything after it is the point. */
+.tl-gap  { flex: 0 0 132px; height: 3px; background: var(--border); }
+.tl-span { flex: 0 0 46px;  height: 3px; background: var(--primary); opacity: 0.32; }
+
+.tl-legend { display: flex; gap: 56px; margin-top: 34px; }
+.tl-key {
+  display: flex; align-items: center; gap: 13px;
+  font-size: 25px; font-weight: 600; color: var(--muted);
+}
+.tl-key i { width: 15px; height: 15px; border-radius: 50%; flex: 0 0 auto; }
+.tl-key--alert i { background: var(--danger); }
+.tl-key--live  i { background: var(--primary); }
+
+
+/* --- 5. PHOTO -------------------------------------------------------------
+   A photo panel that flexes to fill whatever height the format leaves, with
+   the headline beneath it. Deliberately NOT full-bleed: keeping the photo
+   inside the gutters means the wordmark, kicker and footer sit exactly where
+   they do on every other post.
+   Used by: 05 (the listening mark in the wild) */
+
+.l-photo .photo {
+  flex: 1 1 0;      /* basis 0, so the panel takes leftover space rather than
+                       sizing itself from the image's natural height */
+  min-height: 300px;
+  border-radius: 22px;
+  overflow: hidden;
+  background: var(--border);
+}
+.l-photo .photo img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+/* The photo eats all the slack, so this module has to hold its own breathing
+   room off the footer rule rather than relying on leftover space. */
+.l-photo .headline { flex: 0 0 auto; margin: 54px 0 44px; }
+
+
+/* --- 6. STEPS -------------------------------------------------------------
+   A numbered vertical sequence. Reads as process, where SPLIT reads as
+   contrast and TIMELINE reads as duration.
+   Used by: 06 (many submissions, one report) */
+
+.l-steps .steps {
+  margin-top: 62px;
+  display: flex; flex-direction: column;
+  border-top: 2px solid var(--border);
+}
+.l-steps .step {
+  display: flex; align-items: baseline; gap: 32px;
+  padding: 24px 0;
+  border-bottom: 2px solid var(--border);
+}
+.l-steps .step-n {
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 42px;
+  font-weight: 500;
+  color: var(--primary);
+  flex: 0 0 62px;
+}
+.l-steps .step-t {
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--ink);
+}
+
+
+/* --- 7. STAT --------------------------------------------------------------
+   One oversized figure doing the talking. Set in Newsreader so it reads as an
+   enlarged headline rather than as dashboard chrome.
+   Used by: 07 (two cents per submission) */
+
+.l-stat .figure {
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 210px;
+  font-weight: 500;
+  line-height: 0.92;
+  letter-spacing: -0.04em;
+  color: var(--primary);
+}
+.l-stat .figure-note {
+  margin-top: 10px;
+  font-size: 27px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.l-stat .headline { margin-top: 52px; }
+
+
+/* --- 8. CLOSER ------------------------------------------------------------
+   The brand mark at hero scale. The only post where the asterisk is the
+   subject rather than part of the wordmark.
+   Used by: 08 (give your customers a way to help) */
+
+.l-closer .mark-hero {
+  width: 128px; height: 142px;
+  background: var(--primary);
+  -webkit-mask: url("asterisk.svg") center / contain no-repeat;
+  mask: url("asterisk.svg") center / contain no-repeat;
+}
+.l-closer .headline { margin-top: 58px; }

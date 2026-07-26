@@ -1,0 +1,151 @@
+/* ============================================================================
+   five* social — FRAME
+   The cohesion contract. Every post links this file and none of them override
+   it. If you find yourself wanting to change something here for one post, that
+   post is wrong, not this file.
+
+   What lives here: canvas, background, wordmark, kicker, footer lockup, the
+   shared type scale, and the colour semantics.
+   What does NOT live here: anything specific to one post's interior — that
+   belongs in layouts.css as a reusable module.
+   ============================================================================ */
+
+/* Fonts are vendored locally (shared/fonts/) rather than pulled from Google.
+   Exports become deterministic and offline-capable, and it removes the race
+   where headless Chrome screenshots before a webfont has arrived. */
+@import url("fonts/fonts.css");
+
+:root {
+  /* Mirrors frontend/src/theme.css — no new brand colours are invented here. */
+  --primary: #087c80;      /* five* / the fix      */
+  --danger: #c43030;       /* the problem          */
+  --ink: #173c45;          /* neutral statement    */
+  --ink-soft: #2a5660;
+  --text: #304d4f;
+  --muted: #6b7978;
+  --bg: #fdfdfc;
+  --surface: #ffffff;
+  --border: #dedfdb;
+  --star-muted: #d8d8d3;
+  --on-dark: #f5fafa;
+
+  --gutter: 96px;
+  --content-w: 888px;      /* 1080 - 2 * gutter */
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* --- Export formats -------------------------------------------------------
+   Width is always 1080 so the type scale is identical across every format;
+   only the vertical distribution changes. */
+html[data-f="square"]   .frame { --w: 1080px; --h: 1080px; }
+html[data-f="portrait"] .frame { --w: 1080px; --h: 1350px; }
+html[data-f="story"]    .frame { --w: 1080px; --h: 1920px;
+  padding: 300px var(--gutter) 300px;   /* clears IG's top bar + bottom UI */
+}
+
+.frame {
+  width: var(--w, 1080px);
+  height: var(--h, 1080px);
+  background:
+    radial-gradient(circle at 84% 12%, #eef5f4 0%, rgba(238, 245, 244, 0) 46%),
+    radial-gradient(circle at 8% 96%, #eef5f4 0%, rgba(238, 245, 244, 0) 40%),
+    var(--bg);
+  font-family: "Manrope", "Helvetica Neue", Helvetica, sans-serif;
+  position: relative;
+  padding: var(--gutter) var(--gutter) 92px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* --- Wordmark -------------------------------------------------------------
+   The asterisk is a mask filled with currentColor, so it can never drift to a
+   different colour from "five". This is deliberate — see BRAND.md. */
+.brand {
+  display: inline-flex;
+  align-items: flex-start;
+  color: var(--ink);
+  font-weight: 800;
+  font-size: 46px;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+.brand .mark {
+  width: 0.46em;
+  height: 0.51em;
+  margin: -0.02em 0 0 0.05em;
+  flex: 0 0 auto;
+  background: currentColor;
+  -webkit-mask: url("asterisk.svg") center / contain no-repeat;
+  mask: url("asterisk.svg") center / contain no-repeat;
+}
+
+/* --- Top bar --------------------------------------------------------------- */
+.top { display: flex; align-items: center; justify-content: space-between; }
+.kicker {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+/* --- Interior slot --------------------------------------------------------
+   Every post's layout module drops into .body. On the square canvas the
+   content sits just under the top bar; on the taller canvases it centres.
+   Layout modules therefore never need to know which format they're in.
+
+   min-height:0 overrides the flex default of min-height:auto — without it a
+   module containing an image can never shrink below its natural size, and it
+   silently pushes the footer off the canvas. */
+.body { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+html[data-f="square"]   .body { justify-content: flex-start; padding-top: 96px; }
+html[data-f="portrait"] .body,
+html[data-f="story"]    .body { justify-content: center; }
+
+/* --- Shared type scale ----------------------------------------------------
+   Part of the contract: every post's headline and body copy use these. Break
+   headlines manually with .l1 / .l2 — never let them auto-wrap, and never
+   exceed two lines. */
+.headline {
+  font-family: "Newsreader", Georgia, serif;
+  font-weight: 500;
+  font-size: 80px;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+.headline .l1, .headline .l2 { display: block; }
+
+/* Italic marks the phrase the post turns on. Its colour says which half of the
+   story you're in: red for the problem, teal for what five* does about it.
+   That's why the back half of the campaign has no red in it at all. */
+.headline em { font-style: italic; color: var(--danger); }
+.headline em.fix { color: var(--primary); }
+
+.sub {
+  margin-top: 64px;
+  font-size: 38px;
+  line-height: 1.42;
+  font-weight: 500;
+  color: var(--text);
+  max-width: 24ch;
+}
+.sub strong { color: var(--ink); font-weight: 700; }
+
+/* --- Footer lockup --------------------------------------------------------- */
+.rule { height: 2px; background: var(--border); margin-top: auto; }
+.foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 30px;
+}
+.foot .brand { font-size: 34px; }
+.foot .cta {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: -0.01em;
+}
