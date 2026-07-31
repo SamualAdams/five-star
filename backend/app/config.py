@@ -19,8 +19,18 @@ class Settings(BaseSettings):
     sendgrid_api_key: str = ""
     sender_email: str = "noreply@fivestar.fyi"
     app_base_url: str = "http://localhost:5173"
+    api_base_url: str = "http://localhost:8000"
     rate_limit_enabled: bool = True
     sentry_dsn: str = ""
+    oauth_token_encryption_key: str = ""
+    meta_client_id: str = ""
+    meta_client_secret: str = ""
+    instagram_client_id: str = ""
+    instagram_client_secret: str = ""
+    tiktok_client_key: str = ""
+    tiktok_client_secret: str = ""
+    social_scheduler_enabled: bool = True
+    social_scheduler_interval_seconds: int = 30
 
     model_config = SettingsConfigDict(env_file=str(_ENV_FILE), env_file_encoding="utf-8", extra="ignore")
 

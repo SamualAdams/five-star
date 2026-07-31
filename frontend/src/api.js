@@ -105,6 +105,111 @@ export async function deleteOrganization(token, orgId) {
   });
 }
 
+// Social connections
+
+export async function listSocialConnections(token, orgId) {
+  return request(`/organizations/${orgId}/social-connections`, {
+    headers: authHeaders(token),
+  });
+}
+
+export async function beginSocialConnection(token, orgId, provider) {
+  return request(`/organizations/${orgId}/social-connections/${provider}/authorize`, {
+    method: "POST",
+    headers: authHeaders(token),
+  });
+}
+
+export async function disconnectSocialConnection(token, orgId, provider) {
+  return request(`/organizations/${orgId}/social-connections/${provider}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+}
+
+export async function getFacebookPageOptions(token, orgId, setupToken) {
+  return request(
+    `/organizations/${orgId}/social-connections/facebook/options?setup=${encodeURIComponent(setupToken)}`,
+    { headers: authHeaders(token) }
+  );
+}
+
+export async function completeFacebookConnection(token, orgId, setupToken, pageId) {
+  return request(`/organizations/${orgId}/social-connections/facebook/complete`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ setup_token: setupToken, page_id: pageId }),
+  });
+}
+
+export async function listSocialPosts(token, orgId, limit = 25) {
+  return request(`/organizations/${orgId}/social-posts?limit=${limit}`, {
+    headers: authHeaders(token),
+  });
+}
+
+export async function generateSocialDrafts(token, orgId, masterCaption) {
+  return request(`/organizations/${orgId}/social-posts/drafts/generate`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ master_caption: masterCaption }),
+  });
+}
+
+export async function createSocialPost(token, orgId, data) {
+  return request(`/organizations/${orgId}/social-posts`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(data),
+  });
+}
+
+export async function publishSocialPost(token, orgId, postId) {
+  return request(`/organizations/${orgId}/social-posts/${postId}/publish`, {
+    method: "POST",
+    headers: authHeaders(token),
+  });
+}
+
+// Locations
+
+export async function listLocations(token, orgId) {
+  return request(`/organizations/${orgId}/locations`, {
+    headers: authHeaders(token),
+  });
+}
+
+export async function createLocation(token, orgId, data) {
+  return request(`/organizations/${orgId}/locations`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateLocation(token, orgId, locationId, data) {
+  return request(`/organizations/${orgId}/locations/${locationId}`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteLocation(token, orgId, locationId) {
+  return request(`/organizations/${orgId}/locations/${locationId}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+}
+
+export async function updateLocationReviewLinks(token, orgId, locationId, reviewLinks) {
+  return request(`/organizations/${orgId}/locations/${locationId}/review-links`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify({ review_links: reviewLinks }),
+  });
+}
+
 // Members
 
 export async function listMembers(token, orgId) {
@@ -128,13 +233,25 @@ export async function removeMember(token, orgId, userId) {
   });
 }
 
+export async function updateMemberLocationAssignments(token, orgId, userId, assignments) {
+  return request(`/organizations/${orgId}/members/${userId}/locations`, {
+    method: "PUT",
+    headers: authHeaders(token),
+    body: JSON.stringify({ assignments }),
+  });
+}
+
 // Invites
 
-export async function createInvite(token, orgId, role, expiresInHours = 168) {
+export async function createInvite(token, orgId, role, expiresInHours = 168, locationId = null) {
   return request(`/organizations/${orgId}/invites`, {
     method: "POST",
     headers: authHeaders(token),
-    body: JSON.stringify({ role, expires_in_hours: expiresInHours }),
+    body: JSON.stringify({
+      role,
+      expires_in_hours: expiresInHours,
+      location_id: locationId,
+    }),
   });
 }
 
@@ -187,32 +304,88 @@ export async function polishReview(feedbackToken, content, style) {
 }
 
 // Future: Admin feedback list
-export async function listOrganizationFeedback(token, orgId) {
-  return request(`/organizations/${orgId}/feedback`, {
+export async function listOrganizationFeedback(token, orgId, locationId = null) {
+  const params = new URLSearchParams();
+  if (locationId) params.set("location_id", locationId);
+  return request(`/organizations/${orgId}/feedback${params.size ? `?${params}` : ""}`, {
     headers: authHeaders(token),
+  });
+}
+
+// Organization voting board
+
+export async function listOrganizationInitiatives(token, orgId, locationId = null) {
+  const params = new URLSearchParams();
+  if (locationId) params.set("location_id", locationId);
+  return request(`/organizations/${orgId}/initiatives${params.size ? `?${params}` : ""}`, {
+    headers: authHeaders(token),
+  });
+}
+
+export async function createOrganizationInitiative(token, orgId, data) {
+  return request(`/organizations/${orgId}/initiatives`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateOrganizationInitiative(token, orgId, initiativeId, data) {
+  return request(`/organizations/${orgId}/initiatives/${initiativeId}`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteOrganizationInitiative(token, orgId, initiativeId) {
+  return request(`/organizations/${orgId}/initiatives/${initiativeId}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+}
+
+export async function getPublicBoard(feedbackToken, { query = "", status = "", sort = "top", visitorId } = {}) {
+  const params = new URLSearchParams({ sort });
+  if (query.trim()) params.set("q", query.trim());
+  if (status) params.set("status", status);
+  return request(`/api/boards/${feedbackToken}?${params.toString()}`, {
+    headers: visitorId ? { "X-Visitor-ID": visitorId } : {},
+  });
+}
+
+export async function updatePublicInitiativeVote(feedbackToken, initiativeId, value, visitorId) {
+  return request(`/api/boards/${feedbackToken}/initiatives/${initiativeId}/vote`, {
+    method: "PUT",
+    headers: { "X-Visitor-ID": visitorId },
+    body: JSON.stringify({ value }),
   });
 }
 
 // Feedback Stats
 
-export async function getFeedbackStats(token, orgId, days = 7) {
-  return request(`/organizations/${orgId}/feedback/stats?days=${days}`, {
+export async function getFeedbackStats(token, orgId, days = 7, locationId = null) {
+  const params = new URLSearchParams({ days: String(days) });
+  if (locationId) params.set("location_id", locationId);
+  return request(`/organizations/${orgId}/feedback/stats?${params}`, {
     headers: authHeaders(token),
   });
 }
 
 // Digests
 
-export async function generateDigest(token, orgId, periodStart, periodEnd) {
+export async function generateDigest(token, orgId, periodStart, periodEnd, locationId = null) {
   return request(`/organizations/${orgId}/digests/generate`, {
     method: "POST",
     headers: authHeaders(token),
-    body: JSON.stringify({ period_start: periodStart, period_end: periodEnd }),
+    body: JSON.stringify({ period_start: periodStart, period_end: periodEnd, location_id: locationId }),
   });
 }
 
-export async function listDigests(token, orgId) {
-  return request(`/organizations/${orgId}/digests`, {
+export async function listDigests(token, orgId, locationId = null) {
+  const params = new URLSearchParams();
+  if (locationId) params.set("location_id", locationId);
+  return request(`/organizations/${orgId}/digests${params.size ? `?${params}` : ""}`, {
     headers: authHeaders(token),
   });
 }

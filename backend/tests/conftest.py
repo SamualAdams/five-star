@@ -4,6 +4,7 @@ import os
 os.environ["RATE_LIMIT_ENABLED"] = "false"
 os.environ["JWT_SECRET_KEY"] = "test-secret"
 os.environ["SENTRY_DSN"] = ""
+os.environ["SOCIAL_SCHEDULER_ENABLED"] = "false"
 
 import pytest
 from fastapi.testclient import TestClient

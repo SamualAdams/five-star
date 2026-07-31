@@ -165,7 +165,7 @@ export default function DigestsPage({ token, orgId: orgIdProp }) {
       </button>
 
       <div className="settings-section">
-        <h2 className="settings-title">Org Digests</h2>
+        <h2 className="settings-title">Organization reports</h2>
         <p className="settings-meta">
           Published feedback summaries shared by your organization&apos;s admins.
         </p>
@@ -175,7 +175,7 @@ export default function DigestsPage({ token, orgId: orgIdProp }) {
       {error && <p className="message message--error">{error}</p>}
 
       {!loading && !error && digests.length === 0 && (
-        <p className="settings-meta">No digests have been published yet.</p>
+        <p className="settings-meta">No reports have been published yet.</p>
       )}
 
       {digests.length > 0 && (
