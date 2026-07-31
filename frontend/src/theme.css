@@ -38,6 +38,14 @@
   --color-danger-hover: #a32828;
   --color-danger-text: #b33030;
   --color-danger-bg: #fde8e8;
+  --color-status-feedback: #08666a;
+  --color-status-feedback-bg: #ddf3f2;
+  --color-status-planned: #60499b;
+  --color-status-planned-bg: #ede7fa;
+  --color-status-progress: #9a6418;
+  --color-status-progress-bg: #fff0d6;
+  --color-status-shipped: #187046;
+  --color-status-shipped-bg: #dff5e7;
 
   /* Supporting neutrals */
   --color-neutral: #5e6770;

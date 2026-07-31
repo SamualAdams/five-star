@@ -19,14 +19,25 @@ const HORIZONS = [
   { label: "Last year", days: 365 },
 ];
 
-function daysAgoIso(n) {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
+function dateInTimezoneIso(daysAgo, timezone) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  const date = new Date(Date.UTC(Number(values.year), Number(values.month) - 1, Number(values.day)));
+  date.setUTCDate(date.getUTCDate() - daysAgo);
+  return date.toISOString().slice(0, 10);
 }
 
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+function daysAgoIso(n, timezone) {
+  return dateInTimezoneIso(n, timezone);
+}
+
+function todayIso(timezone) {
+  return dateInTimezoneIso(0, timezone);
 }
 
 // ─── ListEditor ─────────────────────────────────────────────────────────────
@@ -140,7 +151,7 @@ function DigestEditor({ digest, token, orgId, onSaved, onPublished, onCancel }) 
   }
 
   async function handlePublish() {
-    if (!window.confirm("Share this digest with all org members? This cannot be undone.")) return;
+    if (!window.confirm("Share this report with all organization members? This cannot be undone.")) return;
     setIsPublishing(true);
     setError("");
     try {
@@ -206,7 +217,7 @@ function DigestEditor({ digest, token, orgId, onSaved, onPublished, onCancel }) 
 
 // ─── DigestCard ───────────────────────────────────────────────────────────────
 
-function DigestCard({ digest, token, orgId, isAdmin, onUpdate, onDelete }) {
+function DigestCard({ digest, token, orgId, isAdmin, onUpdate, onDelete, showLocation }) {
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -214,7 +225,7 @@ function DigestCard({ digest, token, orgId, isAdmin, onUpdate, onDelete }) {
   const isDraft = digest.status === "draft";
 
   async function handleDelete() {
-    if (!window.confirm("Delete this digest? This cannot be undone.")) return;
+    if (!window.confirm("Delete this report? This cannot be undone.")) return;
     setIsDeleting(true);
     try {
       await deleteDigest(token, orgId, digest.id);
@@ -265,6 +276,9 @@ function DigestCard({ digest, token, orgId, isAdmin, onUpdate, onDelete }) {
           >
             {isDraft ? "Draft" : "Published"}
           </span>
+          {showLocation && (
+            <span className="initiative-location-badge">{digest.location_name}</span>
+          )}
           <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--color-ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {digest.period_start === digest.period_end
               ? digest.period_start
@@ -321,7 +335,7 @@ function DigestCard({ digest, token, orgId, isAdmin, onUpdate, onDelete }) {
 
 // ─── DigestManager (main export) ─────────────────────────────────────────────
 
-export default function DigestManager({ token, orgId, isAdmin }) {
+export default function DigestManager({ token, orgId, locationId, isAdmin, timezone }) {
   const [selectedHorizon, setSelectedHorizon] = useState(HORIZONS[2]); // Last 7 days
   const [chartData, setChartData] = useState([]);
   const [chartLoading, setChartLoading] = useState(false);
@@ -332,17 +346,17 @@ export default function DigestManager({ token, orgId, isAdmin }) {
   // Load chart data whenever horizon changes
   useEffect(() => {
     loadStats();
-  }, [selectedHorizon]);
+  }, [selectedHorizon, locationId]);
 
   // Load digests on mount
   useEffect(() => {
     loadDigests();
-  }, []);
+  }, [locationId]);
 
   async function loadStats() {
     setChartLoading(true);
     try {
-      const result = await getFeedbackStats(token, orgId, selectedHorizon.days);
+      const result = await getFeedbackStats(token, orgId, selectedHorizon.days, locationId);
       setChartData(result.data);
     } catch {
       // silently fail chart — non-critical
@@ -353,7 +367,7 @@ export default function DigestManager({ token, orgId, isAdmin }) {
 
   async function loadDigests() {
     try {
-      const data = await listDigests(token, orgId);
+      const data = await listDigests(token, orgId, locationId);
       setDigests(data);
     } catch {
       // silently fail
@@ -364,9 +378,9 @@ export default function DigestManager({ token, orgId, isAdmin }) {
     setIsGenerating(true);
     setGenerateError("");
     try {
-      const periodEnd = todayIso();
-      const periodStart = daysAgoIso(selectedHorizon.days - 1);
-      const newDigest = await generateDigest(token, orgId, periodStart, periodEnd);
+      const periodEnd = todayIso(timezone);
+      const periodStart = daysAgoIso(selectedHorizon.days - 1, timezone);
+      const newDigest = await generateDigest(token, orgId, periodStart, periodEnd, locationId);
       setDigests((prev) => [newDigest, ...prev]);
     } catch (err) {
       setGenerateError(err.message);
@@ -387,9 +401,9 @@ export default function DigestManager({ token, orgId, isAdmin }) {
 
   return (
     <div className="settings-section">
-      <h3 className="settings-heading">Feedback Digests</h3>
+      <h3 className="settings-heading">Feedback reports</h3>
       <p className="settings-meta">
-        Summarize feedback into a structured digest and share it with your organization.
+        Summarize feedback into a structured report and share it with your organization.
       </p>
 
       {/* Horizon selector - pills on desktop, dropdown on mobile */}
@@ -455,14 +469,19 @@ export default function DigestManager({ token, orgId, isAdmin }) {
       {/* Generate button */}
       {isAdmin && (
         <div style={{ marginBottom: "1.5rem" }}>
+          {!locationId && (
+            <p className="message message--info" style={{ marginBottom: "0.5rem" }}>
+              Select one location to generate a report. The chart and existing reports can still roll up every location.
+            </p>
+          )}
           {generateError && <p className="message message--error" style={{ marginBottom: "0.5rem" }}>{generateError}</p>}
           <button
             type="button"
             className="btn btn--primary"
             onClick={handleGenerate}
-            disabled={isGenerating}
+            disabled={isGenerating || !locationId}
           >
-            {isGenerating ? "Generating digest…" : `Generate Digest for ${selectedHorizon.label.toLowerCase()}`}
+            {isGenerating ? "Generating report…" : `Generate Report for ${selectedHorizon.label.toLowerCase()}`}
           </button>
           {isGenerating && (
             <p className="settings-meta" style={{ marginTop: "0.4rem" }}>
@@ -476,7 +495,7 @@ export default function DigestManager({ token, orgId, isAdmin }) {
       {digests.length > 0 ? (
         <div style={{ display: "grid", gap: "0.6rem" }}>
           <p style={{ margin: "0 0 0.4rem", fontWeight: 700, fontSize: "0.88rem", color: "var(--color-neutral-strong)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-            {digests.length} digest{digests.length !== 1 ? "s" : ""}
+            {digests.length} report{digests.length !== 1 ? "s" : ""}
           </p>
           {digests.map((d) => (
             <DigestCard
@@ -487,11 +506,12 @@ export default function DigestManager({ token, orgId, isAdmin }) {
               isAdmin={isAdmin}
               onUpdate={handleUpdate}
               onDelete={handleDelete}
+              showLocation={!locationId}
             />
           ))}
         </div>
       ) : (
-        <p className="settings-meta">No digests yet. Generate one above to get started.</p>
+        <p className="settings-meta">No reports yet. Generate one above to get started.</p>
       )}
     </div>
   );

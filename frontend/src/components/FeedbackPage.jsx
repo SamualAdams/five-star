@@ -88,7 +88,9 @@ export default function FeedbackPage() {
       <div className="feedback-page">
         <div className="feedback-card">
 <h2 className="feedback-title">Feedback submitted</h2>
-          <p className="feedback-subtitle">Thank you for sharing with <strong>{orgInfo.organization_name}</strong>.</p>
+          <p className="feedback-subtitle">
+            Thank you for sharing with <strong>{orgInfo.organization_name} · {orgInfo.location_name}</strong>.
+          </p>
 
           {reviewLinks.length > 0 && (
             <div className="review-share-section">
@@ -167,7 +169,9 @@ export default function FeedbackPage() {
     <div className="feedback-page">
       <div className="feedback-card">
         <h2 className="feedback-title">Share Your Feedback</h2>
-        <p className="feedback-subtitle">Send anonymous feedback to <strong>{orgInfo.organization_name}</strong></p>
+        <p className="feedback-subtitle">
+          Send anonymous feedback to <strong>{orgInfo.organization_name} · {orgInfo.location_name}</strong>
+        </p>
 
         <form className="feedback-form" onSubmit={handleSubmit}>
           <label className="field-label" htmlFor="content">Your feedback *</label>

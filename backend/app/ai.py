@@ -3,7 +3,7 @@ import json
 from openai import OpenAI
 from pydantic import ValidationError
 
-from .schemas import DigestContent
+from .schemas import DigestContent, SocialDraftContent
 
 STYLE_PROMPTS = {
     "shorten": "Shorten this into a concise public review (2-3 sentences max). Keep the core message.",
@@ -37,6 +37,29 @@ def polish_review(api_key: str, content: str, style: str) -> str:
     )
 
     return response.choices[0].message.content.strip()
+
+
+def generate_social_drafts(api_key: str, content: str) -> SocialDraftContent:
+    """Adapt one source caption into editable drafts for each available channel."""
+    client = OpenAI(api_key=api_key)
+    response = client.responses.parse(
+        model="gpt-4o-mini",
+        instructions=(
+            "You are a careful social media editor for local businesses. "
+            "Rewrite the supplied source caption for Facebook, Instagram, and TikTok. "
+            "Preserve every factual claim, date, offer, name, and "
+            "constraint from the source. Do not invent details. Keep the business's "
+            "voice natural and make each version ready for a human to review. "
+            "Instagram may use a small number of relevant hashtags. TikTok should "
+            "start with a concise hook. Facebook should feel conversational."
+        ),
+        input=content,
+        max_output_tokens=1800,
+        text_format=SocialDraftContent,
+    )
+    if not response.output_parsed:
+        raise ValueError("OpenAI did not return platform drafts")
+    return response.output_parsed
 
 
 def generate_digest_content(

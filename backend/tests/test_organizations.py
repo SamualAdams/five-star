@@ -8,7 +8,7 @@ def test_create_and_list_organization(client, auth_headers):
     headers = auth_headers()
     org = create_org(client, headers)
     assert org["name"] == "Acme Diner"
-    assert org["role"] == "admin"
+    assert org["role"] == "organization_admin"
     assert org["feedback_token"]
 
     listing = client.get("/organizations", headers=headers)

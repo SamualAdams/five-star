@@ -81,7 +81,7 @@ export default function AuthPage({ loadOrganizations, onAuthenticated }) {
           </div>
           <div className="auth-highlight">
             <h2>Actionable insight</h2>
-            <p>Digest summaries help you turn comments into practical next steps.</p>
+            <p>Feedback reports help you turn comments into practical next steps.</p>
           </div>
         </div>
       </section>

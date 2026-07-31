@@ -2,6 +2,13 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { acceptInvite, getInviteInfo } from "../api";
 
+const ACCESS_ROLE_LABELS = {
+  organization_admin: "Organization admin",
+  organization_viewer: "Organization viewer",
+  location_admin: "Location admin",
+  location_viewer: "Location viewer",
+};
+
 export default function InviteAcceptPage({ token, isAuthenticated }) {
   const { inviteToken } = useParams();
   const navigate = useNavigate();
@@ -70,7 +77,8 @@ export default function InviteAcceptPage({ token, isAuthenticated }) {
       <div className="invite-card">
         <h2 className="invite-title">You've been invited!</h2>
         <p className="invite-detail">
-          Join <strong>{info.organization_name}</strong> as a <strong>{info.role}</strong>
+          Join <strong>{info.organization_name}</strong>
+          {info.location_name && <> at <strong>{info.location_name}</strong></>} as a <strong>{ACCESS_ROLE_LABELS[info.role] || info.role}</strong>
         </p>
 
         {error && <p className="message message--error">{error}</p>}
