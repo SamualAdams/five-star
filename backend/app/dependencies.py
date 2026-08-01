@@ -1,13 +1,28 @@
+from dataclasses import dataclass
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .database import get_db
-from .models import Location, LocationMembership, LocationRole, OrganizationMember, Role, User
+from .models import Location, LocationMembership, LocationRole, Organization, OrganizationMember, Role, User
 from .security import decode_token
 
 security = HTTPBearer(auto_error=False)
+
+
+@dataclass(frozen=True)
+class EffectiveOrganizationMembership:
+    """Non-persisted organization-admin access granted to a platform superuser."""
+
+    user_id: int
+    organization_id: int
+    organization: Organization
+    role: Role = Role.ADMIN
+
+
+OrganizationAccess = OrganizationMember | EffectiveOrganizationMembership
 
 
 def get_current_user(
@@ -28,7 +43,15 @@ def get_current_user(
     return user
 
 
-def get_user_org_membership(db: Session, user: User, org_id: int) -> OrganizationMember:
+def get_user_org_membership(db: Session, user: User, org_id: int) -> OrganizationAccess:
+    if user.is_superuser:
+        organization = db.get(Organization, org_id)
+        if organization:
+            return EffectiveOrganizationMembership(
+                user_id=user.id,
+                organization_id=organization.id,
+                organization=organization,
+            )
     membership = db.scalar(
         select(OrganizationMember).where(
             OrganizationMember.user_id == user.id,
@@ -43,18 +66,43 @@ def get_user_org_membership(db: Session, user: User, org_id: int) -> Organizatio
     return membership
 
 
-def require_org_admin(db: Session, user: User, org_id: int) -> OrganizationMember:
+def require_org_admin(db: Session, user: User, org_id: int) -> OrganizationAccess:
     membership = get_user_org_membership(db, user, org_id)
     if membership.role != Role.ADMIN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required")
     return membership
 
 
+def require_module_enabled(
+    db: Session,
+    org_id: int,
+    module: str,
+    *,
+    public: bool = False,
+) -> Organization:
+    organization = db.get(Organization, org_id)
+    if not organization:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization not found")
+    enabled = {
+        "feedback": True,
+        "roadmap": organization.roadmap_enabled,
+        "feed": organization.feed_enabled,
+    }.get(module)
+    if enabled is None:
+        raise ValueError(f"Unknown organization module: {module}")
+    if not enabled:
+        raise HTTPException(
+            status_code=(status.HTTP_404_NOT_FOUND if public else status.HTTP_403_FORBIDDEN),
+            detail=f"{module.title()} module is not enabled for this organization",
+        )
+    return organization
+
+
 def get_accessible_locations(
     db: Session,
     user: User,
     org_id: int,
-) -> tuple[OrganizationMember, list[Location]]:
+) -> tuple[OrganizationAccess, list[Location]]:
     membership = get_user_org_membership(db, user, org_id)
     query = select(Location).where(Location.organization_id == org_id).order_by(Location.is_default.desc(), Location.name)
     if membership.role == Role.LOCATION:
@@ -72,7 +120,7 @@ def require_location_access(
     location_id: int,
     *,
     manage: bool = False,
-) -> tuple[OrganizationMember, Location, LocationRole | None]:
+) -> tuple[OrganizationAccess, Location, LocationRole | None]:
     membership = get_user_org_membership(db, user, org_id)
     location = db.scalar(
         select(Location).where(
@@ -113,7 +161,7 @@ def resolve_location_scope(
     *,
     manage: bool = False,
     require_single: bool = False,
-) -> tuple[OrganizationMember, list[Location]]:
+) -> tuple[OrganizationAccess, list[Location]]:
     if location_id is not None:
         membership, location, _ = require_location_access(
             db,

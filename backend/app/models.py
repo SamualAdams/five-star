@@ -36,6 +36,7 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_superuser: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
     memberships: Mapped[list["OrganizationMember"]] = relationship(back_populates="user", cascade="all, delete-orphan")
@@ -51,6 +52,8 @@ class Organization(Base):
     created_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     feedback_token: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
     review_links: Mapped[list | None] = mapped_column(JSON, nullable=True, default=None)
+    roadmap_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    feed_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
 
     members: Mapped[list["OrganizationMember"]] = relationship(back_populates="organization", cascade="all, delete-orphan")
     invites: Mapped[list["Invite"]] = relationship(back_populates="organization", cascade="all, delete-orphan")

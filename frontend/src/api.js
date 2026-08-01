@@ -104,6 +104,14 @@ export async function updateOrganization(token, orgId, data) {
   });
 }
 
+export async function updateOrganizationModules(token, orgId, modules) {
+  return request(`/organizations/${orgId}/modules`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify(modules),
+  });
+}
+
 export async function updateOrgReviewLinks(token, orgId, reviewLinks) {
   return request(`/organizations/${orgId}/review-links`, {
     method: "PATCH",

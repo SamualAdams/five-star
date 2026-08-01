@@ -10,6 +10,7 @@ const ACCESS_ROLE_LABELS = {
 export default function OrganizationSwitcher({
   organizations,
   currentOrgId,
+  isSuperuser = false,
   onCreateOrganization,
   onOrgChange,
 }) {
@@ -42,7 +43,7 @@ export default function OrganizationSwitcher({
       {isOpen && (
         <>
           <div className="organization-switcher-menu">
-            <p className="organization-switcher-heading">Your organizations</p>
+            <p className="organization-switcher-heading">{isSuperuser ? "All organizations" : "Your organizations"}</p>
             {organizations.map((org) => (
               <button
                 key={org.id}
@@ -52,7 +53,7 @@ export default function OrganizationSwitcher({
               >
                 <span>
                   <strong>{org.name}</strong>
-                  <small>{ACCESS_ROLE_LABELS[org.role] || org.role}</small>
+                  <small>{isSuperuser ? "Platform superuser" : ACCESS_ROLE_LABELS[org.role] || org.role}</small>
                 </span>
                 {org.id === currentOrgId && <span aria-hidden="true">✓</span>}
               </button>

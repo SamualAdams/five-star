@@ -21,7 +21,7 @@ function PublicLink({ label, url }) {
   );
 }
 
-export default function LocationsPage({ locations, onLocationsChanged, orgId, token }) {
+export default function LocationsPage({ locations, onLocationsChanged, orgId, roadmapEnabled = true, token }) {
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [timezone, setTimezone] = useState("America/Chicago");
@@ -81,7 +81,9 @@ export default function LocationsPage({ locations, onLocationsChanged, orgId, to
         <div className="portal-card-heading">
           <div>
             <h2>Add a location</h2>
-            <p className="portal-card-description">Each location gets its own feedback and roadmap links.</p>
+            <p className="portal-card-description">
+              Each location gets its own feedback link{roadmapEnabled ? " and roadmap link" : ""}.
+            </p>
           </div>
         </div>
         <form className="location-create-form" onSubmit={handleCreate}>
@@ -155,10 +157,17 @@ export default function LocationsPage({ locations, onLocationsChanged, orgId, to
                 label="Feedback"
                 url={`${window.location.origin}/feedback/${location.feedback_token}`}
               />
-              <PublicLink
-                label="Roadmap"
-                url={`${window.location.origin}/roadmap/${location.feedback_token}`}
-              />
+              {roadmapEnabled ? (
+                <PublicLink
+                  label="Roadmap"
+                  url={`${window.location.origin}/roadmap/${location.feedback_token}`}
+                />
+              ) : (
+                <div className="location-public-link location-public-link--locked">
+                  <span>Roadmap</span>
+                  <strong>🔒 Roadmap module not enabled</strong>
+                </div>
+              )}
             </div>
           </article>
         ))}

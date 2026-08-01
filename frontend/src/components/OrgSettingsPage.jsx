@@ -10,6 +10,7 @@ import {
   listSocialConnections,
   updateLocationReviewLinks,
   updateOrganization,
+  updateOrganizationModules,
 } from "../api";
 import InviteList from "./InviteList";
 import MemberList from "./MemberList";
@@ -396,6 +397,7 @@ export default function OrgSettingsPage({
   locations = [],
   currentLocation = null,
   canManageLocation = false,
+  onOrganizationUpdated,
   onLocationUpdated,
 }) {
   const { id } = useParams();
@@ -407,6 +409,8 @@ export default function OrgSettingsPage({
   const [linkInputs, setLinkInputs] = useState({ google: "", yelp: "", tripadvisor: "" });
   const [reviewLinksError, setReviewLinksError] = useState("");
   const [reviewLinksSaved, setReviewLinksSaved] = useState(false);
+  const [moduleWorking, setModuleWorking] = useState("");
+  const [moduleError, setModuleError] = useState("");
 
   const isAdmin = Boolean(org?.can_manage_organization);
   const canManageReviews = isAdmin || canManageLocation;
@@ -479,6 +483,22 @@ export default function OrgSettingsPage({
     }
   }
 
+  async function handleModuleToggle(moduleName, enabled) {
+    setModuleWorking(moduleName);
+    setModuleError("");
+    try {
+      const updated = await updateOrganizationModules(token, id, {
+        [moduleName]: enabled,
+      });
+      setOrg(updated);
+      onOrganizationUpdated?.(updated);
+    } catch (err) {
+      setModuleError(err.message);
+    } finally {
+      setModuleWorking("");
+    }
+  }
+
   if (!org) {
     return (
       <div className="settings-page">
@@ -496,7 +516,7 @@ export default function OrgSettingsPage({
         <>
           <div className="settings-section">
             <h2 className="settings-title">{org.name}</h2>
-            <p className="settings-meta">Your role: <strong>{ACCESS_ROLE_LABELS[org.role] || org.role}</strong></p>
+            <p className="settings-meta">Your role: <strong>{user.is_superuser ? "Platform superuser" : ACCESS_ROLE_LABELS[org.role] || org.role}</strong></p>
             {isAdmin && (
               <div className="settings-actions">
                 {isEditing ? (
@@ -519,6 +539,63 @@ export default function OrgSettingsPage({
               </div>
             )}
           </div>
+
+          {user.is_superuser && (
+            <div className="settings-section organization-modules" id="modules">
+              <div className="organization-modules-heading">
+                <div>
+                  <p className="dashboard-kicker">Platform controls</p>
+                  <h3 className="settings-heading">Modules</h3>
+                  <p className="settings-meta">Choose which Five* workspace modules this organization can use.</p>
+                </div>
+                <span className="status-pill status-pill--connected">Superuser only</span>
+              </div>
+              <div className="organization-module-list">
+                <div className="organization-module-row">
+                  <div>
+                    <strong>Feedback</strong>
+                    <small>Core feedback collection, reporting, and dashboard analytics.</small>
+                  </div>
+                  <label className="module-switch module-switch--fixed">
+                    <input checked disabled type="checkbox" />
+                    <span aria-hidden="true" />
+                    <em>Included</em>
+                  </label>
+                </div>
+                {[
+                  {
+                    key: "roadmap",
+                    name: "Roadmap",
+                    description: "Public initiatives, customer voting, and roadmap analytics.",
+                  },
+                  {
+                    key: "feed",
+                    name: "Feed",
+                    description: "Social accounts, post creation, scheduling, and publishing history.",
+                  },
+                ].map((module) => (
+                  <div className="organization-module-row" key={module.key}>
+                    <div>
+                      <strong>{module.name}</strong>
+                      <small>{module.description}</small>
+                    </div>
+                    <label className="module-switch">
+                      <input
+                        aria-label={`${module.name} module`}
+                        checked={Boolean(org.modules?.[module.key])}
+                        disabled={Boolean(moduleWorking)}
+                        onChange={(event) => handleModuleToggle(module.key, event.target.checked)}
+                        type="checkbox"
+                      />
+                      <span aria-hidden="true" />
+                      <em>{moduleWorking === module.key ? "Saving…" : org.modules?.[module.key] ? "Enabled" : "Locked"}</em>
+                    </label>
+                  </div>
+                ))}
+              </div>
+              {moduleError && <p className="message message--error">{moduleError}</p>}
+            </div>
+          )}
 
           {isAdmin && (
             <div className="settings-section">

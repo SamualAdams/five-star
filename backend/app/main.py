@@ -23,6 +23,7 @@ from .dependencies import (
     get_current_user,
     get_user_org_membership,
     require_location_access,
+    require_module_enabled,
     require_org_admin,
     resolve_location_scope,
 )
@@ -82,6 +83,8 @@ from .schemas import (
     MetaInstagramAccountOut,
     MetaPageOptionOut,
     OrganizationCreate,
+    OrganizationModulesOut,
+    OrganizationModulesUpdate,
     OrganizationOut,
     OrganizationReviewLinksUpdate,
     OrganizationSearchResult,
@@ -344,6 +347,11 @@ def _organization_out(db: Session, membership: OrganizationMember) -> Organizati
         review_links=org.review_links,
         can_view_all_locations=membership.role in {Role.ADMIN, Role.VIEWER},
         can_manage_organization=membership.role == Role.ADMIN,
+        modules=OrganizationModulesOut(
+            feedback=True,
+            roadmap=org.roadmap_enabled,
+            feed=org.feed_enabled,
+        ),
     )
 
 
@@ -353,11 +361,21 @@ def create_organization(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> OrganizationOut:
-    org = Organization(name=payload.name, created_by=user.id, feedback_token=generate_feedback_token())
+    org = Organization(
+        name=payload.name,
+        created_by=user.id,
+        feedback_token=generate_feedback_token(),
+        roadmap_enabled=False,
+        feed_enabled=False,
+    )
     db.add(org)
     db.flush()
 
-    membership = OrganizationMember(user_id=user.id, organization_id=org.id, role=Role.ADMIN)
+    membership = None if user.is_superuser else OrganizationMember(
+        user_id=user.id,
+        organization_id=org.id,
+        role=Role.ADMIN,
+    )
     default_location = Location(
         organization_id=org.id,
         name=org.name,
@@ -366,11 +384,13 @@ def create_organization(
         review_links=org.review_links,
         created_by=user.id,
     )
-    db.add_all([membership, default_location])
+    db.add(default_location)
+    if membership:
+        db.add(membership)
     db.commit()
     db.refresh(org)
 
-    return _organization_out(db, membership)
+    return _organization_out(db, membership or get_user_org_membership(db, user, org.id))
 
 
 @app.get("/organizations", response_model=list[OrganizationOut])
@@ -378,6 +398,12 @@ def list_organizations(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[OrganizationOut]:
+    if user.is_superuser:
+        organizations = list(db.scalars(select(Organization).order_by(Organization.name)).all())
+        return [
+            _organization_out(db, get_user_org_membership(db, user, organization.id))
+            for organization in organizations
+        ]
     memberships = (
         db.execute(
             select(OrganizationMember)
@@ -435,6 +461,29 @@ def update_organization(
     db.commit()
     db.refresh(org)
 
+    return _organization_out(db, membership)
+
+
+@app.patch("/organizations/{org_id}/modules", response_model=OrganizationOut)
+def update_organization_modules(
+    org_id: int,
+    payload: OrganizationModulesUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> OrganizationOut:
+    if not user.is_superuser:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Platform superuser access required",
+        )
+    membership = require_org_admin(db, user, org_id)
+    organization = membership.organization
+    if payload.roadmap is not None:
+        organization.roadmap_enabled = payload.roadmap
+    if payload.feed is not None:
+        organization.feed_enabled = payload.feed
+    db.commit()
+    db.refresh(organization)
     return _organization_out(db, membership)
 
 
@@ -587,6 +636,7 @@ def list_social_connections(
     db: Session = Depends(get_db),
 ) -> list[SocialConnectionOut]:
     require_org_admin(db, user, org_id)
+    require_module_enabled(db, org_id, "feed")
     connections = {
         connection.provider: connection
         for connection in db.scalars(
@@ -611,6 +661,7 @@ def authorize_social_connection(
 ) -> SocialAuthorizationOut:
     provider = _validated_social_provider(provider)
     require_org_admin(db, user, org_id)
+    require_module_enabled(db, org_id, "feed")
     if not provider_configured(provider, settings):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -684,6 +735,15 @@ def social_oauth_callback(
 
     oauth_state.used_at = now
     db.commit()
+    try:
+        require_module_enabled(db, oauth_state.organization_id, "feed")
+    except HTTPException as exc:
+        return _social_callback_redirect(
+            oauth_state.organization_id,
+            provider,
+            "error",
+            str(exc.detail),
+        )
     if error or not code:
         return _social_callback_redirect(
             oauth_state.organization_id,
@@ -791,6 +851,7 @@ def list_facebook_page_options(
     db: Session = Depends(get_db),
 ) -> MetaConnectionOptionsOut:
     require_org_admin(db, user, org_id)
+    require_module_enabled(db, org_id, "feed")
     connection_setup = _get_social_connection_setup(
         db,
         organization_id=org_id,
@@ -836,6 +897,7 @@ def complete_facebook_page_connection(
     db: Session = Depends(get_db),
 ) -> list[SocialConnectionOut]:
     require_org_admin(db, user, org_id)
+    require_module_enabled(db, org_id, "feed")
     connection_setup = _get_social_connection_setup(
         db,
         organization_id=org_id,
@@ -952,6 +1014,7 @@ def disconnect_social_connection(
 ) -> None:
     provider = _validated_social_provider(provider)
     require_org_admin(db, user, org_id)
+    require_module_enabled(db, org_id, "feed")
     connection = db.scalar(
         select(SocialConnection).where(
             SocialConnection.organization_id == org_id,
@@ -1047,6 +1110,7 @@ def generate_social_post_drafts(
     db: Session = Depends(get_db),
 ) -> SocialDraftContent:
     require_org_admin(db, user, org_id)
+    require_module_enabled(db, org_id, "feed")
     if not settings.openai_api_key:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -1159,6 +1223,7 @@ def list_social_posts(
     db: Session = Depends(get_db),
 ) -> list[SocialPostOut]:
     require_org_admin(db, user, org_id)
+    require_module_enabled(db, org_id, "feed")
     posts = (
         db.execute(
             select(SocialPost)
@@ -1186,6 +1251,7 @@ def create_social_post(
     db: Session = Depends(get_db),
 ) -> SocialPostOut:
     require_org_admin(db, user, org_id)
+    require_module_enabled(db, org_id, "feed")
     providers = [target.provider for target in payload.targets]
     if len(providers) != len(set(providers)):
         raise HTTPException(
@@ -1283,6 +1349,7 @@ def publish_social_post_now(
     db: Session = Depends(get_db),
 ) -> SocialPostOut:
     require_org_admin(db, user, org_id)
+    require_module_enabled(db, org_id, "feed")
     post = _load_social_post(
         db,
         organization_id=org_id,
@@ -1304,6 +1371,9 @@ def _publish_due_social_posts_once() -> None:
                     SocialPost.status == "scheduled",
                     SocialPost.scheduled_at.is_not(None),
                     SocialPost.scheduled_at <= datetime.utcnow(),
+                    SocialPost.organization_id.in_(
+                        select(Organization.id).where(Organization.feed_enabled.is_(True))
+                    ),
                 )
             ).all()
         )
@@ -2127,6 +2197,7 @@ def list_organization_initiatives(
     db: Session = Depends(get_db),
 ) -> list[InitiativeOut]:
     _, locations = resolve_location_scope(db, user, org_id, location_id)
+    require_module_enabled(db, org_id, "roadmap")
     location_ids = [location.id for location in locations]
     rows = db.execute(
         _initiative_rows_query(org_id, location_ids=location_ids).order_by(Initiative.updated_at.desc())
@@ -2149,6 +2220,7 @@ def create_organization_initiative(
         manage=True,
         require_single=True,
     )
+    require_module_enabled(db, org_id, "roadmap")
     location = locations[0]
     initiative = Initiative(
         organization_id=org_id,
@@ -2175,6 +2247,7 @@ def update_organization_initiative(
 ) -> InitiativeOut:
     initiative = _get_initiative_or_404(db, org_id, initiative_id)
     require_location_access(db, user, org_id, initiative.location_id, manage=True)
+    require_module_enabled(db, org_id, "roadmap")
     if payload.title is not None:
         initiative.title = _clean_initiative_text(payload.title, "Title")
     if payload.description is not None:
@@ -2197,6 +2270,7 @@ def delete_organization_initiative(
 ) -> None:
     initiative = _get_initiative_or_404(db, org_id, initiative_id)
     require_location_access(db, user, org_id, initiative.location_id, manage=True)
+    require_module_enabled(db, org_id, "roadmap")
     db.delete(initiative)
     db.commit()
 
@@ -2212,6 +2286,7 @@ def get_public_board(
 ) -> BoardOut:
     location = _get_public_location(db, feedback_token)
     org = location.organization
+    require_module_enabled(db, org.id, "roadmap", public=True)
 
     visitor_id = _valid_visitor_id(visitor_id)
     query = _initiative_rows_query(org.id, visitor_id, [location.id])
@@ -2257,6 +2332,7 @@ def update_public_initiative_vote(
 ) -> PublicInitiativeOut:
     location = _get_public_location(db, feedback_token)
     org = location.organization
+    require_module_enabled(db, org.id, "roadmap", public=True)
     visitor_id = _valid_visitor_id(visitor_id, required=True)
     _get_initiative_or_404(db, org.id, initiative_id, [location.id])
 

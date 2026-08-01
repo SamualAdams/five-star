@@ -2,14 +2,18 @@ from datetime import date
 
 from sqlalchemy import select
 
-from app.models import Digest, DigestStatus, User
+from app.models import Digest, DigestStatus, Organization, User
 from conftest import TestingSessionLocal
 
 
 def create_org(client, headers, name="Diner Group"):
     response = client.post("/organizations", json={"name": name}, headers=headers)
     assert response.status_code == 201, response.text
-    return response.json()
+    organization = response.json()
+    with TestingSessionLocal() as db:
+        db.get(Organization, organization["id"]).roadmap_enabled = True
+        db.commit()
+    return organization
 
 
 def test_new_organization_gets_a_default_location_and_preserves_public_token(client, auth_headers):

@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { AUTH_SESSION_EXPIRED_EVENT, listLocations, listOrganizations, me } from "./api";
+import {
+  AUTH_SESSION_EXPIRED_EVENT,
+  getFeedbackStats,
+  listLocations,
+  listOrganizationInitiatives,
+  listOrganizations,
+  listSocialPosts,
+  me,
+} from "./api";
 import AuthPage from "./components/AuthPage";
 import BrandName from "./components/BrandName";
 import CreateOrgModal from "./components/CreateOrgModal";
-import DashboardWidget from "./components/DashboardWidget";
 import DigestManager from "./components/DigestManager";
 import DigestsPage from "./components/DigestsPage";
 import FeedbackPage from "./components/FeedbackPage";
@@ -14,10 +21,12 @@ import InitiativesManager from "./components/InitiativesManager";
 import MarketingPage from "./components/MarketingPage";
 import LocationsPage from "./components/LocationsPage";
 import LocationSwitcher from "./components/LocationSwitcher";
+import ModuleLockedPage from "./components/ModuleLockedPage";
 import OrganizationSwitcher from "./components/OrganizationSwitcher";
 import OrgSettingsPage from "./components/OrgSettingsPage";
 import ResetPasswordPage from "./components/ResetPasswordPage";
 import SearchPage from "./components/SearchPage";
+import SubmissionsChart from "./components/SubmissionsChart";
 import TopbarSearch from "./components/TopbarSearch";
 import VotingBoardPage from "./components/VotingBoardPage";
 
@@ -258,6 +267,12 @@ export default function App() {
     ));
   }
 
+  function handleOrganizationUpdated(updatedOrganization) {
+    setOrganizations((current) => current.map(
+      (item) => (item.id === updatedOrganization.id ? updatedOrganization : item)
+    ));
+  }
+
   function toggleSidebar() {
     setIsMenuOpen((current) => {
       const next = !current;
@@ -324,8 +339,11 @@ export default function App() {
               isAuthenticated ? (
                 <Dashboard
                   currentOrg={currentOrg}
+                  isSuperuser={Boolean(user?.is_superuser)}
+                  locationId={selectedLocationId}
                   organizations={organizations}
                   onShowCreateOrg={() => setShowCreateOrg(true)}
+                  token={token}
                 />
               ) : (
                 <Navigate to="/auth?mode=login" replace />
@@ -336,14 +354,18 @@ export default function App() {
             path="/org/:id/roadmap"
             element={
               isAuthenticated ? (
-                <VotingBoardAdminPage
-                  token={token}
-                  currentOrg={currentOrg}
-                  currentLocation={currentLocation}
-                  locationId={selectedLocationId}
-                  locations={locations}
-                  canManage={canManageCurrentLocation}
-                />
+                currentOrg?.modules?.roadmap === false ? (
+                  <ModuleLockedPage isSuperuser={Boolean(user?.is_superuser)} moduleName="Roadmap" orgId={currentOrg.id} />
+                ) : (
+                  <VotingBoardAdminPage
+                    token={token}
+                    currentOrg={currentOrg}
+                    currentLocation={currentLocation}
+                    locationId={selectedLocationId}
+                    locations={locations}
+                    canManage={canManageCurrentLocation}
+                  />
+                )
               ) : (
                 <Navigate to="/auth?mode=login" replace />
               )
@@ -353,14 +375,18 @@ export default function App() {
             path="/org/:id/board"
             element={
               isAuthenticated ? (
-                <VotingBoardAdminPage
-                  token={token}
-                  currentOrg={currentOrg}
-                  currentLocation={currentLocation}
-                  locationId={selectedLocationId}
-                  locations={locations}
-                  canManage={canManageCurrentLocation}
-                />
+                currentOrg?.modules?.roadmap === false ? (
+                  <ModuleLockedPage isSuperuser={Boolean(user?.is_superuser)} moduleName="Roadmap" orgId={currentOrg.id} />
+                ) : (
+                  <VotingBoardAdminPage
+                    token={token}
+                    currentOrg={currentOrg}
+                    currentLocation={currentLocation}
+                    locationId={selectedLocationId}
+                    locations={locations}
+                    canManage={canManageCurrentLocation}
+                  />
+                )
               ) : (
                 <Navigate to="/auth?mode=login" replace />
               )
@@ -402,11 +428,15 @@ export default function App() {
             path="/org/:id/feed"
             element={
               isAuthenticated ? (
-                <FeedPage
-                  token={token}
-                  orgId={currentOrg?.id}
-                  organizationName={currentOrg?.name}
-                />
+                currentOrg?.modules?.feed === false ? (
+                  <ModuleLockedPage isSuperuser={Boolean(user?.is_superuser)} moduleName="Feed" orgId={currentOrg.id} />
+                ) : (
+                  <FeedPage
+                    token={token}
+                    orgId={currentOrg?.id}
+                    organizationName={currentOrg?.name}
+                  />
+                )
               ) : (
                 <Navigate to="/auth?mode=login" replace />
               )
@@ -421,6 +451,7 @@ export default function App() {
                   user={user}
                   section="general"
                   currentLocation={currentLocation}
+                  onOrganizationUpdated={handleOrganizationUpdated}
                   onLocationUpdated={handleLocationUpdated}
                 />
               ) : (
@@ -477,6 +508,7 @@ export default function App() {
                     token={token}
                     orgId={currentOrg.id}
                     locations={locations}
+                    roadmapEnabled={currentOrg?.modules?.roadmap !== false}
                     onLocationsChanged={loadCurrentLocations}
                   />
               ) : (
@@ -488,7 +520,11 @@ export default function App() {
             path="/org/:id/social"
             element={
               isAuthenticated ? (
-                <OrgSettingsPage token={token} user={user} section="social" />
+                currentOrg?.modules?.feed === false ? (
+                  <ModuleLockedPage isSuperuser={Boolean(user?.is_superuser)} moduleName="Feed" orgId={currentOrg.id} />
+                ) : (
+                  <OrgSettingsPage token={token} user={user} section="social" />
+                )
               ) : (
                 <Navigate to="/auth?mode=login" replace />
               )
@@ -726,18 +762,20 @@ function AppSidebar({
     (location) => location.id === Number(currentLocationId)
   );
   const canManageLocation = Boolean(currentOrg?.can_manage_organization) || Boolean(selectedLocation?.can_manage);
+  const roadmapLocked = Boolean(currentOrg) && currentOrg.modules?.roadmap === false;
+  const feedLocked = Boolean(currentOrg) && currentOrg.modules?.feed === false;
   const workspaceItems = [
     { to: "/dashboard", label: "Dashboard", icon: "overview", end: true },
     { to: `${orgBase}/feedback`, label: "Feedback", icon: "reports", disabled: !currentOrg },
-    { to: `${orgBase}/roadmap`, label: "Roadmap", icon: "board", disabled: !currentOrg },
-    { to: `${orgBase}/feed`, label: "Feed", icon: "feed", disabled: !currentOrg },
+    { to: `${orgBase}/roadmap`, label: "Roadmap", icon: "board", disabled: !currentOrg, locked: roadmapLocked },
+    { to: `${orgBase}/feed`, label: "Feed", icon: "feed", disabled: !currentOrg, locked: feedLocked },
   ];
   const adminItems = [
     { to: `${orgBase}/settings`, label: "Settings", icon: "settings", disabled: !currentOrg },
     { to: `${orgBase}/locations`, label: "Locations", icon: "location", disabled: !currentOrg },
     { to: `${orgBase}/users`, label: "Users", icon: "users", disabled: !currentOrg },
     { to: `${orgBase}/reviews`, label: "Public reviews", icon: "review", disabled: !currentOrg },
-    { to: `${orgBase}/social`, label: "Social accounts", icon: "social", disabled: !currentOrg },
+    { to: `${orgBase}/social`, label: "Social accounts", icon: "social", disabled: !currentOrg, locked: feedLocked },
   ];
   const locationManagerItems = [
     { to: `${orgBase}/reviews`, label: "Public reviews", icon: "review", disabled: !currentOrg },
@@ -751,14 +789,15 @@ function AppSidebar({
       </span>
     ) : (
       <NavLink
-        className={({ isActive }) => `sidebar-nav-link${isActive ? " sidebar-nav-link--active" : ""}`}
+        className={({ isActive }) => `sidebar-nav-link${isActive ? " sidebar-nav-link--active" : ""}${item.locked ? " sidebar-nav-link--locked" : ""}`}
         end={item.end}
         key={item.label}
         onClick={closeOnMobile}
         to={item.to}
       >
         <SidebarIcon name={item.icon} />
-        {item.label}
+        <span>{item.label}</span>
+        {item.locked && <span className="sidebar-module-lock" aria-label="Module locked">🔒</span>}
       </NavLink>
     ));
   }
@@ -775,8 +814,8 @@ function AppSidebar({
       </span>
     ) : (
       <NavLink
-        aria-label={item.label}
-        className={({ isActive }) => `sidebar-rail-link${isActive ? " sidebar-rail-link--active" : ""}`}
+        aria-label={`${item.label}${item.locked ? " (locked)" : ""}`}
+        className={({ isActive }) => `sidebar-rail-link${isActive ? " sidebar-rail-link--active" : ""}${item.locked ? " sidebar-rail-link--locked" : ""}`}
         end={item.end}
         key={item.label}
         onClick={closeOnMobile}
@@ -784,6 +823,7 @@ function AppSidebar({
         to={item.to}
       >
         <SidebarIcon name={item.icon} />
+        {item.locked && <span className="sidebar-rail-lock" aria-hidden="true">•</span>}
       </NavLink>
     ));
   }
@@ -845,6 +885,7 @@ function AppSidebar({
           <OrganizationSwitcher
             organizations={organizations}
             currentOrgId={currentOrgId}
+            isSuperuser={Boolean(user?.is_superuser)}
             onOrgChange={onOrgChange}
             onCreateOrganization={() => {
               onShowCreateOrg();
@@ -899,7 +940,7 @@ function AppSidebar({
             <span className="sidebar-avatar">{user?.email?.charAt(0).toUpperCase()}</span>
             <div className="sidebar-account-copy">
               <strong>{user?.email}</strong>
-              <span>{accessRoleLabel(currentOrg?.role)}</span>
+              <span>{user?.is_superuser ? "Platform superuser" : accessRoleLabel(currentOrg?.role)}</span>
             </div>
             <button type="button" className="sidebar-logout" onClick={onLogout} aria-label="Log out" title="Log out">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -920,7 +961,106 @@ function AppSidebar({
   );
 }
 
-function Dashboard({ currentOrg, organizations, onShowCreateOrg }) {
+function dashboardPostStatus(status) {
+  return {
+    draft: "Draft",
+    scheduled: "Scheduled",
+    publishing: "Publishing",
+    published: "Published",
+    partial_failure: "Partially published",
+    failed: "Failed",
+  }[status] || status;
+}
+
+function dashboardPostDate(post) {
+  const value = post.published_at || post.scheduled_at || post.created_at;
+  if (!value) return "";
+  return new Date(value).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function DashboardModuleLocked({ isSuperuser, moduleName, orgId }) {
+  return (
+    <div className="dashboard-module-locked">
+      <span aria-hidden="true">🔒</span>
+      <div>
+        <strong>{moduleName} is not enabled for this organization.</strong>
+        <p>
+          {isSuperuser
+            ? "Enable it in Settings to start using this module."
+            : "Contact Five* to add this module."}
+        </p>
+      </div>
+      {isSuperuser && (
+        <Link to={`/org/${orgId}/settings#modules`}>Enable in Settings →</Link>
+      )}
+    </div>
+  );
+}
+
+function Dashboard({ currentOrg, isSuperuser, locationId, organizations, onShowCreateOrg, token }) {
+  const [feedbackData, setFeedbackData] = useState([]);
+  const [initiatives, setInitiatives] = useState([]);
+  const [posts, setPosts] = useState([]);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [dashboardErrors, setDashboardErrors] = useState({});
+
+  useEffect(() => {
+    if (!token || !currentOrg?.id) return undefined;
+    let active = true;
+    setDashboardLoading(true);
+    setDashboardErrors({});
+
+    const roadmapEnabled = currentOrg.modules?.roadmap !== false;
+    const feedEnabled = currentOrg.modules?.feed !== false;
+    Promise.allSettled([
+      getFeedbackStats(token, currentOrg.id, 30, locationId),
+      roadmapEnabled
+        ? listOrganizationInitiatives(token, currentOrg.id, locationId)
+        : Promise.resolve([]),
+      feedEnabled && currentOrg.can_manage_organization
+        ? listSocialPosts(token, currentOrg.id, 100)
+        : Promise.resolve([]),
+    ]).then(([feedbackResult, initiativesResult, postsResult]) => {
+      if (!active) return;
+      const errors = {};
+      if (feedbackResult.status === "fulfilled") {
+        setFeedbackData(feedbackResult.value.data || []);
+      } else {
+        setFeedbackData([]);
+        errors.feedback = feedbackResult.reason?.message || "Feedback activity could not be loaded.";
+      }
+      if (initiativesResult.status === "fulfilled") {
+        setInitiatives(initiativesResult.value || []);
+      } else {
+        setInitiatives([]);
+        errors.roadmap = initiativesResult.reason?.message || "Roadmap activity could not be loaded.";
+      }
+      if (postsResult.status === "fulfilled") {
+        setPosts(postsResult.value || []);
+      } else {
+        setPosts([]);
+        errors.feed = postsResult.reason?.message || "Recent posts could not be loaded.";
+      }
+      setDashboardErrors(errors);
+      setDashboardLoading(false);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [
+    currentOrg?.can_manage_organization,
+    currentOrg?.id,
+    currentOrg?.modules?.feed,
+    currentOrg?.modules?.roadmap,
+    locationId,
+    token,
+  ]);
+
   if (!organizations.length) {
     return (
       <div className="dashboard-empty">
@@ -933,42 +1073,178 @@ function Dashboard({ currentOrg, organizations, onShowCreateOrg }) {
     );
   }
 
+  const feedbackTotal = feedbackData.reduce((sum, point) => sum + point.count, 0);
+  const roadmapEnabled = currentOrg?.modules?.roadmap !== false;
+  const feedEnabled = currentOrg?.modules?.feed !== false;
+  const feedbackActiveDays = feedbackData.filter((point) => point.count > 0).length;
+  const totalRoadmapVotes = initiatives.reduce(
+    (sum, initiative) => sum + initiative.upvotes + initiative.downvotes,
+    0
+  );
+  const engagedInitiatives = initiatives.filter(
+    (initiative) => initiative.upvotes + initiative.downvotes > 0
+  );
+  const topInitiatives = [...initiatives]
+    .sort((left, right) => (
+      (right.upvotes + right.downvotes) - (left.upvotes + left.downvotes)
+    ))
+    .slice(0, 3);
+  const publishedPosts = posts.filter((post) => (
+    post.status === "published" || post.status === "partial_failure"
+  )).length;
+  const scheduledPosts = posts.filter((post) => post.status === "scheduled").length;
+
   return (
     <div className="dashboard">
       <div className="dashboard-welcome">
         <p className="dashboard-kicker">Dashboard</p>
         <h1>{currentOrg?.name}</h1>
-        <p>Customer feedback, roadmap priorities, and social publishing for your organization.</p>
+        <p>A quick read on whether customers are responding to what you share.</p>
       </div>
 
-      <section className="dashboard-widget-grid" aria-label="Workspace widgets">
-        <DashboardWidget
-          description="Publish what you’re working on and see what matters most to customers."
-          icon={<SidebarIcon name="board" />}
-          title="Roadmap"
-          to={`/org/${currentOrg?.id}/roadmap`}
-        />
-        <DashboardWidget
-          description="Review submissions and turn customer feedback into clear, shareable reports."
-          icon={<SidebarIcon name="reports" />}
-          title="Feedback"
-          to={`/org/${currentOrg?.id}/feedback`}
-        />
-        <DashboardWidget
-          description="Draft once, tailor each platform version, then publish or schedule across connected channels."
-          icon={<SidebarIcon name="feed" />}
-          title="Feed"
-          to={`/org/${currentOrg?.id}/feed`}
-        />
-        {currentOrg?.can_manage_organization && (
-          <DashboardWidget
-            description="Manage organization details, public links, users, reviews, and connected accounts."
-            icon={<SidebarIcon name="settings" />}
-            title="Settings"
-            to={`/org/${currentOrg?.id}/settings`}
-          />
-        )}
-      </section>
+      <div className="dashboard-story">
+        <section className="dashboard-insight" aria-labelledby="dashboard-feedback-title">
+          <div className="dashboard-insight-heading">
+            <div>
+              <p className="dashboard-step">01 · Feedback</p>
+              <h2 id="dashboard-feedback-title">Am I receiving feedback?</h2>
+              <p>Customer submissions across the last 30 days.</p>
+            </div>
+            <Link className="dashboard-section-link" to={`/org/${currentOrg?.id}/feedback`}>
+              Review feedback <span aria-hidden="true">→</span>
+            </Link>
+          </div>
+
+          {dashboardErrors.feedback ? (
+            <p className="message message--error">{dashboardErrors.feedback}</p>
+          ) : (
+            <>
+              <div className="dashboard-answer">
+                <strong>{dashboardLoading ? "—" : feedbackTotal}</strong>
+                <span>submission{feedbackTotal === 1 ? "" : "s"} in the last 30 days</span>
+                {!dashboardLoading && feedbackTotal > 0 && (
+                  <small>Feedback arrived on {feedbackActiveDays} day{feedbackActiveDays === 1 ? "" : "s"}.</small>
+                )}
+              </div>
+              <SubmissionsChart
+                data={feedbackData}
+                days={30}
+                height={190}
+                loading={dashboardLoading}
+                total={feedbackTotal}
+              />
+            </>
+          )}
+        </section>
+
+        <section className="dashboard-insight" aria-labelledby="dashboard-roadmap-title">
+          <div className="dashboard-insight-heading">
+            <div>
+              <p className="dashboard-step">02 · Roadmap</p>
+              <h2 id="dashboard-roadmap-title">Am I getting engagement on my roadmap items?</h2>
+              <p>Votes show which published initiatives customers care about.</p>
+            </div>
+            <Link className="dashboard-section-link" to={`/org/${currentOrg?.id}/roadmap`}>
+              View roadmap <span aria-hidden="true">→</span>
+            </Link>
+          </div>
+
+          {!roadmapEnabled ? (
+            <DashboardModuleLocked isSuperuser={isSuperuser} moduleName="Roadmap" orgId={currentOrg.id} />
+          ) : dashboardErrors.roadmap ? (
+            <p className="message message--error">{dashboardErrors.roadmap}</p>
+          ) : dashboardLoading ? (
+            <p className="dashboard-loading-state">Loading roadmap activity…</p>
+          ) : (
+            <>
+              <div className="dashboard-metric-grid">
+                <div className="dashboard-metric">
+                  <strong>{totalRoadmapVotes}</strong>
+                  <span>Total votes</span>
+                </div>
+                <div className="dashboard-metric">
+                  <strong>{engagedInitiatives.length}</strong>
+                  <span>Items with engagement</span>
+                </div>
+                <div className="dashboard-metric">
+                  <strong>{initiatives.length}</strong>
+                  <span>Published items</span>
+                </div>
+              </div>
+              {topInitiatives.length ? (
+                <div className="dashboard-ranked-list">
+                  {topInitiatives.map((initiative) => (
+                    <div className="dashboard-ranked-item" key={initiative.id}>
+                      <div>
+                        <strong>{initiative.title}</strong>
+                        <small>{initiative.location_name}</small>
+                      </div>
+                      <span>{initiative.upvotes} up · {initiative.downvotes} down</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="dashboard-empty-state">No roadmap items have been published yet.</p>
+              )}
+            </>
+          )}
+        </section>
+
+        <section className="dashboard-insight" aria-labelledby="dashboard-feed-title">
+          <div className="dashboard-insight-heading">
+            <div>
+              <p className="dashboard-step">03 · Feed</p>
+              <h2 id="dashboard-feed-title">Are my recent feed posts going out?</h2>
+              <p>Publishing activity recorded inside Five*.</p>
+            </div>
+            <Link className="dashboard-section-link" to={`/org/${currentOrg?.id}/feed`}>
+              Open feed <span aria-hidden="true">→</span>
+            </Link>
+          </div>
+
+          {!feedEnabled ? (
+            <DashboardModuleLocked isSuperuser={isSuperuser} moduleName="Feed" orgId={currentOrg.id} />
+          ) : !currentOrg?.can_manage_organization ? (
+            <p className="dashboard-empty-state">Recent publishing activity is available to organization admins.</p>
+          ) : dashboardErrors.feed ? (
+            <p className="message message--error">{dashboardErrors.feed}</p>
+          ) : dashboardLoading ? (
+            <p className="dashboard-loading-state">Loading recent posts…</p>
+          ) : (
+            <>
+              <div className="dashboard-metric-grid">
+                <div className="dashboard-metric">
+                  <strong>{posts.length}</strong>
+                  <span>Posts created</span>
+                </div>
+                <div className="dashboard-metric">
+                  <strong>{publishedPosts}</strong>
+                  <span>Published</span>
+                </div>
+                <div className="dashboard-metric">
+                  <strong>{scheduledPosts}</strong>
+                  <span>Scheduled</span>
+                </div>
+              </div>
+              {posts.length ? (
+                <div className="dashboard-ranked-list">
+                  {posts.slice(0, 5).map((post) => (
+                    <div className="dashboard-ranked-item dashboard-post-item" key={post.id}>
+                      <div>
+                        <strong>{post.master_caption}</strong>
+                        <small>{dashboardPostDate(post)}</small>
+                      </div>
+                      <span>{dashboardPostStatus(post.status)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="dashboard-empty-state">No feed posts have been created in Five* yet.</p>
+              )}
+            </>
+          )}
+        </section>
+      </div>
     </div>
   );
 }

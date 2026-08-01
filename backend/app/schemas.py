@@ -26,6 +26,7 @@ class ResetPasswordRequest(BaseModel):
 class UserOut(BaseModel):
     id: int
     email: EmailStr
+    is_superuser: bool = False
     created_at: datetime
 
 
@@ -50,6 +51,17 @@ class OrganizationUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=255)
 
 
+class OrganizationModulesOut(BaseModel):
+    feedback: bool = True
+    roadmap: bool
+    feed: bool
+
+
+class OrganizationModulesUpdate(BaseModel):
+    roadmap: bool | None = None
+    feed: bool | None = None
+
+
 class ReviewLink(BaseModel):
     platform: str = Field(pattern="^(google|yelp|tripadvisor)$")
     url: str = Field(min_length=1, max_length=2048)
@@ -69,6 +81,7 @@ class OrganizationOut(BaseModel):
     review_links: list[ReviewLink] | None = None
     can_view_all_locations: bool = False
     can_manage_organization: bool = False
+    modules: OrganizationModulesOut
 
 
 # Location schemas

@@ -5,7 +5,7 @@ import httpx
 import app.main as main_module
 import app.social as social_module
 from app.config import Settings
-from app.models import SocialConnection
+from app.models import Organization, SocialConnection
 from app.social import (
     PROVIDER_DETAILS,
     build_authorization_url,
@@ -19,7 +19,11 @@ from conftest import TestingSessionLocal
 def create_org(client, headers, name="Connected Diner"):
     response = client.post("/organizations", json={"name": name}, headers=headers)
     assert response.status_code == 201, response.text
-    return response.json()
+    organization = response.json()
+    with TestingSessionLocal() as db:
+        db.get(Organization, organization["id"]).feed_enabled = True
+        db.commit()
+    return organization
 
 
 def test_facebook_uses_page_login_and_exchanges_for_a_long_lived_token(monkeypatch):

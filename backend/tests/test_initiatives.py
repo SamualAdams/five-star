@@ -1,7 +1,15 @@
+from app.models import Organization
+from conftest import TestingSessionLocal
+
+
 def create_org(client, headers, name="Acme Diner"):
     response = client.post("/organizations", json={"name": name}, headers=headers)
     assert response.status_code == 201, response.text
-    return response.json()
+    organization = response.json()
+    with TestingSessionLocal() as db:
+        db.get(Organization, organization["id"]).roadmap_enabled = True
+        db.commit()
+    return organization
 
 
 def create_initiative(client, headers, org_id, title, description="Details", status="gathering_feedback"):
@@ -133,3 +141,34 @@ def test_public_vote_requires_a_browser_identifier(client, auth_headers):
     )
     assert response.status_code == 400
     assert response.json()["detail"] == "Missing visitor identifier"
+
+
+def test_disabled_roadmap_blocks_private_and_public_access_without_deleting_data(
+    client,
+    auth_headers,
+):
+    headers = auth_headers("module-owner@example.com")
+    org = create_org(client, headers, "Module Diner")
+    initiative = create_initiative(client, headers, org["id"], "Keep this item")
+
+    with TestingSessionLocal() as db:
+        db.get(Organization, org["id"]).roadmap_enabled = False
+        db.commit()
+
+    private_listing = client.get(
+        f"/organizations/{org['id']}/initiatives",
+        headers=headers,
+    )
+    assert private_listing.status_code == 403
+    assert client.get(f"/api/boards/{org['feedback_token']}").status_code == 404
+
+    with TestingSessionLocal() as db:
+        db.get(Organization, org["id"]).roadmap_enabled = True
+        db.commit()
+
+    restored = client.get(
+        f"/organizations/{org['id']}/initiatives",
+        headers=headers,
+    )
+    assert restored.status_code == 200
+    assert [item["id"] for item in restored.json()] == [initiative["id"]]

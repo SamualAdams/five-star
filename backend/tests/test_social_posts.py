@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 import app.main as main_module
-from app.models import SocialConnection, User
+from app.models import Organization, SocialConnection, SocialPost, User
 from app.schemas import SocialDraftContent
 from app.social import SocialProviderError, encrypt_token, publish_social_content
 from conftest import TestingSessionLocal
@@ -10,7 +10,11 @@ from conftest import TestingSessionLocal
 def create_org(client, headers, name="Publishing Diner"):
     response = client.post("/organizations", json={"name": name}, headers=headers)
     assert response.status_code == 201, response.text
-    return response.json()
+    organization = response.json()
+    with TestingSessionLocal() as db:
+        db.get(Organization, organization["id"]).feed_enabled = True
+        db.commit()
+    return organization
 
 
 def add_connection(
@@ -358,3 +362,83 @@ def test_social_post_reports_partial_provider_failure(
         if target["provider"] == "instagram"
     )
     assert instagram["error"] == "Instagram rejected the media"
+
+
+def test_scheduled_posts_pause_while_feed_is_disabled_and_resume_when_enabled(
+    client,
+    auth_headers,
+    monkeypatch,
+):
+    email = "paused-publisher@example.com"
+    headers = auth_headers(email)
+    org = create_org(client, headers, "Paused Feed Diner")
+    add_connection(
+        organization_id=org["id"],
+        user_email=email,
+        provider="facebook",
+        account_id="page-paused",
+        account_name="Paused Feed Diner",
+    )
+    scheduled = client.post(
+        f"/organizations/{org['id']}/social-posts",
+        json={
+            "master_caption": "Publish after re-enabling",
+            "targets": [{"provider": "facebook", "content": "Paused update"}],
+            "media_urls": [],
+            "scheduled_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
+        },
+        headers=headers,
+    )
+    assert scheduled.status_code == 201, scheduled.text
+
+    with TestingSessionLocal() as db:
+        organization = db.get(Organization, org["id"])
+        organization.feed_enabled = False
+        post = db.get(SocialPost, scheduled.json()["id"])
+        post.scheduled_at = datetime.utcnow() - timedelta(minutes=1)
+        db.commit()
+
+    publish_calls = []
+    monkeypatch.setattr(
+        main_module,
+        "publish_social_content",
+        lambda provider, **kwargs: publish_calls.append(provider) or "remote-post-id",
+    )
+    monkeypatch.setattr(main_module, "SessionLocal", TestingSessionLocal)
+    main_module._publish_due_social_posts_once()
+    with TestingSessionLocal() as db:
+        assert db.get(SocialPost, scheduled.json()["id"]).status == "scheduled"
+    assert publish_calls == []
+
+    with TestingSessionLocal() as db:
+        db.get(Organization, org["id"]).feed_enabled = True
+        db.commit()
+    main_module._publish_due_social_posts_once()
+    with TestingSessionLocal() as db:
+        assert db.get(SocialPost, scheduled.json()["id"]).status == "published"
+    assert publish_calls == ["facebook"]
+
+
+def test_disabled_feed_blocks_post_and_social_connection_apis(client, auth_headers):
+    headers = auth_headers("locked-feed-owner@example.com")
+    org = create_org(client, headers, "Locked Feed Diner")
+    with TestingSessionLocal() as db:
+        db.get(Organization, org["id"]).feed_enabled = False
+        db.commit()
+
+    assert client.get(
+        f"/organizations/{org['id']}/social-posts",
+        headers=headers,
+    ).status_code == 403
+    assert client.get(
+        f"/organizations/{org['id']}/social-connections",
+        headers=headers,
+    ).status_code == 403
+
+    with TestingSessionLocal() as db:
+        db.get(Organization, org["id"]).feed_enabled = True
+        db.commit()
+    assert client.get(
+        f"/organizations/{org['id']}/social-posts",
+        headers=headers,
+    ).status_code == 200
