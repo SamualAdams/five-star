@@ -22,6 +22,67 @@ def create_org(client, headers, name="Connected Diner"):
     return response.json()
 
 
+def test_facebook_uses_page_login_and_exchanges_for_a_long_lived_token(monkeypatch):
+    calls = []
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            calls.append(("client", kwargs))
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return False
+
+        def get(self, url, **kwargs):
+            calls.append(("get", url, kwargs))
+            if kwargs["params"].get("grant_type") == "fb_exchange_token":
+                return httpx.Response(
+                    200,
+                    json={"access_token": "long-facebook-token", "expires_in": 5_184_000},
+                )
+            return httpx.Response(
+                200,
+                json={"access_token": "short-facebook-token", "token_type": "bearer"},
+            )
+
+    monkeypatch.setattr(social_module.httpx, "Client", FakeClient)
+    settings = Settings(
+        api_base_url="https://fivestar.fyi",
+        meta_client_id="facebook-client",
+        meta_client_secret="facebook-secret",
+    )
+
+    authorization_url = build_authorization_url("facebook", "oauth-state", settings)
+    parsed = urlparse(authorization_url)
+    query = parse_qs(parsed.query)
+    assert parsed.netloc == "www.facebook.com"
+    assert parsed.path == "/dialog/oauth"
+    assert query["client_id"] == ["facebook-client"]
+    assert query["redirect_uri"] == [
+        "https://fivestar.fyi/oauth/social/facebook/callback"
+    ]
+    assert query["auth_type"] == ["rerequest"]
+    assert query["return_scopes"] == ["true"]
+    assert query["scope"] == [",".join(PROVIDER_DETAILS["facebook"]["scopes"])]
+
+    token_data = exchange_social_code("facebook", "authorization-code", settings)
+    assert token_data["access_token"] == "long-facebook-token"
+    assert token_data["expires_in"] == 5_184_000
+    exchange_request = calls[-1]
+    assert exchange_request[:2] == (
+        "get",
+        "https://graph.facebook.com/oauth/access_token",
+    )
+    assert exchange_request[2]["params"] == {
+        "grant_type": "fb_exchange_token",
+        "client_id": "facebook-client",
+        "client_secret": "facebook-secret",
+        "fb_exchange_token": "short-facebook-token",
+    }
+
+
 def test_instagram_uses_direct_business_login_configuration():
     settings = Settings(
         api_base_url="https://api.fivestar.fyi",
@@ -131,6 +192,106 @@ def test_instagram_exchanges_for_long_lived_token_and_loads_identity(monkeypatch
         "client_secret": "instagram-secret",
         "access_token": "short-token",
     }
+
+
+def test_instagram_oauth_callback_persists_and_disconnects_direct_connection(
+    client,
+    auth_headers,
+    monkeypatch,
+):
+    headers = auth_headers("instagram-owner@example.com")
+    org = create_org(client, headers, name="Instagram Diner")
+    monkeypatch.setattr(main_module.settings, "instagram_client_id", "instagram-client")
+    monkeypatch.setattr(main_module.settings, "instagram_client_secret", "instagram-secret")
+    monkeypatch.setattr(main_module.settings, "api_base_url", "http://testserver")
+    monkeypatch.setattr(
+        main_module,
+        "exchange_social_code",
+        lambda provider, code, settings: {
+            "access_token": "long-instagram-token",
+            "expires_in": 5_184_000,
+        },
+    )
+    monkeypatch.setattr(
+        main_module,
+        "fetch_social_identity",
+        lambda provider, token_data: {
+            "id": "ig-direct-123",
+            "name": "instagram_diner",
+            "data": {
+                "username": "instagram_diner",
+                "account_type": "BUSINESS",
+                "profile_picture_url": None,
+            },
+        },
+    )
+
+    authorization = client.post(
+        f"/organizations/{org['id']}/social-connections/instagram/authorize",
+        headers=headers,
+    )
+    assert authorization.status_code == 200, authorization.text
+    authorization_url = authorization.json()["authorization_url"]
+    parsed = urlparse(authorization_url)
+    assert parsed.netloc == "www.instagram.com"
+    state_value = parse_qs(parsed.query)["state"][0]
+
+    callback = client.get(
+        "/oauth/social/instagram/callback",
+        params={
+            "state": state_value,
+            "code": "provider-code",
+            "granted_scopes": (
+                "instagram_business_basic,instagram_business_content_publish"
+            ),
+        },
+        follow_redirects=False,
+    )
+    assert callback.status_code == 303, callback.text
+    assert "social=connected" in callback.headers["location"]
+
+    listing = client.get(
+        f"/organizations/{org['id']}/social-connections",
+        headers=headers,
+    )
+    instagram = listing.json()[1]
+    assert instagram["connected"] is True
+    assert instagram["status"] == "connected"
+    assert instagram["provider_account_id"] == "ig-direct-123"
+    assert instagram["provider_account_name"] == "instagram_diner"
+    assert instagram["connection_method"] == "instagram_login"
+    assert instagram["scopes"] == [
+        "instagram_business_basic",
+        "instagram_business_content_publish",
+    ]
+    assert instagram["expires_at"] is not None
+
+    with TestingSessionLocal() as db:
+        saved_instagram = db.query(SocialConnection).filter_by(
+            organization_id=org["id"],
+            provider="instagram",
+        ).one()
+        assert saved_instagram.access_token_encrypted != "long-instagram-token"
+        assert "long-instagram-token" not in saved_instagram.access_token_encrypted
+
+    revoked = []
+    monkeypatch.setattr(
+        main_module,
+        "revoke_social_token",
+        lambda provider, encrypted_token, settings: revoked.append(provider),
+    )
+    disconnected = client.delete(
+        f"/organizations/{org['id']}/social-connections/instagram",
+        headers=headers,
+    )
+    assert disconnected.status_code == 204
+    assert revoked == ["instagram"]
+
+    listing = client.get(
+        f"/organizations/{org['id']}/social-connections",
+        headers=headers,
+    )
+    assert listing.json()[1]["connected"] is False
 
 
 def test_social_connections_are_admin_only_and_report_setup_state(

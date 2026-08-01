@@ -510,8 +510,8 @@ def _social_connection_out(
         )
     if provider == "instagram" and not connection:
         diagnostic = (
-            "Connect directly, or connect Meta and choose a Facebook Page that has "
-            "a professional Instagram account linked."
+            "Use Instagram Connect to add an account directly. Or use Facebook Connect "
+            "to add a Page and, if one is linked, its professional Instagram account."
         )
     return SocialConnectionOut(
         provider=provider,
@@ -657,6 +657,7 @@ def social_oauth_callback(
     provider: str,
     state_value: str | None = Query(default=None, alias="state"),
     code: str | None = None,
+    granted_scopes: str | None = None,
     error: str | None = None,
     error_description: str | None = None,
     db: Session = Depends(get_db),
@@ -693,6 +694,8 @@ def social_oauth_callback(
 
     try:
         token_data = exchange_social_code(provider, code, settings)
+        if granted_scopes:
+            token_data["scope"] = granted_scopes
         access_token = token_data.get("access_token")
         if not access_token:
             raise SocialProviderError("The provider did not return an access token")

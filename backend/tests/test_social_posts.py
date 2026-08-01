@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 import app.main as main_module
 from app.models import SocialConnection, User
 from app.schemas import SocialDraftContent
-from app.social import SocialProviderError, encrypt_token
+from app.social import SocialProviderError, encrypt_token, publish_social_content
 from conftest import TestingSessionLocal
 
 
@@ -44,6 +44,72 @@ def add_connection(
             )
         )
         db.commit()
+
+
+def test_provider_publish_requests_use_the_correct_graph_endpoints(monkeypatch):
+    calls = []
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            calls.append(("client", kwargs))
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return False
+
+        def post(self, url, **kwargs):
+            calls.append(("post", url, kwargs))
+            if url.endswith("/media_publish"):
+                return main_module.httpx.Response(200, json={"id": "instagram-post"})
+            if url.endswith("/media"):
+                return main_module.httpx.Response(200, json={"id": "media-container"})
+            if url.endswith("/photos"):
+                return main_module.httpx.Response(200, json={"post_id": "facebook-photo"})
+            return main_module.httpx.Response(200, json={"id": "facebook-post"})
+
+    monkeypatch.setattr("app.social.httpx.Client", FakeClient)
+
+    assert publish_social_content(
+        "facebook",
+        account_id="page-123",
+        access_token="page-token",
+        content="Facebook text post",
+    ) == "facebook-post"
+    assert publish_social_content(
+        "facebook",
+        account_id="page-123",
+        access_token="page-token",
+        content="Facebook photo post",
+        media_urls=["https://images.example.com/facebook.jpg"],
+    ) == "facebook-photo"
+    assert publish_social_content(
+        "instagram",
+        account_id="ig-direct-123",
+        access_token="instagram-token",
+        content="Direct Instagram post",
+        media_urls=["https://images.example.com/direct-instagram.jpg"],
+        provider_data={"auth_type": "instagram_login"},
+    ) == "instagram-post"
+    assert publish_social_content(
+        "instagram",
+        account_id="ig-linked-456",
+        access_token="page-token",
+        content="Linked Instagram post",
+        media_urls=["https://images.example.com/linked-instagram.jpg"],
+        provider_data={"auth_type": "facebook_login"},
+    ) == "instagram-post"
+
+    request_urls = [call[1] for call in calls if call[0] == "post"]
+    assert request_urls == [
+        "https://graph.facebook.com/page-123/feed",
+        "https://graph.facebook.com/page-123/photos",
+        "https://graph.instagram.com/ig-direct-123/media",
+        "https://graph.instagram.com/ig-direct-123/media_publish",
+        "https://graph.facebook.com/ig-linked-456/media",
+        "https://graph.facebook.com/ig-linked-456/media_publish",
+    ]
 
 
 def test_social_posts_require_admin_and_connected_destinations(

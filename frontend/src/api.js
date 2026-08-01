@@ -1,4 +1,11 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+export const AUTH_SESSION_EXPIRED_EVENT = "five-star:auth-session-expired";
+
+function hasBearerAuthorization(headers = {}) {
+  return Object.entries(headers).some(
+    ([name, value]) => name.toLowerCase() === "authorization" && String(value).startsWith("Bearer ")
+  );
+}
 
 async function request(path, options = {}) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -14,6 +21,13 @@ async function request(path, options = {}) {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     const message = payload?.detail || "Request failed";
+    if (
+      response.status === 401
+      && hasBearerAuthorization(options.headers)
+      && typeof window !== "undefined"
+    ) {
+      window.dispatchEvent(new Event(AUTH_SESSION_EXPIRED_EVENT));
+    }
     throw new Error(typeof message === "string" ? message : JSON.stringify(message));
   }
 

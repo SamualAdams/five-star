@@ -254,7 +254,10 @@ export default function MarketingPage() {
       <section className="marketing-hero">
         <div className="marketing-panel marketing-panel--hero">
           <h1 className="marketing-title">
-            Better feedback. Better business.
+            <span className="marketing-title-word">Better</span>{" "}
+            <span className="marketing-title-word">feedback.</span>{" "}
+            <span className="marketing-title-word">Better</span>{" "}
+            <span className="marketing-title-word">business.</span>
           </h1>
           <p className="marketing-copy">
             Your customers want you to succeed. They just need a private way to share what&apos;s

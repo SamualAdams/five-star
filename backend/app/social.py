@@ -93,9 +93,11 @@ def build_authorization_url(
     if provider == "facebook":
         query = urlencode(
             {
+                "auth_type": "rerequest",
                 "client_id": settings.meta_client_id,
                 "redirect_uri": redirect_uri,
                 "response_type": "code",
+                "return_scopes": "true",
                 "scope": ",".join(scopes),
                 "state": state,
             }
@@ -140,7 +142,9 @@ def _response_json(response: httpx.Response, provider: str) -> dict[str, Any]:
         error_detail = error.get("message") if isinstance(error, dict) else error
         detail = payload.get("error_description") or payload.get("message") or error_detail
         raise SocialProviderError(
-            str(detail) if detail else f"{provider.title()} rejected the connection"
+            f"{provider.title()} request failed: {detail}"
+            if detail
+            else f"{provider.title()} rejected the connection"
         )
     return payload
 
@@ -165,6 +169,20 @@ def exchange_social_code(
                     "code": code,
                 },
             )
+            short_lived = _response_json(response, provider)
+            short_lived_token = short_lived.get("access_token")
+            if not short_lived_token:
+                raise SocialProviderError("Facebook did not return an access token")
+            response = client.get(
+                "https://graph.facebook.com/oauth/access_token",
+                params={
+                    "grant_type": "fb_exchange_token",
+                    "client_id": settings.meta_client_id,
+                    "client_secret": settings.meta_client_secret,
+                    "fb_exchange_token": short_lived_token,
+                },
+            )
+            return {**short_lived, **_response_json(response, provider)}
         elif provider == "instagram":
             response = client.post(
                 "https://api.instagram.com/oauth/access_token",

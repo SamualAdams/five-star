@@ -1568,6 +1568,10 @@ select {
     font-size: clamp(2.5rem, 13vw, 3.3rem);
   }
 
+  .marketing-title-word {
+    display: block;
+  }
+
   .section-title,
   .marketing-side-title,
   .auth-intro-title {
@@ -5193,34 +5197,6 @@ html {
   color: var(--color-muted);
 }
 
-.social-connection-notice {
-  margin: 0.8rem 0;
-  padding: 1rem;
-  border: 1px solid color-mix(in srgb, var(--color-primary) 22%, transparent);
-  border-radius: 12px;
-  background: var(--color-surface-tint);
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.social-connection-notice strong {
-  color: var(--color-ink);
-  font-size: 0.85rem;
-}
-
-.social-connection-notice p {
-  margin: 0.35rem 0 0;
-  color: var(--color-muted);
-  font-size: 0.78rem;
-  line-height: 1.55;
-}
-
-.social-connection-notice .btn {
-  flex: 0 0 auto;
-}
-
 .social-account-footnote {
   margin: 0;
   padding-top: 0.9rem;
@@ -5302,10 +5278,6 @@ html {
 
   .social-account-actions .btn {
     flex: 1;
-  }
-
-  .social-connection-notice {
-    flex-direction: column;
   }
 
   .social-page-picker-actions {

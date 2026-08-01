@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { listLocations, listOrganizations, me } from "./api";
+import { AUTH_SESSION_EXPIRED_EVENT, listLocations, listOrganizations, me } from "./api";
 import AuthPage from "./components/AuthPage";
 import BrandName from "./components/BrandName";
 import CreateOrgModal from "./components/CreateOrgModal";
@@ -79,6 +79,18 @@ export default function App() {
     if (window.innerWidth <= 900) return false;
     return localStorage.getItem(SIDEBAR_KEY) !== "false";
   });
+  const clearSession = useCallback(() => {
+    locationRequestIdRef.current += 1;
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(CURRENT_ORG_KEY);
+    setToken("");
+    setUser(null);
+    setOrganizations([]);
+    setLocations([]);
+    setCurrentOrgId(null);
+    setCurrentLocationId("all");
+    setIsMenuOpen(false);
+  }, []);
 
   const isAuthenticated = useMemo(() => Boolean(token && user), [token, user]);
   const routeOrgId = useMemo(
@@ -135,16 +147,21 @@ export default function App() {
         setUser(currentUser);
         await loadOrganizations(token);
       } catch {
-        localStorage.removeItem(TOKEN_KEY);
-        localStorage.removeItem(CURRENT_ORG_KEY);
-        setToken("");
-        setUser(null);
-        setOrganizations([]);
-        setCurrentOrgId(null);
+        clearSession();
       }
     }
     loadUser();
-  }, [token, loadOrganizations]);
+  }, [token, loadOrganizations, clearSession]);
+
+  useEffect(() => {
+    function handleSessionExpired() {
+      clearSession();
+      navigate("/auth?mode=login&reason=session-expired", { replace: true });
+    }
+
+    window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, handleSessionExpired);
+    return () => window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, handleSessionExpired);
+  }, [clearSession, navigate]);
 
   useEffect(() => {
     if (window.innerWidth <= 900) setIsMenuOpen(false);
@@ -232,16 +249,7 @@ export default function App() {
   }
 
   function logout() {
-    locationRequestIdRef.current += 1;
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(CURRENT_ORG_KEY);
-    setToken("");
-    setUser(null);
-    setOrganizations([]);
-    setLocations([]);
-    setCurrentOrgId(null);
-    setCurrentLocationId("all");
-    setIsMenuOpen(false);
+    clearSession();
   }
 
   function handleLocationUpdated(updatedLocation) {

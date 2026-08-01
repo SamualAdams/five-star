@@ -63,11 +63,13 @@ const SOCIAL_MARKS = {
   tiktok: "tt",
 };
 
+const IS_LOCAL_APP_HOST = typeof window !== "undefined"
+  && ["localhost", "127.0.0.1"].includes(window.location.hostname);
+
 function SocialAccountsManager({ token, orgId }) {
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [workingProvider, setWorkingProvider] = useState("");
-  const [unavailableProvider, setUnavailableProvider] = useState("");
   const [connectionError, setConnectionError] = useState("");
   const [notice, setNotice] = useState(() => {
     const params = new URLSearchParams(window.location.search);
@@ -134,11 +136,7 @@ function SocialAccountsManager({ token, orgId }) {
   async function handleConnect(account) {
     setConnectionError("");
     setNotice(null);
-    if (!account.configured) {
-      setUnavailableProvider(account.provider);
-      return;
-    }
-    setUnavailableProvider("");
+    if (!account.publishing_enabled || !account.configured) return;
     setWorkingProvider(account.provider);
     try {
       const result = await beginSocialConnection(token, orgId, account.provider);
@@ -286,6 +284,9 @@ function SocialAccountsManager({ token, orgId }) {
         accounts.map((account) => {
           const isWorking = workingProvider === account.provider;
           const requiresReconnect = account.status === "reconnect_required";
+          const isComingSoon = !account.publishing_enabled;
+          const isUnavailable = !account.configured && !isComingSoon;
+          const unavailableLabel = IS_LOCAL_APP_HOST ? "Unavailable locally" : "Unavailable";
           return (
             <div className="social-account-row" key={account.provider}>
               <span className="social-account-mark" aria-hidden="true">
@@ -294,11 +295,17 @@ function SocialAccountsManager({ token, orgId }) {
               <span className="social-account-copy">
                 <span className="social-account-name-line">
                   <strong>{account.name}</strong>
-                  {account.connected && !requiresReconnect && (
+                  {account.connected && !requiresReconnect && !isComingSoon && !isUnavailable && (
                     <span className="status-pill status-pill--connected">Connected</span>
                   )}
-                  {requiresReconnect && (
+                  {requiresReconnect && !isComingSoon && !isUnavailable && (
                     <span className="status-pill status-pill--attention">Reconnect</span>
+                  )}
+                  {isComingSoon && (
+                    <span className="status-pill status-pill--attention">Coming soon</span>
+                  )}
+                  {isUnavailable && (
+                    <span className="status-pill status-pill--attention">{unavailableLabel}</span>
                   )}
                 </span>
                 <small>
@@ -309,13 +316,19 @@ function SocialAccountsManager({ token, orgId }) {
                 {account.linked_page_name && (
                   <small>Linked through {account.linked_page_name}</small>
                 )}
-                {account.diagnostic && (
+                {account.diagnostic && !isUnavailable && (
                   <small className="social-account-diagnostic">{account.diagnostic}</small>
                 )}
-                {!account.publishing_enabled && (
+                {isUnavailable && (
                   <small className="social-account-diagnostic">
-                    Account authorization is available; publishing remains disabled until the
-                    Five* provider integration is approved and completed.
+                    {IS_LOCAL_APP_HOST
+                      ? `${account.name} sign-in is not configured in this local environment. Use the deployed app to test the connection.`
+                      : `${account.name} sign-in is temporarily unavailable.`}
+                  </small>
+                )}
+                {isComingSoon && (
+                  <small className="social-account-diagnostic">
+                    TikTok account connections and publishing are coming soon.
                   </small>
                 )}
               </span>
@@ -330,7 +343,7 @@ function SocialAccountsManager({ token, orgId }) {
                     Disconnect
                   </button>
                 )}
-                {account.connected && account.configured && (
+                {account.connected && account.configured && !isComingSoon && (
                   <button
                     className="btn btn--ghost btn--sm"
                     type="button"
@@ -344,7 +357,7 @@ function SocialAccountsManager({ token, orgId }) {
                         : "Reconnect"}
                   </button>
                 )}
-                {!account.connected && (
+                {!account.connected && !isComingSoon && !isUnavailable && (
                   <button
                     className="btn btn--ghost btn--sm"
                     type="button"
@@ -354,30 +367,20 @@ function SocialAccountsManager({ token, orgId }) {
                     {isWorking ? "Opening…" : "Connect"}
                   </button>
                 )}
+                {isComingSoon && (
+                  <button className="btn btn--ghost btn--sm" type="button" disabled>
+                    Coming soon
+                  </button>
+                )}
+                {isUnavailable && (
+                  <button className="btn btn--ghost btn--sm" type="button" disabled>
+                    {unavailableLabel}
+                  </button>
+                )}
               </span>
             </div>
           );
         })
-      )}
-      {unavailableProvider && (
-        <div className="social-connection-notice" role="status">
-          <div>
-            <strong>
-              {accounts.find((account) => account.provider === unavailableProvider)?.name} connection is not available yet
-            </strong>
-            <p>
-              There is nothing for your organization to configure. Five* needs to enable this managed connection once;
-              after that, Connect will take you directly to the network to sign in and choose an account.
-            </p>
-          </div>
-          <button
-            className="btn btn--ghost btn--sm"
-            type="button"
-            onClick={() => setUnavailableProvider("")}
-          >
-            Got it
-          </button>
-        </div>
       )}
       <p className="social-account-footnote">
         Connections are shared across this organization. You will never need to enter developer keys here.

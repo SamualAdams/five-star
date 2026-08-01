@@ -13,6 +13,7 @@ export default function AuthPage({ loadOrganizations, onAuthenticated }) {
   const rawMode = searchParams.get("mode");
   const mode = rawMode === "login" || rawMode === "forgot" ? rawMode : "signup";
   const pendingInvite = searchParams.get("invite");
+  const sessionExpired = searchParams.get("reason") === "session-expired";
 
   function handleModeChange(nextMode) {
     const nextParams = new URLSearchParams(searchParams);
@@ -106,6 +107,12 @@ export default function AuthPage({ loadOrganizations, onAuthenticated }) {
                   ? "Start improving customer experience — just 2 cents per customer submission."
                   : "Pick up where you left off."}
           </p>
+
+          {sessionExpired && (
+            <p className="message message--error">
+              Your session expired. Please log in again before connecting an account.
+            </p>
+          )}
 
           {mode !== "forgot" && (
             <div className="tabs">
