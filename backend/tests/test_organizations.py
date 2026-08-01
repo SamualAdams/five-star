@@ -17,6 +17,7 @@ def test_create_and_list_organization(client, auth_headers):
     assert org["role"] == "organization_admin"
     assert org["feedback_token"]
     assert org["modules"] == {"feedback": True, "roadmap": False, "feed": False}
+    assert org["five_star_status"] == 1
 
     listing = client.get("/organizations", headers=headers)
     assert listing.status_code == 200
@@ -104,6 +105,92 @@ def test_update_organization_name(client, auth_headers):
     )
     assert response.status_code == 200
     assert response.json()["name"] == "New Name"
+
+
+def test_superuser_manages_inherited_organization_and_location_five_star_status(
+    client,
+    auth_headers,
+):
+    owner_headers = auth_headers("status-owner@example.com")
+    org = create_org(client, owner_headers, "Status Diner")
+    second_location = client.post(
+        f"/organizations/{org['id']}/locations",
+        json={"name": "Downtown"},
+        headers=owner_headers,
+    ).json()
+
+    superuser_headers = auth_headers("jon@fivestar.fyi")
+    with TestingSessionLocal() as db:
+        superuser = db.scalar(select(User).where(User.email == "jon@fivestar.fyi"))
+        superuser.is_superuser = True
+        db.commit()
+
+    forbidden = client.patch(
+        f"/organizations/{org['id']}/five-star-status",
+        json={"status": 4},
+        headers=owner_headers,
+    )
+    assert forbidden.status_code == 403
+
+    updated_org = client.patch(
+        f"/organizations/{org['id']}/five-star-status",
+        json={"status": 4},
+        headers=superuser_headers,
+    )
+    assert updated_org.status_code == 200, updated_org.text
+    assert updated_org.json()["five_star_status"] == 4
+
+    inherited_locations = client.get(
+        f"/organizations/{org['id']}/locations",
+        headers=superuser_headers,
+    ).json()
+    assert {location["five_star_status"] for location in inherited_locations} == {4}
+    assert all(location["five_star_status_override"] is None for location in inherited_locations)
+
+    forbidden_location = client.patch(
+        f"/organizations/{org['id']}/locations/{second_location['id']}/five-star-status",
+        json={"status": 2},
+        headers=owner_headers,
+    )
+    assert forbidden_location.status_code == 403
+
+    overridden = client.patch(
+        f"/organizations/{org['id']}/locations/{second_location['id']}/five-star-status",
+        json={"status": 2},
+        headers=superuser_headers,
+    )
+    assert overridden.status_code == 200, overridden.text
+    assert overridden.json()["five_star_status"] == 2
+    assert overridden.json()["five_star_status_override"] == 2
+
+    client.patch(
+        f"/organizations/{org['id']}/five-star-status",
+        json={"status": 5},
+        headers=superuser_headers,
+    )
+    locations_after_org_change = client.get(
+        f"/organizations/{org['id']}/locations",
+        headers=superuser_headers,
+    ).json()
+    status_by_id = {location["id"]: location["five_star_status"] for location in locations_after_org_change}
+    assert status_by_id[second_location["id"]] == 2
+    assert 5 in status_by_id.values()
+
+    inherited_again = client.patch(
+        f"/organizations/{org['id']}/locations/{second_location['id']}/five-star-status",
+        json={"status": None},
+        headers=superuser_headers,
+    )
+    assert inherited_again.status_code == 200, inherited_again.text
+    assert inherited_again.json()["five_star_status"] == 5
+    assert inherited_again.json()["five_star_status_override"] is None
+
+    invalid = client.patch(
+        f"/organizations/{org['id']}/five-star-status",
+        json={"status": 6},
+        headers=superuser_headers,
+    )
+    assert invalid.status_code == 422
 
 
 def test_non_member_cannot_access_organization(client, auth_headers):

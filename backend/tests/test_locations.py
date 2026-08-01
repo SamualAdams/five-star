@@ -28,6 +28,8 @@ def test_new_organization_gets_a_default_location_and_preserves_public_token(cli
     assert default_location["is_default"] is True
     assert default_location["feedback_token"] == org["feedback_token"]
     assert default_location["access_role"] == "organization_admin"
+    assert default_location["five_star_status"] == 1
+    assert default_location["five_star_status_override"] is None
 
     public_info = client.get(f"/api/feedback/{org['feedback_token']}")
     assert public_info.status_code == 200, public_info.text

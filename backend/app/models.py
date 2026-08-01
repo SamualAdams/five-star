@@ -54,6 +54,7 @@ class Organization(Base):
     review_links: Mapped[list | None] = mapped_column(JSON, nullable=True, default=None)
     roadmap_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     feed_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    five_star_status: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
 
     members: Mapped[list["OrganizationMember"]] = relationship(back_populates="organization", cascade="all, delete-orphan")
     invites: Mapped[list["Invite"]] = relationship(back_populates="organization", cascade="all, delete-orphan")
@@ -78,6 +79,10 @@ class Organization(Base):
         cascade="all, delete-orphan",
     )
     creator: Mapped["User"] = relationship(foreign_keys=[created_by])
+
+    __table_args__ = (
+        CheckConstraint("five_star_status BETWEEN 1 AND 5", name="ck_organizations_five_star_status"),
+    )
 
 
 class OrganizationMember(Base):
@@ -120,6 +125,7 @@ class Location(Base):
     is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     feedback_token: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
     review_links: Mapped[list | None] = mapped_column(JSON, nullable=True, default=None)
+    five_star_status_override: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     created_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
 
@@ -136,6 +142,10 @@ class Location(Base):
 
     __table_args__ = (
         UniqueConstraint("id", "organization_id", name="uq_location_id_organization"),
+        CheckConstraint(
+            "five_star_status_override IS NULL OR five_star_status_override BETWEEN 1 AND 5",
+            name="ck_locations_five_star_status_override",
+        ),
     )
 
 

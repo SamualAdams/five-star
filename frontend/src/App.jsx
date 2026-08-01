@@ -271,6 +271,11 @@ export default function App() {
     setOrganizations((current) => current.map(
       (item) => (item.id === updatedOrganization.id ? updatedOrganization : item)
     ));
+    setLocations((current) => current.map((item) => (
+      item.organization_id === updatedOrganization.id && item.five_star_status_override == null
+        ? { ...item, five_star_status: updatedOrganization.five_star_status }
+        : item
+    )));
   }
 
   function toggleSidebar() {
@@ -286,7 +291,10 @@ export default function App() {
   return (
     <div className={`layout ${hasAppShell ? "layout--app" : "layout--public"}${hasAppShell && !isMenuOpen ? " layout--sidebar-closed" : ""}`}>
       {hasAppShell ? (
-        <AppHeader />
+        <AppHeader
+          fiveStarStatus={currentLocation?.five_star_status ?? currentOrg?.five_star_status ?? 1}
+          scopeLabel={locationScopeLabel}
+        />
       ) : (
         <PublicHeader isAuthenticated={isAuthenticated} />
       )}
@@ -635,15 +643,19 @@ function PublicHeader({ isAuthenticated }) {
   );
 }
 
-function AppHeader() {
+function AppHeader({ fiveStarStatus = 1, scopeLabel = "All locations" }) {
   return (
     <header className="topbar topbar--app">
-      <div className="app-journey" role="group" aria-label="Five Star journey">
+      <div
+        className="app-journey"
+        role="group"
+        aria-label={`Five Star journey status ${fiveStarStatus} of 5 for ${scopeLabel}`}
+      >
         {JOURNEY_MILESTONES.map((milestone, index) => (
           <span
             aria-label={`${milestone.title}. ${milestone.description}`}
             aria-describedby={`journey-tooltip-${index}`}
-            className={`app-journey-star-wrap${index === 0 ? " app-journey-star-wrap--earned" : ""}`}
+            className={`app-journey-star-wrap${index < fiveStarStatus ? " app-journey-star-wrap--earned" : ""}`}
             key={milestone.title}
             role="img"
             tabIndex="0"
@@ -656,6 +668,7 @@ function AppHeader() {
             <span className="app-journey-tooltip" id={`journey-tooltip-${index}`} role="tooltip">
               <strong>{milestone.title}</strong>
               <span>{milestone.description}</span>
+              <small>{scopeLabel}: status {fiveStarStatus} of 5</small>
             </span>
           </span>
         ))}

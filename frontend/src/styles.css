@@ -1745,6 +1745,74 @@ select {
   scroll-margin-top: calc(var(--app-header-height) + 1rem);
 }
 
+.five-star-status-controls {
+  scroll-margin-top: calc(var(--app-header-height) + 1rem);
+}
+
+.five-star-status-picker {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin-top: 1.25rem;
+}
+
+.five-star-status-option {
+  min-height: 72px;
+  padding: 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface-subtle);
+  color: var(--color-muted);
+  display: grid;
+  place-content: center;
+  gap: 0.1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease, transform 150ms ease;
+}
+
+.five-star-status-option:hover:not(:disabled),
+.five-star-status-option:focus-visible {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  transform: translateY(-1px);
+}
+
+.five-star-status-option--active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  box-shadow: inset 0 0 0 1px var(--color-primary);
+}
+
+.five-star-status-option:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
+.five-star-status-option strong {
+  font-family: var(--font-display);
+  font-size: 1.55rem;
+  line-height: 1;
+}
+
+.five-star-status-option span {
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.five-star-status-footer {
+  margin-top: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.five-star-status-footer .settings-meta {
+  margin: 0;
+}
+
 .organization-modules-heading {
   display: flex;
   align-items: flex-start;
@@ -3840,6 +3908,13 @@ html {
   font-size: 0.76rem;
 }
 
+.app-journey-tooltip small {
+  padding-top: 0.25rem;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
 .sidebar-panel-toggle {
   width: 40px;
   height: 40px;
@@ -5837,6 +5912,21 @@ html {
 
   .module-switch {
     width: fit-content;
+  }
+
+  .five-star-status-picker {
+    grid-template-columns: repeat(5, minmax(48px, 1fr));
+    gap: 0.35rem;
+  }
+
+  .five-star-status-option {
+    min-height: 60px;
+    padding: 0.45rem 0.25rem;
+  }
+
+  .five-star-status-footer {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .initiatives-manager-heading {

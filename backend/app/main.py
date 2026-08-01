@@ -72,6 +72,7 @@ from .schemas import (
     InitiativeVoteUpdate,
     LocationAssignment,
     LocationCreate,
+    LocationFiveStarStatusUpdate,
     LocationOut,
     LocationReviewLinksUpdate,
     LocationUpdate,
@@ -83,6 +84,7 @@ from .schemas import (
     MetaInstagramAccountOut,
     MetaPageOptionOut,
     OrganizationCreate,
+    OrganizationFiveStarStatusUpdate,
     OrganizationModulesOut,
     OrganizationModulesUpdate,
     OrganizationOut,
@@ -352,6 +354,7 @@ def _organization_out(db: Session, membership: OrganizationMember) -> Organizati
             roadmap=org.roadmap_enabled,
             feed=org.feed_enabled,
         ),
+        five_star_status=org.five_star_status,
     )
 
 
@@ -484,6 +487,25 @@ def update_organization_modules(
         organization.feed_enabled = payload.feed
     db.commit()
     db.refresh(organization)
+    return _organization_out(db, membership)
+
+
+@app.patch("/organizations/{org_id}/five-star-status", response_model=OrganizationOut)
+def update_organization_five_star_status(
+    org_id: int,
+    payload: OrganizationFiveStarStatusUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> OrganizationOut:
+    if not user.is_superuser:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Platform superuser access required",
+        )
+    membership = require_org_admin(db, user, org_id)
+    membership.organization.five_star_status = payload.status
+    db.commit()
+    db.refresh(membership.organization)
     return _organization_out(db, membership)
 
 
@@ -1430,6 +1452,12 @@ def _location_out(
             [location_role] if location_role else None,
         ),
         can_manage=is_org_admin or location_role == LocationRole.MANAGER,
+        five_star_status=(
+            location.five_star_status_override
+            if location.five_star_status_override is not None
+            else location.organization.five_star_status
+        ),
+        five_star_status_override=location.five_star_status_override,
         created_at=location.created_at,
     )
 
@@ -1501,6 +1529,34 @@ def update_location(
         location.address = payload.address.strip() or None
     if payload.timezone is not None:
         location.timezone = payload.timezone.strip()
+    db.commit()
+    db.refresh(location)
+    return _location_out(location, membership=membership)
+
+
+@app.patch(
+    "/organizations/{org_id}/locations/{location_id}/five-star-status",
+    response_model=LocationOut,
+)
+def update_location_five_star_status(
+    org_id: int,
+    location_id: int,
+    payload: LocationFiveStarStatusUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> LocationOut:
+    if not user.is_superuser:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Platform superuser access required",
+        )
+    membership = require_org_admin(db, user, org_id)
+    location = db.scalar(
+        select(Location).where(Location.id == location_id, Location.organization_id == org_id)
+    )
+    if not location:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Location not found")
+    location.five_star_status_override = payload.status
     db.commit()
     db.refresh(location)
     return _location_out(location, membership=membership)

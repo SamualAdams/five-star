@@ -112,6 +112,22 @@ export async function updateOrganizationModules(token, orgId, modules) {
   });
 }
 
+export async function updateOrganizationFiveStarStatus(token, orgId, status) {
+  return request(`/organizations/${orgId}/five-star-status`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify({ status }),
+  });
+}
+
+export async function updateLocationFiveStarStatus(token, orgId, locationId, status) {
+  return request(`/organizations/${orgId}/locations/${locationId}/five-star-status`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify({ status }),
+  });
+}
+
 export async function updateOrgReviewLinks(token, orgId, reviewLinks) {
   return request(`/organizations/${orgId}/review-links`, {
     method: "PATCH",

@@ -62,6 +62,14 @@ class OrganizationModulesUpdate(BaseModel):
     feed: bool | None = None
 
 
+class OrganizationFiveStarStatusUpdate(BaseModel):
+    status: int = Field(ge=1, le=5)
+
+
+class LocationFiveStarStatusUpdate(BaseModel):
+    status: int | None = Field(default=None, ge=1, le=5)
+
+
 class ReviewLink(BaseModel):
     platform: str = Field(pattern="^(google|yelp|tripadvisor)$")
     url: str = Field(min_length=1, max_length=2048)
@@ -82,6 +90,7 @@ class OrganizationOut(BaseModel):
     can_view_all_locations: bool = False
     can_manage_organization: bool = False
     modules: OrganizationModulesOut
+    five_star_status: int = 1
 
 
 # Location schemas
@@ -110,6 +119,8 @@ class LocationOut(BaseModel):
     review_links: list[ReviewLink] | None = None
     access_role: str
     can_manage: bool
+    five_star_status: int = 1
+    five_star_status_override: int | None = None
     created_at: datetime
 
 
