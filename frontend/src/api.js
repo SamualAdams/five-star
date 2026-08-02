@@ -462,10 +462,25 @@ export async function getPublicOrganizationHub(organizationToken) {
   return request(`/api/hubs/${organizationToken}`);
 }
 
-export async function getPublicOrganizationFeed(organizationToken, locationId = null) {
+export async function getPublicOrganizationFeed(organizationToken, locationId = null, visitorId = null) {
   const params = new URLSearchParams();
   if (locationId) params.set("location_id", locationId);
-  return request(`/api/hubs/${organizationToken}/feed${params.size ? `?${params}` : ""}`);
+  return request(`/api/hubs/${organizationToken}/feed${params.size ? `?${params}` : ""}`, {
+    headers: visitorId ? { "X-Visitor-ID": visitorId } : {},
+  });
+}
+
+export async function updatePublicSocialPostReaction(
+  organizationToken,
+  postId,
+  active,
+  visitorId
+) {
+  return request(`/api/hubs/${organizationToken}/feed/${postId}/reaction`, {
+    method: "PUT",
+    headers: { "X-Visitor-ID": visitorId },
+    body: JSON.stringify({ active }),
+  });
 }
 
 export async function getPublicOrganizationRoadmap(

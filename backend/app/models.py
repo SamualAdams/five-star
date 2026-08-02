@@ -473,6 +473,29 @@ class SocialPost(Base):
         cascade="all, delete-orphan",
         order_by="SocialPostTarget.id",
     )
+    reactions: Mapped[list["SocialPostReaction"]] = relationship(
+        back_populates="post",
+        cascade="all, delete-orphan",
+    )
+
+
+class SocialPostReaction(Base):
+    __tablename__ = "social_post_reactions"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    post_id: Mapped[int] = mapped_column(
+        ForeignKey("social_posts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    visitor_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+    post: Mapped["SocialPost"] = relationship(back_populates="reactions")
+
+    __table_args__ = (
+        UniqueConstraint("post_id", "visitor_id", name="uq_social_post_reaction_visitor"),
+    )
 
 
 class MediaAsset(Base):

@@ -6,6 +6,7 @@ import {
   getPublicOrganizationHub,
   getPublicOrganizationRoadmap,
   updatePublicOrganizationInitiativeVote,
+  updatePublicSocialPostReaction,
 } from "../api";
 
 const ASTERISK_SRC = `${import.meta.env.BASE_URL}brand/five-star-asterisk.svg`;
@@ -84,16 +85,17 @@ function LocationTabs({ locations, selectedLocationId, onSelect }) {
   );
 }
 
-function PublicFeed({ organizationToken, locations, selectedLocationId }) {
+function PublicFeed({ organizationToken, locations, selectedLocationId, onSelectLocation }) {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [reactingId, setReactingId] = useState(null);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
     setError("");
-    getPublicOrganizationFeed(organizationToken, selectedLocationId)
+    getPublicOrganizationFeed(organizationToken, selectedLocationId, visitorId())
       .then((data) => {
         if (active) setPosts(data);
       })
@@ -106,38 +108,78 @@ function PublicFeed({ organizationToken, locations, selectedLocationId }) {
     return () => { active = false; };
   }, [organizationToken, selectedLocationId]);
 
-  if (error) return <p className="message message--error">{error}</p>;
-  if (loading) return <p className="public-hub-state">Loading updates…</p>;
-  if (!posts.length) {
-    return (
-      <div className="public-hub-empty">
-        <h2>No updates yet</h2>
-        <p>Check back soon for news from this organization.</p>
-      </div>
-    );
+  async function handleReaction(post) {
+    setReactingId(post.id);
+    setError("");
+    try {
+      const updated = await updatePublicSocialPostReaction(
+        organizationToken,
+        post.id,
+        !post.viewer_reacted,
+        visitorId()
+      );
+      setPosts((current) => current.map((item) => item.id === updated.id ? updated : item));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setReactingId(null);
+    }
   }
 
   return (
-    <div className="public-feed-list">
-      {posts.map((post) => (
-        <article className="public-feed-card" key={post.id}>
-          {post.media_urls?.[0] && (
-            <img alt="" className="public-feed-image" src={post.media_urls[0]} />
-          )}
-          <div className="public-feed-copy">
-            <div className="public-content-meta">
-              <span>{post.location_name || "Organization-wide"}</span>
-              <span>Published {relativeDate(post.published_at)}</span>
-            </div>
-            <p>{post.master_caption}</p>
-          </div>
-        </article>
-      ))}
-    </div>
+    <>
+      <section className="public-hub-filter-panel" aria-label="Feed filters">
+        <LocationTabs locations={locations} selectedLocationId={selectedLocationId} onSelect={onSelectLocation} />
+      </section>
+      {error && <p className="message message--error">{error}</p>}
+      {loading ? (
+        <p className="public-hub-state public-hub-panel">Loading updates…</p>
+      ) : posts.length ? (
+        <div className="public-feed-list">
+          {posts.map((post) => (
+            <article className="public-feed-card" key={post.id}>
+              <header className="public-feed-card-header">
+                <span className="public-feed-avatar" aria-hidden="true">*</span>
+                <div>
+                  <strong>{post.location_name || "Organization-wide"}</strong>
+                  <span>Published {relativeDate(post.published_at)}</span>
+                </div>
+              </header>
+              {post.media_urls?.[0] && (
+                <img alt="Image shared with this post" className="public-feed-image" src={post.media_urls[0]} />
+              )}
+              <div className="public-feed-copy">
+                <div className="public-feed-actions">
+                  <button
+                    aria-label={post.viewer_reacted ? "Unlike this post" : "Like this post"}
+                    aria-pressed={post.viewer_reacted}
+                    className={post.viewer_reacted ? "public-feed-reaction public-feed-reaction--active" : "public-feed-reaction"}
+                    disabled={reactingId === post.id}
+                    onClick={() => handleReaction(post)}
+                    type="button"
+                  >
+                    <svg aria-hidden="true" viewBox="0 0 24 24">
+                      <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21.3l7.8-7.8 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z" />
+                    </svg>
+                  </button>
+                  <span>{post.reaction_count} {post.reaction_count === 1 ? "like" : "likes"}</span>
+                </div>
+                <p>{post.master_caption}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div className="public-hub-empty public-hub-panel">
+          <h2>No updates yet</h2>
+          <p>Check back soon for news from this organization.</p>
+        </div>
+      )}
+    </>
   );
 }
 
-function PublicRoadmap({ organizationToken, selectedLocationId }) {
+function PublicRoadmap({ organizationToken, locations, selectedLocationId, onSelectLocation }) {
   const [board, setBoard] = useState(null);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
@@ -196,48 +238,51 @@ function PublicRoadmap({ organizationToken, selectedLocationId }) {
   const initiatives = board?.initiatives || [];
   return (
     <>
-      <div className="board-toolbar">
-        <label className="board-search">
-          <span className="sr-only">Search initiatives</span>
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="11" cy="11" r="6" />
-            <path d="m16 16 4 4" />
-          </svg>
-          <input
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search what we’re working on"
-            type="search"
-            value={search}
-          />
-        </label>
-        <div className="board-sort" aria-label="Sort initiatives">
-          {SORT_OPTIONS.map((option) => (
+      <section className="public-hub-filter-panel" aria-label="Roadmap search and filters">
+        <LocationTabs locations={locations} selectedLocationId={selectedLocationId} onSelect={onSelectLocation} />
+        <div className="board-toolbar">
+          <label className="board-search">
+            <span className="sr-only">Search initiatives</span>
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="6" />
+              <path d="m16 16 4 4" />
+            </svg>
+            <input
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search what we’re working on"
+              type="search"
+              value={search}
+            />
+          </label>
+          <div className="board-sort" aria-label="Sort initiatives">
+            {SORT_OPTIONS.map((option) => (
+              <button
+                className={sort === option.value ? "board-sort-button board-sort-button--active" : "board-sort-button"}
+                key={option.value}
+                onClick={() => setSort(option.value)}
+                type="button"
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="board-filters" aria-label="Filter by status">
+          {STATUS_OPTIONS.map((option) => (
             <button
-              className={sort === option.value ? "board-sort-button board-sort-button--active" : "board-sort-button"}
-              key={option.value}
-              onClick={() => setSort(option.value)}
+              className={status === option.value ? "board-filter board-filter--active" : "board-filter"}
+              key={option.value || "all"}
+              onClick={() => setStatus(option.value)}
               type="button"
             >
               {option.label}
             </button>
           ))}
         </div>
-      </div>
-      <div className="board-filters" aria-label="Filter by status">
-        {STATUS_OPTIONS.map((option) => (
-          <button
-            className={status === option.value ? "board-filter board-filter--active" : "board-filter"}
-            key={option.value || "all"}
-            onClick={() => setStatus(option.value)}
-            type="button"
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
+      </section>
       {error && <p className="message message--error board-request-error">{error}</p>}
       {loading ? (
-        <p className="public-hub-state">Refreshing initiatives…</p>
+        <p className="public-hub-state public-hub-panel">Refreshing initiatives…</p>
       ) : initiatives.length ? (
         <div className="initiative-list">
           {initiatives.map((initiative) => (
@@ -281,7 +326,7 @@ function PublicRoadmap({ organizationToken, selectedLocationId }) {
           ))}
         </div>
       ) : (
-        <div className="public-hub-empty">
+        <div className="public-hub-empty public-hub-panel">
           <h2>{search || status ? "No matching initiatives" : "Nothing here just yet"}</h2>
           <p>{search || status ? "Try another search or status." : "Check back soon to see what this team is working on."}</p>
         </div>
@@ -293,7 +338,7 @@ function PublicRoadmap({ organizationToken, selectedLocationId }) {
 
 function PublicLocations({ locations }) {
   return (
-    <>
+    <section className="public-hub-panel">
       <div className="public-hub-section-heading">
         <p className="board-eyebrow">Locations</p>
         <h2>Find this organization</h2>
@@ -311,7 +356,7 @@ function PublicLocations({ locations }) {
           </article>
         ))}
       </div>
-    </>
+    </section>
   );
 }
 
@@ -418,10 +463,13 @@ export default function PublicOrganizationPage() {
     <div className="public-hub-page">
       <header className="public-hub-header">
         <h1>{hub.organization_name}</h1>
-        <div className="public-hub-recognition" aria-label={`${hub.five_star_status} Five Star ${hub.five_star_status === 1 ? "mark" : "marks"}`}>
+        <div className="public-hub-recognition" aria-describedby="five-star-recognition-help" aria-label={`${hub.five_star_status} Five Star ${hub.five_star_status === 1 ? "mark" : "marks"}`} tabIndex="0">
           {Array.from({ length: hub.five_star_status }, (_, index) => (
             <img className="public-hub-recognition-mark" src={ASTERISK_SRC} alt="" aria-hidden="true" key={index} />
           ))}
+          <span className="public-hub-recognition-tooltip" id="five-star-recognition-help" role="tooltip">
+            This organization has earned {hub.five_star_status} Five* {hub.five_star_status === 1 ? "mark" : "marks"} for listening to customers and acting on their feedback.
+          </span>
         </div>
         <nav className="public-hub-nav" aria-label="Organization page">
           {hub.modules.feed && (
@@ -436,11 +484,8 @@ export default function PublicOrganizationPage() {
       </header>
 
       <section className="public-hub-content" aria-label="Organization content">
-        {["feed", "roadmap"].includes(view) && (
-          <LocationTabs locations={hub.locations} selectedLocationId={selectedLocationId} onSelect={updateLocation} />
-        )}
-        {view === "feed" && <PublicFeed organizationToken={organizationToken} locations={hub.locations} selectedLocationId={selectedLocationId} />}
-        {view === "roadmap" && <PublicRoadmap organizationToken={organizationToken} selectedLocationId={selectedLocationId} />}
+        {view === "feed" && <PublicFeed organizationToken={organizationToken} locations={hub.locations} selectedLocationId={selectedLocationId} onSelectLocation={updateLocation} />}
+        {view === "roadmap" && <PublicRoadmap organizationToken={organizationToken} locations={hub.locations} selectedLocationId={selectedLocationId} onSelectLocation={updateLocation} />}
         {view === "locations" && <PublicLocations locations={hub.locations} />}
       </section>
       <footer className="public-hub-footer">Powered by <strong>five*</strong></footer>

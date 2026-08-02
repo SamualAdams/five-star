@@ -16,24 +16,63 @@
 }
 
 .public-hub-header {
-  max-width: 1040px;
+  width: 100%;
   margin: 0 auto;
-  padding: 4.5rem 2rem 0;
+  padding: 4.5rem 0 0;
   text-align: center;
 }
 
 .public-hub-recognition {
+  position: relative;
   display: flex;
+  width: fit-content;
   align-items: center;
   justify-content: center;
   gap: 0.22rem;
-  margin-bottom: 2rem;
+  margin: 0 auto 2rem;
+  padding: 0.25rem;
+  border-radius: 0.45rem;
   line-height: 1;
+  outline: 0;
+  cursor: help;
 }
 
 .public-hub-recognition-mark {
   width: clamp(1.15rem, 2vw, 1.6rem);
   height: clamp(1.15rem, 2vw, 1.6rem);
+}
+
+.public-hub-recognition:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 18%, transparent);
+}
+
+.public-hub-recognition-tooltip {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 0.65rem);
+  left: 50%;
+  width: min(310px, calc(100vw - 2rem));
+  padding: 0.75rem 0.9rem;
+  border-radius: 0.8rem;
+  color: var(--color-white);
+  background: var(--color-ink);
+  box-shadow: var(--shadow-card);
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.45;
+  text-align: left;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -0.25rem);
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
+.public-hub-recognition:hover .public-hub-recognition-tooltip,
+.public-hub-recognition:focus .public-hub-recognition-tooltip,
+.public-hub-recognition:focus-within .public-hub-recognition-tooltip {
+  opacity: 1;
+  transform: translate(-50%, 0);
 }
 
 .public-hub-header h1 {
@@ -49,9 +88,11 @@
 
 .public-hub-nav {
   display: flex;
+  width: min(1040px, calc(100% - 2rem));
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
+  margin: 0 auto;
   padding: 0.5rem;
   border: 1px solid var(--color-border);
   border-radius: 999px;
@@ -89,6 +130,14 @@
   width: min(1040px, calc(100% - 2rem));
   min-height: 28rem;
   margin: 1.5rem auto 0;
+  padding: 0;
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+}
+
+.public-hub-panel,
+.public-hub-filter-panel {
   padding: 1.5rem;
   border: 1px solid var(--color-border);
   border-radius: 1.75rem;
@@ -96,11 +145,16 @@
   box-shadow: 0 22px 60px color-mix(in srgb, var(--color-ink) 8%, transparent);
 }
 
+.public-hub-filter-panel {
+  display: grid;
+  gap: 1.25rem;
+}
+
 .public-location-tabs {
   display: flex;
   gap: 0.5rem;
-  margin-bottom: 1.5rem;
-  padding-bottom: 0.25rem;
+  margin: 0;
+  padding: 0;
   overflow-x: auto;
 }
 
@@ -124,36 +178,93 @@
   background: var(--color-primary-soft);
 }
 
-.public-feed-list { display: grid; gap: 1rem; }
+.public-feed-list {
+  display: grid;
+  width: min(680px, 100%);
+  gap: 1.25rem;
+  margin: 0 auto;
+}
 
 .public-feed-card {
-  display: grid;
-  grid-template-columns: minmax(0, 0.75fr) minmax(0, 1.25fr);
   overflow: hidden;
   border: 1px solid var(--color-border);
-  border-radius: 1.25rem;
+  border-radius: 1.5rem;
   background: white;
+  box-shadow: 0 18px 45px color-mix(in srgb, var(--color-ink) 7%, transparent);
 }
 
-.public-feed-card:not(:has(.public-feed-image)) { display: block; }
+.public-feed-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+}
+
+.public-feed-avatar {
+  display: grid;
+  flex: 0 0 2.25rem;
+  width: 2.25rem;
+  height: 2.25rem;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  font-family: var(--font-serif);
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.public-feed-card-header div { display: grid; gap: 0.1rem; text-align: left; }
+.public-feed-card-header strong { color: var(--color-ink); font-size: 0.9rem; }
+.public-feed-card-header span:not(.public-feed-avatar) { color: var(--color-muted); font-size: 0.75rem; }
 
 .public-feed-image {
+  display: block;
   width: 100%;
-  height: 100%;
-  min-height: 16rem;
+  aspect-ratio: 1 / 1;
   object-fit: cover;
+  border-block: 1px solid var(--color-border-muted);
+  background: var(--color-surface-muted);
 }
 
-.public-feed-copy { padding: clamp(1.25rem, 4vw, 2.25rem); }
+.public-feed-copy { padding: 0.9rem 1rem 1.15rem; }
 
 .public-feed-copy > p {
-  margin: 1rem 0 0;
+  margin: 0.75rem 0 0;
   color: var(--color-ink);
-  font-family: var(--font-serif);
-  font-size: clamp(1.45rem, 3vw, 2.25rem);
-  line-height: 1.15;
+  font-size: 0.97rem;
+  line-height: 1.55;
+  text-align: left;
   white-space: pre-wrap;
 }
+
+.public-feed-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--color-ink);
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.public-feed-reaction {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: var(--color-ink);
+  background: transparent;
+  cursor: pointer;
+}
+
+.public-feed-reaction:hover:not(:disabled) { background: var(--color-primary-soft); }
+.public-feed-reaction:disabled { opacity: 0.55; cursor: wait; }
+.public-feed-reaction svg { width: 1.45rem; height: 1.45rem; fill: none; stroke: currentColor; stroke-width: 1.8; }
+.public-feed-reaction--active { color: var(--color-danger); }
+.public-feed-reaction--active svg { fill: currentColor; }
 
 .public-content-meta {
   display: flex;
@@ -270,7 +381,7 @@
 .public-hub-footer strong { color: var(--color-ink); font-size: 1.05rem; }
 
 @media (max-width: 680px) {
-  .public-hub-header { padding: 2.5rem 1rem 0; }
+  .public-hub-header { padding: 2.5rem 0 0; }
   .public-hub-header h1 { margin-bottom: 1.35rem; }
   .public-hub-nav { flex-wrap: wrap; border-radius: 1.25rem; }
 
@@ -281,9 +392,9 @@
   }
 
   .public-hub-feedback-action { margin-left: 0; }
-  .public-hub-content { padding: 1rem; border-radius: 1.25rem; }
-  .public-feed-card { display: block; }
-  .public-feed-image { height: 15rem; min-height: 0; }
+  .public-hub-panel,
+  .public-hub-filter-panel { padding: 1rem; border-radius: 1.25rem; }
+  .public-feed-image { aspect-ratio: 4 / 3; }
   .public-location-list { grid-template-columns: 1fr; }
 }
 
@@ -3742,6 +3853,16 @@ html {
   padding-bottom: 1.3rem;
   margin-bottom: 1.45rem;
   border-bottom: 1px solid var(--color-border-muted);
+}
+
+.public-hub-filter-panel .board-toolbar,
+.public-hub-filter-panel .board-filters {
+  margin: 0;
+}
+
+.public-hub-filter-panel .board-filters {
+  padding: 0;
+  border-bottom: 0;
 }
 
 .board-filter {

@@ -130,15 +130,43 @@ def test_five_star_only_feed_posts_and_location_filters(client, auth_headers):
     )
 
     feed_url = f"/api/hubs/{org['feedback_token']}/feed"
-    assert [post["master_caption"] for post in client.get(feed_url).json()] == [
+    visitor_headers = {"X-Visitor-ID": "feed-visitor-7a8d7f1b-e1dd-48f6-9dcb"}
+    feed_response = client.get(feed_url, headers=visitor_headers)
+    assert [post["master_caption"] for post in feed_response.json()] == [
         "Lakeside news",
         "Organization news",
     ]
+    assert feed_response.json()[0]["reaction_count"] == 0
+    assert feed_response.json()[0]["viewer_reacted"] is False
     location_feed = client.get(
-        f"{feed_url}?location_id={location['id']}"
+        f"{feed_url}?location_id={location['id']}",
+        headers=visitor_headers,
     ).json()
     assert [post["master_caption"] for post in location_feed] == ["Lakeside news"]
     assert location_feed[0]["location_name"] == "Lakeside"
+
+    reaction_url = f"{feed_url}/{location_feed[0]['id']}/reaction"
+    reacted = client.put(
+        reaction_url,
+        json={"active": True},
+        headers=visitor_headers,
+    )
+    assert reacted.status_code == 200, reacted.text
+    assert reacted.json()["reaction_count"] == 1
+    assert reacted.json()["viewer_reacted"] is True
+
+    anonymous_view = client.get(feed_url).json()[0]
+    assert anonymous_view["reaction_count"] == 1
+    assert anonymous_view["viewer_reacted"] is False
+
+    removed = client.put(
+        reaction_url,
+        json={"active": False},
+        headers=visitor_headers,
+    )
+    assert removed.status_code == 200, removed.text
+    assert removed.json()["reaction_count"] == 0
+    assert removed.json()["viewer_reacted"] is False
 
 
 def test_location_social_connections_override_organization_defaults(

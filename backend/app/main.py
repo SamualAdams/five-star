@@ -48,6 +48,7 @@ from .models import (
     SocialConnectionSetup,
     SocialOAuthState,
     SocialPost,
+    SocialPostReaction,
     SocialPostTarget,
     User,
 )
@@ -110,6 +111,7 @@ from .schemas import (
     SocialDraftGenerate,
     SocialPostCreate,
     SocialPostOut,
+    SocialPostReactionUpdate,
     SocialPostTargetOut,
     ForgotPasswordRequest,
     ResetPasswordRequest,
@@ -2972,10 +2974,12 @@ def get_public_organization_feed(
     organization_token: str,
     location_id: int | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=100),
+    visitor_id: str | None = Header(default=None, alias="X-Visitor-ID"),
     db: Session = Depends(get_db),
 ) -> list[PublicSocialPostOut]:
     organization = _require_public_hub(db, organization_token)
     require_module_enabled(db, organization.id, "feed", public=True)
+    visitor_id = _valid_visitor_id(visitor_id)
     selected_location = (
         _public_hub_location(db, organization.id, location_id)
         if location_id is not None
@@ -2996,16 +3000,86 @@ def get_public_organization_feed(
         query.order_by(SocialPost.published_at.desc()).limit(limit)
     ).all()
     return [
-        PublicSocialPostOut(
-            id=post.id,
-            master_caption=post.master_caption,
-            media_urls=post.media_urls or [],
-            published_at=post.published_at,
-            location_id=post.location_id,
-            location_name=post.location.name if post.location else None,
-        )
+        _public_social_post_out(db, post, visitor_id)
         for post in posts
     ]
+
+
+def _public_social_post_out(
+    db: Session,
+    post: SocialPost,
+    visitor_id: str | None,
+) -> PublicSocialPostOut:
+    reaction_count = int(
+        db.scalar(
+            select(func.count())
+            .select_from(SocialPostReaction)
+            .where(SocialPostReaction.post_id == post.id)
+        )
+        or 0
+    )
+    viewer_reacted = bool(
+        visitor_id
+        and db.scalar(
+            select(SocialPostReaction.id).where(
+                SocialPostReaction.post_id == post.id,
+                SocialPostReaction.visitor_id == visitor_id,
+            )
+        )
+    )
+    return PublicSocialPostOut(
+        id=post.id,
+        master_caption=post.master_caption,
+        media_urls=post.media_urls or [],
+        published_at=post.published_at,
+        location_id=post.location_id,
+        location_name=post.location.name if post.location else None,
+        reaction_count=reaction_count,
+        viewer_reacted=viewer_reacted,
+    )
+
+
+@app.put(
+    "/api/hubs/{organization_token}/feed/{post_id}/reaction",
+    response_model=PublicSocialPostOut,
+)
+@limiter.limit("60/minute")
+def update_public_social_post_reaction(
+    request: Request,
+    organization_token: str,
+    post_id: int,
+    payload: SocialPostReactionUpdate,
+    visitor_id: str | None = Header(default=None, alias="X-Visitor-ID"),
+    db: Session = Depends(get_db),
+) -> PublicSocialPostOut:
+    organization = _require_public_hub(db, organization_token)
+    require_module_enabled(db, organization.id, "feed", public=True)
+    visitor_id = _valid_visitor_id(visitor_id, required=True)
+    post = db.scalar(
+        select(SocialPost)
+        .options(joinedload(SocialPost.location))
+        .where(
+            SocialPost.id == post_id,
+            SocialPost.organization_id == organization.id,
+            SocialPost.status.in_(("published", "partial_failure")),
+            SocialPost.published_at.is_not(None),
+        )
+    )
+    if not post:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+
+    reaction = db.scalar(
+        select(SocialPostReaction).where(
+            SocialPostReaction.post_id == post.id,
+            SocialPostReaction.visitor_id == visitor_id,
+        )
+    )
+    if payload.active and not reaction:
+        db.add(SocialPostReaction(post_id=post.id, visitor_id=visitor_id))
+    elif not payload.active and reaction:
+        db.delete(reaction)
+    db.commit()
+    return _public_social_post_out(db, post, visitor_id)
 
 
 # ---------------------------------------------------------------------------

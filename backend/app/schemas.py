@@ -453,6 +453,12 @@ class PublicSocialPostOut(BaseModel):
     published_at: datetime
     location_id: int | None = None
     location_name: str | None = None
+    reaction_count: int = 0
+    viewer_reacted: bool = False
+
+
+class SocialPostReactionUpdate(BaseModel):
+    active: bool
 
 
 # Organization Search
