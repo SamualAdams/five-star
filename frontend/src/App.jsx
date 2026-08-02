@@ -30,6 +30,7 @@ import SearchPage from "./components/SearchPage";
 import SubmissionsChart from "./components/SubmissionsChart";
 import TopbarSearch from "./components/TopbarSearch";
 import PublicOrganizationPage, { LegacyRoadmapRedirect } from "./components/PublicOrganizationPage";
+import PortalPageHeader from "./components/PortalPageHeader";
 
 const TOKEN_KEY = "five-star-token";
 const CURRENT_ORG_KEY = "five-star-current-org";
@@ -456,6 +457,7 @@ export default function App() {
                     organizationName={currentOrg?.name}
                     locationId={selectedLocationId}
                     locationName={currentLocation?.name}
+                    publicPageUrl={`/five-star/${currentOrg.feedback_token}?view=feed${currentLocation ? `&location=${currentLocation.id}` : ""}`}
                   />
                 )
               ) : (
@@ -1132,11 +1134,11 @@ function Dashboard({ currentOrg, isSuperuser, locationId, organizations, onShowC
 
   return (
     <div className="dashboard">
-      <div className="dashboard-welcome">
-        <p className="dashboard-kicker">Dashboard</p>
-        <h1>{currentOrg?.name}</h1>
-        <p>A quick read on whether customers are responding to what you share.</p>
-      </div>
+      <PortalPageHeader
+        description="A quick read on whether customers are responding to what you share."
+        eyebrow="Dashboard"
+        title={currentOrg?.name}
+      />
 
       <div className="dashboard-story">
         <section className="dashboard-insight" aria-labelledby="dashboard-feedback-title">
@@ -1294,15 +1296,24 @@ function VotingBoardAdminPage({
   canManage,
 }) {
   if (!currentOrg) return <div className="owner-feature-page"><p>Loading organization…</p></div>;
+  const publicBoardUrl = `/five-star/${currentOrg.feedback_token}?view=roadmap${currentLocation ? `&location=${currentLocation.id}` : ""}`;
   return (
     <div className="owner-feature-page">
+      <PortalPageHeader
+        actionHref={publicBoardUrl}
+        actionLabel="Open public page"
+        description="Share initiatives and see what customers care about most."
+        eyebrow="Workspace"
+        title="Roadmap"
+      />
       <InitiativesManager
         token={token}
         orgId={currentOrg.id}
         isAdmin={canManage}
         locationId={locationId}
         locations={locations}
-        publicBoardUrl={`/five-star/${currentOrg.feedback_token}?view=roadmap${currentLocation ? `&location=${currentLocation.id}` : ""}`}
+        publicBoardUrl=""
+        showHeading={false}
       />
     </div>
   );
@@ -1312,6 +1323,11 @@ function FeedbackReportsPage({ token, currentOrg, currentLocation, locationId, c
   if (!currentOrg) return <div className="owner-feature-page"><p>Loading organization…</p></div>;
   return (
     <div className="owner-feature-page">
+      <PortalPageHeader
+        description="Review customer activity and turn feedback into clear reports."
+        eyebrow="Workspace"
+        title="Feedback"
+      />
       <DigestManager
         key={`${currentOrg.id}-${locationId || "all"}`}
         token={token}

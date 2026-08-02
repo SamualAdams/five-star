@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import PortalPageHeader from "./PortalPageHeader";
 import {
   createSocialPost,
+  deleteSocialPost,
   generateSocialDrafts,
   generateWordsmithOptions,
   listSocialConnections,
   listSocialPosts,
   publishSocialPost,
+  updateSocialPost,
   uploadOrganizationMedia,
 } from "../api";
 
@@ -63,7 +66,14 @@ function postStatusLabel(status) {
   }[status] || status;
 }
 
-export default function FeedPage({ token, orgId, organizationName, locationId = null, locationName = null }) {
+export default function FeedPage({
+  token,
+  orgId,
+  organizationName,
+  locationId = null,
+  locationName = null,
+  publicPageUrl = "",
+}) {
   const [message, setMessage] = useState("");
   const [captionSelection, setCaptionSelection] = useState({ start: 0, end: 0 });
   const [captionWordsmithing, setCaptionWordsmithing] = useState("");
@@ -88,6 +98,12 @@ export default function FeedPage({ token, orgId, organizationName, locationId = 
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [editingPostId, setEditingPostId] = useState(null);
+  const [editingPostCaption, setEditingPostCaption] = useState("");
+  const [savingPostId, setSavingPostId] = useState(null);
+  const [confirmDeletePostId, setConfirmDeletePostId] = useState(null);
+  const [deletingPostId, setDeletingPostId] = useState(null);
+  const [postActionMessage, setPostActionMessage] = useState(null);
   const submitLock = useRef(false);
   const messageInputRef = useRef(null);
   const messageWrapRef = useRef(null);
@@ -314,6 +330,63 @@ export default function FeedPage({ token, orgId, organizationName, locationId = 
     setDrafts((current) => ({ ...current, [activeChannel]: message }));
   }
 
+  function beginEditingPost(post) {
+    setEditingPostId(post.id);
+    setEditingPostCaption(post.master_caption);
+    setConfirmDeletePostId(null);
+    setPostActionMessage(null);
+  }
+
+  async function saveEditedPost(post) {
+    const caption = editingPostCaption.trim();
+    if (!caption || savingPostId) return;
+    setSavingPostId(post.id);
+    setPostActionMessage(null);
+    try {
+      const updated = await updateSocialPost(token, orgId, post.id, {
+        master_caption: caption,
+      });
+      setPosts((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      setEditingPostId(null);
+      setEditingPostCaption("");
+      setPostActionMessage({
+        type: "success",
+        text: post.targets.length
+          ? "Five* post updated. Copies already published to social networks were not changed."
+          : "Five* post updated.",
+      });
+    } catch (err) {
+      setPostActionMessage({ type: "error", text: err.message });
+    } finally {
+      setSavingPostId(null);
+    }
+  }
+
+  async function removePost(post) {
+    if (deletingPostId) return;
+    setDeletingPostId(post.id);
+    setPostActionMessage(null);
+    try {
+      await deleteSocialPost(token, orgId, post.id);
+      setPosts((current) => current.filter((item) => item.id !== post.id));
+      setConfirmDeletePostId(null);
+      if (editingPostId === post.id) {
+        setEditingPostId(null);
+        setEditingPostCaption("");
+      }
+      setPostActionMessage({
+        type: "success",
+        text: post.targets.length
+          ? "Post removed from Five*. Copies already published to social networks remain there."
+          : "Post removed from Five*.",
+      });
+    } catch (err) {
+      setPostActionMessage({ type: "error", text: err.message });
+    } finally {
+      setDeletingPostId(null);
+    }
+  }
+
   async function submitPost(submitMode = publishMode) {
     const validForMode = submitMode === "draft" ? canSaveDraft : canSubmit;
     if (!validForMode || working || submitLock.current) return;
@@ -386,11 +459,13 @@ export default function FeedPage({ token, orgId, organizationName, locationId = 
 
   return (
     <div className="feed-page">
-      <header className="portal-page-heading">
-        <p className="dashboard-kicker">Publishing</p>
-        <h1>Feed</h1>
-        <p>Publish directly to your Five* feed, then optionally send adapted versions to connected social accounts.</p>
-      </header>
+      <PortalPageHeader
+        actionHref={publicPageUrl}
+        actionLabel="Open public page"
+        description="Publish directly to your Five* feed, then optionally send adapted versions to connected social accounts."
+        eyebrow="Workspace"
+        title="Feed"
+      />
 
       <div className="feed-layout">
         <section className="portal-card feed-workspace">
@@ -746,18 +821,112 @@ export default function FeedPage({ token, orgId, organizationName, locationId = 
               <h2>Recent Five* posts</h2>
               <span className="portal-count">{publishedPosts.length}</span>
             </div>
+            {postActionMessage && (
+              <p
+                className={`message message--${postActionMessage.type}`}
+                role={postActionMessage.type === "error" ? "alert" : "status"}
+              >
+                {postActionMessage.text}
+              </p>
+            )}
             {publishedPosts.length ? (
               <div className="feed-post-list">
                 {publishedPosts.map((post) => (
                   <article className="feed-post-summary" key={post.id}>
                     {post.media_urls?.[0] && <img alt="" className="feed-post-summary-image" src={post.media_urls[0]} />}
-                    <strong>{post.master_caption}</strong>
+                    {editingPostId === post.id ? (
+                      <div className="feed-post-edit-form">
+                        <label className="field-label" htmlFor={`feed-post-edit-${post.id}`}>Edit Five* caption</label>
+                        <textarea
+                          className="field-textarea"
+                          id={`feed-post-edit-${post.id}`}
+                          onChange={(event) => setEditingPostCaption(event.target.value)}
+                          rows="3"
+                          value={editingPostCaption}
+                        />
+                        <div className="feed-post-edit-actions">
+                          <button
+                            className="btn btn--ghost btn--sm"
+                            disabled={savingPostId === post.id}
+                            onClick={() => {
+                              setEditingPostId(null);
+                              setEditingPostCaption("");
+                            }}
+                            type="button"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            className="btn btn--primary btn--sm"
+                            disabled={!editingPostCaption.trim() || savingPostId === post.id}
+                            onClick={() => saveEditedPost(post)}
+                            type="button"
+                          >
+                            {savingPostId === post.id ? "Saving…" : "Save changes"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <strong>{post.master_caption}</strong>
+                    )}
                     <small>Published {new Date(post.published_at).toLocaleString()}</small>
                     <span>
                       {post.targets.length
                         ? `${post.targets.filter((target) => target.status === "published").length} of ${post.targets.length} social destinations published`
                         : "Five* only"}
                     </span>
+                    {editingPostId !== post.id && <div className="feed-post-summary-actions">
+                      {confirmDeletePostId === post.id ? (
+                        <div className="feed-post-delete-confirmation">
+                          <span>
+                            {post.targets.length
+                              ? "Remove from Five*? Published social copies will remain."
+                              : "Remove this post from Five*?"}
+                          </span>
+                          <div>
+                            <button
+                              className="btn btn--ghost btn--sm"
+                              disabled={deletingPostId === post.id}
+                              onClick={() => setConfirmDeletePostId(null)}
+                              type="button"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              className="btn btn--danger btn--sm"
+                              disabled={deletingPostId === post.id}
+                              onClick={() => removePost(post)}
+                              type="button"
+                            >
+                              {deletingPostId === post.id ? "Deleting…" : "Delete post"}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <button
+                            className="btn btn--ghost btn--sm"
+                            disabled={editingPostId === post.id}
+                            onClick={() => beginEditingPost(post)}
+                            type="button"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className="btn btn--ghost btn--sm feed-post-delete-button"
+                            onClick={() => {
+                              setConfirmDeletePostId(post.id);
+                              setEditingPostId(null);
+                              setEditingPostCaption("");
+                              setPostActionMessage(null);
+                            }}
+                            type="button"
+                          >
+                            Delete
+                          </button>
+                        </>
+                      )}
+                    </div>}
                   </article>
                 ))}
               </div>

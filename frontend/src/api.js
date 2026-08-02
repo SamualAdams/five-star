@@ -226,6 +226,21 @@ export async function publishSocialPost(token, orgId, postId) {
   });
 }
 
+export async function updateSocialPost(token, orgId, postId, data) {
+  return request(`/organizations/${orgId}/social-posts/${postId}`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteSocialPost(token, orgId, postId) {
+  return request(`/organizations/${orgId}/social-posts/${postId}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+}
+
 export async function uploadOrganizationMedia(token, orgId, file) {
   const form = new FormData();
   form.append("file", file);

@@ -17,6 +17,7 @@ import {
 } from "../api";
 import InviteList from "./InviteList";
 import MemberList from "./MemberList";
+import PortalPageHeader from "./PortalPageHeader";
 
 const PLATFORM_LABELS = { google: "Google Reviews", yelp: "Yelp", tripadvisor: "TripAdvisor" };
 const PLATFORMS = Object.keys(PLATFORM_LABELS);
@@ -61,11 +62,11 @@ const SECTION_COPY = {
 function PageHeading({ section }) {
   const copy = SECTION_COPY[section] || SECTION_COPY.general;
   return (
-    <header className="portal-page-heading">
-      <p className="dashboard-kicker">{copy.eyebrow}</p>
-      <h1>{copy.title}</h1>
-      <p>{copy.description}</p>
-    </header>
+    <PortalPageHeader
+      description={copy.description}
+      eyebrow={copy.eyebrow}
+      title={copy.title}
+    />
   );
 }
 

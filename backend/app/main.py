@@ -113,6 +113,7 @@ from .schemas import (
     SocialPostOut,
     SocialPostReactionUpdate,
     SocialPostTargetOut,
+    SocialPostUpdate,
     ForgotPasswordRequest,
     ResetPasswordRequest,
     Token,
@@ -1558,6 +1559,60 @@ def create_social_post(
     db.commit()
     db.refresh(post)
     return _social_post_out(post)
+
+
+@app.patch(
+    "/organizations/{org_id}/social-posts/{post_id}",
+    response_model=SocialPostOut,
+)
+def update_social_post(
+    org_id: int,
+    post_id: int,
+    payload: SocialPostUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> SocialPostOut:
+    require_org_admin(db, user, org_id)
+    require_module_enabled(db, org_id, "feed")
+    post = _load_social_post(db, organization_id=org_id, post_id=post_id)
+    if post.status == "publishing":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This post is currently publishing and cannot be edited",
+        )
+    caption = payload.master_caption.strip()
+    if not caption:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Post caption cannot be empty",
+        )
+    post.master_caption = caption
+    db.commit()
+    db.refresh(post)
+    return _social_post_out(post)
+
+
+@app.delete(
+    "/organizations/{org_id}/social-posts/{post_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_social_post(
+    org_id: int,
+    post_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Response:
+    require_org_admin(db, user, org_id)
+    require_module_enabled(db, org_id, "feed")
+    post = _load_social_post(db, organization_id=org_id, post_id=post_id)
+    if post.status == "publishing":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This post is currently publishing and cannot be deleted",
+        )
+    db.delete(post)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @app.post(

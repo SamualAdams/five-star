@@ -10,6 +10,7 @@ import {
 } from "../api";
 
 const ASTERISK_SRC = `${import.meta.env.BASE_URL}brand/five-star-asterisk.svg`;
+const LOGO_SRC = `${import.meta.env.BASE_URL}brand/five-star-logo.svg`;
 const VISITOR_KEY = "five-star-board-visitor-id";
 const STATUS_OPTIONS = [
   { value: "", label: "All" },
@@ -139,7 +140,6 @@ function PublicFeed({ organizationToken, locations, selectedLocationId, onSelect
           {posts.map((post) => (
             <article className="public-feed-card" key={post.id}>
               <header className="public-feed-card-header">
-                <span className="public-feed-avatar" aria-hidden="true">*</span>
                 <div>
                   <strong>{post.location_name || "Organization-wide"}</strong>
                   <span>Published {relativeDate(post.published_at)}</span>
@@ -338,25 +338,18 @@ function PublicRoadmap({ organizationToken, locations, selectedLocationId, onSel
 
 function PublicLocations({ locations }) {
   return (
-    <section className="public-hub-panel">
-      <div className="public-hub-section-heading">
-        <p className="board-eyebrow">Locations</p>
-        <h2>Find this organization</h2>
-        <p>Browse its locations and choose the one most relevant to your visit.</p>
-      </div>
-      <div className="public-location-list">
-        {locations.map((location) => (
-          <article className="public-location-card" key={location.id}>
-            <span className="public-location-mark" aria-hidden="true">⌖</span>
-            <div>
-              <p className="public-location-kind">{location.is_default ? "Main location" : "Location"}</p>
-              <h2>{location.name}</h2>
-              <p>{location.address || "Address not provided"}</p>
-            </div>
-          </article>
-        ))}
-      </div>
-    </section>
+    <div className="public-location-list">
+      {locations.map((location) => (
+        <article className="public-location-card" key={location.id}>
+          <span className="public-location-mark" aria-hidden="true">⌖</span>
+          <div>
+            <p className="public-location-kind">{location.is_default ? "Main location" : "Location"}</p>
+            <h2>{location.name}</h2>
+            <p>{location.address || "Address not provided"}</p>
+          </div>
+        </article>
+      ))}
+    </div>
   );
 }
 
@@ -393,6 +386,7 @@ export default function PublicOrganizationPage() {
   const [hub, setHub] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -431,6 +425,7 @@ export default function PublicOrganizationPage() {
     next.set("view", nextView);
     if (!["feed", "roadmap"].includes(nextView)) next.delete("location");
     setSearchParams(next);
+    setMenuOpen(false);
   }
 
   function updateLocation(nextLocationId) {
@@ -441,6 +436,7 @@ export default function PublicOrganizationPage() {
   }
 
   function openFeedback() {
+    setMenuOpen(false);
     navigate(`/feedback/organization/${organizationToken}`);
   }
 
@@ -462,16 +458,29 @@ export default function PublicOrganizationPage() {
   return (
     <div className="public-hub-page">
       <header className="public-hub-header">
-        <h1>{hub.organization_name}</h1>
-        <div className="public-hub-recognition" aria-describedby="five-star-recognition-help" aria-label={`${hub.five_star_status} Five Star ${hub.five_star_status === 1 ? "mark" : "marks"}`} tabIndex="0">
-          {Array.from({ length: hub.five_star_status }, (_, index) => (
-            <img className="public-hub-recognition-mark" src={ASTERISK_SRC} alt="" aria-hidden="true" key={index} />
-          ))}
-          <span className="public-hub-recognition-tooltip" id="five-star-recognition-help" role="tooltip">
-            This organization has earned {hub.five_star_status} Five* {hub.five_star_status === 1 ? "mark" : "marks"} for listening to customers and acting on their feedback.
-          </span>
+        <div className="public-hub-header-main">
+          <h1>{hub.organization_name}</h1>
+          <div className="public-hub-recognition" aria-describedby="five-star-recognition-help" aria-label={`${hub.five_star_status} Five Star ${hub.five_star_status === 1 ? "mark" : "marks"}`} tabIndex="0">
+            {Array.from({ length: hub.five_star_status }, (_, index) => (
+              <img className="public-hub-recognition-mark" src={ASTERISK_SRC} alt="" aria-hidden="true" key={index} />
+            ))}
+            <span className="public-hub-recognition-tooltip" id="five-star-recognition-help" role="tooltip">
+              This organization has earned {hub.five_star_status} Five* {hub.five_star_status === 1 ? "mark" : "marks"} for listening to customers and acting on their feedback.
+            </span>
+          </div>
+          <button
+            aria-expanded={menuOpen}
+            aria-label={menuOpen ? "Close organization menu" : "Open organization menu"}
+            className="public-hub-menu-toggle"
+            onClick={() => setMenuOpen((current) => !current)}
+            type="button"
+          >
+            <span aria-hidden="true" />
+            <span aria-hidden="true" />
+            <span aria-hidden="true" />
+          </button>
         </div>
-        <nav className="public-hub-nav" aria-label="Organization page">
+        <nav className={menuOpen ? "public-hub-nav public-hub-nav--open" : "public-hub-nav"} aria-label="Organization page">
           {hub.modules.feed && (
             <button className={view === "feed" ? "public-hub-nav-item public-hub-nav-item--active" : "public-hub-nav-item"} onClick={() => updateView("feed")} type="button">Feed</button>
           )}
@@ -488,7 +497,10 @@ export default function PublicOrganizationPage() {
         {view === "roadmap" && <PublicRoadmap organizationToken={organizationToken} locations={hub.locations} selectedLocationId={selectedLocationId} onSelectLocation={updateLocation} />}
         {view === "locations" && <PublicLocations locations={hub.locations} />}
       </section>
-      <footer className="public-hub-footer">Powered by <strong>five*</strong></footer>
+      <footer className="public-hub-footer">
+        <span>Powered by</span>
+        <img src={LOGO_SRC} alt="five*" />
+      </footer>
     </div>
   );
 }

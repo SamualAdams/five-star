@@ -388,6 +388,10 @@ class SocialPostCreate(BaseModel):
     location_id: int | None = None
 
 
+class SocialPostUpdate(BaseModel):
+    master_caption: str = Field(min_length=1, max_length=10000)
+
+
 class MediaAssetOut(BaseModel):
     url: str
     filename: str

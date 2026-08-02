@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { createLocation, deleteLocation, getLocationDeletionImpact, updateLocation } from "../api";
+import PortalPageHeader from "./PortalPageHeader";
 
 function PublicLink({ label, url }) {
   const [copied, setCopied] = useState(false);
@@ -198,11 +199,11 @@ export default function LocationsPage({
 
   return (
     <div className="locations-page">
-      <header className="portal-page-heading">
-        <p className="dashboard-kicker">Admin</p>
-        <h1>Locations</h1>
-        <p>Manage location-specific feedback links, content tags, and team access.</p>
-      </header>
+      <PortalPageHeader
+        description="Manage location-specific feedback links, content tags, and team access."
+        eyebrow="Admin"
+        title="Locations"
+      />
 
       {error && <p className="message message--error">{error}</p>}
 

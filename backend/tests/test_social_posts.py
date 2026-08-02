@@ -291,6 +291,46 @@ def test_uploaded_image_is_served_and_appears_on_the_public_feed(client, auth_he
     assert public_feed.json()[0]["media_urls"] == [upload.json()["url"]]
 
 
+def test_published_five_star_posts_can_be_edited_and_deleted(client, auth_headers):
+    headers = auth_headers("post-editor@example.com")
+    org = create_org(client, headers, "Editable Feed")
+    created = client.post(
+        f"/organizations/{org['id']}/social-posts",
+        json={"master_caption": "Original caption"},
+        headers=headers,
+    )
+    assert created.status_code == 201, created.text
+    post_id = created.json()["id"]
+    published = client.post(
+        f"/organizations/{org['id']}/social-posts/{post_id}/publish",
+        headers=headers,
+    )
+    assert published.status_code == 200, published.text
+
+    updated = client.patch(
+        f"/organizations/{org['id']}/social-posts/{post_id}",
+        json={"master_caption": "Updated Five* caption"},
+        headers=headers,
+    )
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["master_caption"] == "Updated Five* caption"
+
+    public_feed = client.get(f"/api/hubs/{org['feedback_token']}/feed")
+    assert public_feed.status_code == 200, public_feed.text
+    assert public_feed.json()[0]["master_caption"] == "Updated Five* caption"
+
+    deleted = client.delete(
+        f"/organizations/{org['id']}/social-posts/{post_id}",
+        headers=headers,
+    )
+    assert deleted.status_code == 204, deleted.text
+    assert client.get(f"/api/hubs/{org['feedback_token']}/feed").json() == []
+    assert client.get(
+        f"/organizations/{org['id']}/social-posts",
+        headers=headers,
+    ).json() == []
+
+
 def test_social_posts_schedule_and_publish_to_each_selected_destination(
     client,
     auth_headers,

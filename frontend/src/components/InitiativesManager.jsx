@@ -72,6 +72,7 @@ export default function InitiativesManager({
   locationId,
   locations = [],
   publicBoardUrl,
+  showHeading = true,
 }) {
   const [initiatives, setInitiatives] = useState([]);
   const [title, setTitle] = useState("");
@@ -159,16 +160,18 @@ export default function InitiativesManager({
 
   return (
     <section className="initiatives-manager">
-      <div className="initiatives-manager-heading">
-        <div>
-          <p className="dashboard-kicker">Public roadmap</p>
-          <h3>What you&apos;re working on</h3>
-          <p>Share initiatives on your public page and let visitors show what they care about most.</p>
+      {showHeading && (
+        <div className="initiatives-manager-heading">
+          <div>
+            <p className="dashboard-kicker">Public roadmap</p>
+            <h3>What you&apos;re working on</h3>
+            <p>Share initiatives on your public page and let visitors show what they care about most.</p>
+          </div>
+          {publicBoardUrl && (
+            <LinkButton href={publicBoardUrl} />
+          )}
         </div>
-        {publicBoardUrl && (
-          <LinkButton href={publicBoardUrl} />
-        )}
-      </div>
+      )}
 
       {error && <p className="message message--error">{error}</p>}
 
