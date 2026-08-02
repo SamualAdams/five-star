@@ -39,10 +39,6 @@ export default function SearchPage() {
     }
   }, []);
 
-  function handleResultClick(feedbackToken) {
-    navigate(`/feedback/${feedbackToken}`);
-  }
-
   return (
     <div className="search-page">
       <div className="search-container">
@@ -71,14 +67,19 @@ export default function SearchPage() {
                 <ul className="search-results-list">
                   {results.map((org) => (
                     <li key={org.feedback_token} className="search-result-item">
-                      <button
-                        type="button"
-                        className="search-result-button"
-                        onClick={() => handleResultClick(org.feedback_token)}
-                      >
+                      <div className="search-result-card">
                         <span className="search-result-name">{org.name}</span>
-                        <span className="search-result-arrow">→</span>
-                      </button>
+                        <div className="search-result-actions">
+                          {org.landing_enabled && (
+                            <button className="btn btn--outline btn--sm" type="button" onClick={() => navigate(`/five-star/${org.feedback_token}`)}>
+                              View organization page
+                            </button>
+                          )}
+                          <button className="btn btn--primary btn--sm" type="button" onClick={() => navigate(`/feedback/organization/${org.feedback_token}`)}>
+                            Leave feedback
+                          </button>
+                        </div>
+                      </div>
                     </li>
                   ))}
                 </ul>

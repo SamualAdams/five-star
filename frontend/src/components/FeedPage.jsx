@@ -34,7 +34,7 @@ function postStatusLabel(status) {
   }[status] || status;
 }
 
-export default function FeedPage({ token, orgId, organizationName }) {
+export default function FeedPage({ token, orgId, organizationName, locationId = null, locationName = null }) {
   const [message, setMessage] = useState("");
   const [drafts, setDrafts] = useState({});
   const [activeChannel, setActiveChannel] = useState(CHANNELS[0].id);
@@ -75,7 +75,7 @@ export default function FeedPage({ token, orgId, organizationName }) {
   const savedDrafts = posts.filter((post) => post.status === "draft");
   const selectedInstagramWithoutMedia = channels.includes("instagram") && !mediaUrl.trim();
   const canSave = (
-    channels.length > 0
+    Boolean(message.trim())
     && channels.every((channel) => drafts[channel]?.trim())
     && !selectedInstagramWithoutMedia
   );
@@ -89,8 +89,8 @@ export default function FeedPage({ token, orgId, organizationName }) {
     setError("");
     try {
       const [connectionData, postData] = await Promise.all([
-        listSocialConnections(token, orgId),
-        listSocialPosts(token, orgId),
+        listSocialConnections(token, orgId, locationId),
+        listSocialPosts(token, orgId, 25, locationId),
       ]);
       setConnections(connectionData);
       setPosts(postData);
@@ -103,7 +103,7 @@ export default function FeedPage({ token, orgId, organizationName }) {
 
   useEffect(() => {
     loadPublishingData();
-  }, [token, orgId]);
+  }, [token, orgId, locationId]);
 
   function toggleChannel(channel) {
     if (!connectedProviders.has(channel)) {
@@ -129,7 +129,7 @@ export default function FeedPage({ token, orgId, organizationName }) {
       setNotice(
         connectedProviders.size
           ? "AI drafts are ready. Review every version before publishing."
-          : "AI drafts are ready. Connect at least one destination before publishing."
+          : "AI drafts are ready. You can publish to Five* now or connect social destinations later."
       );
     } catch {
       setDrafts(platformDrafts(message));
@@ -167,6 +167,7 @@ export default function FeedPage({ token, orgId, organizationName }) {
         })),
         media_urls: mediaUrl.trim() ? [mediaUrl.trim()] : [],
         scheduled_at: scheduledAt,
+        location_id: locationId,
       });
       const completed = submitMode === "now"
         ? await publishSocialPost(token, orgId, created.id)
@@ -195,7 +196,7 @@ export default function FeedPage({ token, orgId, organizationName }) {
       <header className="portal-page-heading">
         <p className="dashboard-kicker">Publishing</p>
         <h1>Feed</h1>
-        <p>Start with one idea, shape it for each platform, then publish or schedule the versions you want.</p>
+        <p>Publish directly to your Five* feed, then optionally send adapted versions to connected social accounts.</p>
       </header>
 
       {error && <p className="message message--error">{error}</p>}
@@ -207,9 +208,9 @@ export default function FeedPage({ token, orgId, organizationName }) {
             <div>
               <span className="status-pill status-pill--connected">Draft workspace</span>
               <h2>Create a post</h2>
-              <p>Write the source caption once. Platform drafts can be edited independently.</p>
+              <p>The master caption is your Five* post. Social versions are optional.</p>
             </div>
-            <span className="feed-org-label">{organizationName}</span>
+            <span className="feed-org-label">{locationName || `${organizationName} · All locations`}</span>
           </div>
 
           <div className="feed-master-section">
@@ -271,8 +272,8 @@ export default function FeedPage({ token, orgId, organizationName }) {
           <section className="feed-drafts-section" aria-labelledby="feed-drafts-heading">
             <div className="feed-section-heading">
               <div>
-                <h3 id="feed-drafts-heading">Platform drafts</h3>
-                <p>Edit each version and choose one or more connected platforms.</p>
+              <h3 id="feed-drafts-heading">Optional social versions</h3>
+              <p>Adapt the post for any connected accounts you want to publish to at the same time.</p>
               </div>
               <span className="feed-selection-count">{channels.length} selected</span>
             </div>
@@ -337,7 +338,7 @@ export default function FeedPage({ token, orgId, organizationName }) {
           <div className="feed-section-heading">
             <div>
               <h3>Publish or schedule</h3>
-              <p>Choose when to send the selected platform drafts.</p>
+              <p>Choose when the post appears on Five*. Selected social versions will publish with it.</p>
             </div>
           </div>
 
@@ -408,8 +409,8 @@ export default function FeedPage({ token, orgId, organizationName }) {
               {working
                 ? "Working…"
                 : publishMode === "schedule"
-                  ? "Schedule selected"
-                  : "Publish selected"}
+                  ? "Schedule post"
+                  : "Publish post"}
             </button>
           </div>
         </section>
@@ -475,14 +476,17 @@ export default function FeedPage({ token, orgId, organizationName }) {
                 {connections.filter((connection) => connectedProviders.has(connection.provider)).map((connection) => (
                   <div key={connection.provider}>
                     <strong>{connection.name}</strong>
-                    <span>{connection.provider_account_name}</span>
+                    <span>
+                      {connection.provider_account_name}
+                      {connection.inherited ? " · organization account" : ""}
+                    </span>
                   </div>
                 ))}
               </div>
             ) : (
               <p className="portal-card-description">
-                No publishing destinations are connected.{" "}
-                <Link to={`/org/${orgId}/social`}>Connect social accounts</Link>.
+                This post will still publish to Five*.{" "}
+                <Link to={`/org/${orgId}/social`}>Connect social accounts</Link> to publish everywhere at once.
               </p>
             )}
           </section>

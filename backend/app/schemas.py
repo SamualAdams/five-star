@@ -117,6 +117,7 @@ class LocationOut(BaseModel):
     is_default: bool
     feedback_token: str
     review_links: list[ReviewLink] | None = None
+    review_links_override: list[ReviewLink] | None = None
     access_role: str
     can_manage: bool
     five_star_status: int = 1
@@ -125,7 +126,7 @@ class LocationOut(BaseModel):
 
 
 class LocationReviewLinksUpdate(BaseModel):
-    review_links: list[ReviewLink]
+    review_links: list[ReviewLink] | None = None
 
 
 class LocationAssignment(BaseModel):
@@ -208,7 +209,7 @@ class FeedbackSubmit(BaseModel):
 class FeedbackOut(BaseModel):
     id: int
     organization_id: int
-    location_id: int
+    location_id: int | None
     content: str
     submitter_email: str | None
     submitter_name: str | None
@@ -219,6 +220,7 @@ class FeedbackOut(BaseModel):
 class FeedbackFormInfo(BaseModel):
     organization_name: str
     organization_id: int
+    organization_token: str
     location_name: str
     location_id: int
     review_links: list[ReviewLink] | None = None
@@ -245,8 +247,8 @@ class InitiativeUpdate(BaseModel):
 class InitiativeOut(BaseModel):
     id: int
     organization_id: int
-    location_id: int
-    location_name: str
+    location_id: int | None
+    location_name: str | None
     title: str
     description: str
     status: str
@@ -264,8 +266,8 @@ class PublicInitiativeOut(InitiativeOut):
 class BoardOut(BaseModel):
     organization_name: str
     organization_id: int
-    location_name: str
-    location_id: int
+    location_name: str | None
+    location_id: int | None
     initiatives: list[PublicInitiativeOut]
 
 
@@ -301,6 +303,8 @@ class SocialConnectionOut(BaseModel):
     connection_method: str | None = None
     linked_page_name: str | None = None
     diagnostic: str | None = None
+    location_id: int | None = None
+    inherited: bool = False
 
 
 class SocialAuthorizationOut(BaseModel):
@@ -347,9 +351,10 @@ class SocialDraftContent(BaseModel):
 
 class SocialPostCreate(BaseModel):
     master_caption: str = Field(min_length=1, max_length=10000)
-    targets: list[SocialPostTargetCreate] = Field(min_length=1, max_length=4)
+    targets: list[SocialPostTargetCreate] = Field(default_factory=list, max_length=4)
     media_urls: list[str] = Field(default_factory=list, max_length=10)
     scheduled_at: datetime | None = None
+    location_id: int | None = None
 
 
 class SocialPostTargetOut(BaseModel):
@@ -366,6 +371,8 @@ class SocialPostTargetOut(BaseModel):
 class SocialPostOut(BaseModel):
     id: int
     organization_id: int
+    location_id: int | None = None
+    location_name: str | None = None
     master_caption: str
     media_urls: list[str] = Field(default_factory=list)
     status: str
@@ -377,12 +384,45 @@ class SocialPostOut(BaseModel):
     targets: list[SocialPostTargetOut] = Field(default_factory=list)
 
 
+class PublicLocationOut(BaseModel):
+    id: int
+    name: str
+    address: str | None = None
+    feedback_token: str
+
+
+class OrganizationFeedbackFormInfo(BaseModel):
+    organization_name: str
+    organization_id: int
+    organization_token: str
+    review_links: list[ReviewLink] | None = None
+    locations: list[PublicLocationOut]
+
+
+class PublicOrganizationHubOut(BaseModel):
+    organization_name: str
+    organization_token: str
+    five_star_status: int
+    modules: OrganizationModulesOut
+    locations: list[PublicLocationOut]
+
+
+class PublicSocialPostOut(BaseModel):
+    id: int
+    master_caption: str
+    media_urls: list[str] = Field(default_factory=list)
+    published_at: datetime
+    location_id: int | None = None
+    location_name: str | None = None
+
+
 # Organization Search
 
 
 class OrganizationSearchResult(BaseModel):
     name: str
     feedback_token: str
+    landing_enabled: bool
 
 
 # Feedback Stats

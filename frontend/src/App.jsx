@@ -23,12 +23,13 @@ import LocationsPage from "./components/LocationsPage";
 import LocationSwitcher from "./components/LocationSwitcher";
 import ModuleLockedPage from "./components/ModuleLockedPage";
 import OrganizationSwitcher from "./components/OrganizationSwitcher";
+import OrganizationFeedbackPage from "./components/OrganizationFeedbackPage";
 import OrgSettingsPage from "./components/OrgSettingsPage";
 import ResetPasswordPage from "./components/ResetPasswordPage";
 import SearchPage from "./components/SearchPage";
 import SubmissionsChart from "./components/SubmissionsChart";
 import TopbarSearch from "./components/TopbarSearch";
-import VotingBoardPage from "./components/VotingBoardPage";
+import PublicOrganizationPage, { LegacyRoadmapRedirect } from "./components/PublicOrganizationPage";
 
 const TOKEN_KEY = "five-star-token";
 const CURRENT_ORG_KEY = "five-star-current-org";
@@ -126,6 +127,9 @@ export default function App() {
     : currentLocation?.name || "All locations";
   const canManageCurrentLocation = Boolean(currentOrg?.can_manage_organization) || Boolean(currentLocation?.can_manage);
   const isAppRoute = location.pathname === "/dashboard" || location.pathname.startsWith("/org/");
+  const isPublicHubRoute = location.pathname.startsWith("/five-star/")
+    || location.pathname.startsWith("/roadmap/")
+    || location.pathname.startsWith("/board/");
 
   const loadOrganizations = useCallback(
     async (authToken) => {
@@ -271,11 +275,18 @@ export default function App() {
     setOrganizations((current) => current.map(
       (item) => (item.id === updatedOrganization.id ? updatedOrganization : item)
     ));
-    setLocations((current) => current.map((item) => (
-      item.organization_id === updatedOrganization.id && item.five_star_status_override == null
-        ? { ...item, five_star_status: updatedOrganization.five_star_status }
-        : item
-    )));
+    setLocations((current) => current.map((item) => {
+      if (item.organization_id !== updatedOrganization.id) return item;
+      return {
+        ...item,
+        ...(item.five_star_status_override == null
+          ? { five_star_status: updatedOrganization.five_star_status }
+          : {}),
+        ...(item.review_links_override == null
+          ? { review_links: updatedOrganization.review_links }
+          : {}),
+      };
+    }));
   }
 
   function toggleSidebar() {
@@ -295,9 +306,9 @@ export default function App() {
           fiveStarStatus={currentLocation?.five_star_status ?? currentOrg?.five_star_status ?? 1}
           scopeLabel={locationScopeLabel}
         />
-      ) : (
+      ) : !isPublicHubRoute ? (
         <PublicHeader isAuthenticated={isAuthenticated} />
-      )}
+      ) : null}
 
       {hasAppShell && (
         <AppSidebar
@@ -443,6 +454,8 @@ export default function App() {
                     token={token}
                     orgId={currentOrg?.id}
                     organizationName={currentOrg?.name}
+                    locationId={selectedLocationId}
+                    locationName={currentLocation?.name}
                   />
                 )
               ) : (
@@ -497,6 +510,7 @@ export default function App() {
                   section="reviews"
                   currentLocation={currentLocation}
                   canManageLocation={canManageCurrentLocation}
+                  onOrganizationUpdated={handleOrganizationUpdated}
                   onLocationUpdated={handleLocationUpdated}
                 />
               ) : (
@@ -517,6 +531,8 @@ export default function App() {
                     orgId={currentOrg.id}
                     locations={locations}
                     roadmapEnabled={currentOrg?.modules?.roadmap !== false}
+                    feedEnabled={currentOrg?.modules?.feed !== false}
+                    organizationToken={currentOrg.feedback_token}
                     onLocationsChanged={loadCurrentLocations}
                   />
               ) : (
@@ -531,7 +547,12 @@ export default function App() {
                 currentOrg?.modules?.feed === false ? (
                   <ModuleLockedPage isSuperuser={Boolean(user?.is_superuser)} moduleName="Feed" orgId={currentOrg.id} />
                 ) : (
-                  <OrgSettingsPage token={token} user={user} section="social" />
+                  <OrgSettingsPage
+                    token={token}
+                    user={user}
+                    section="social"
+                    currentLocation={currentLocation}
+                  />
                 )
               ) : (
                 <Navigate to="/auth?mode=login" replace />
@@ -553,9 +574,11 @@ export default function App() {
             }
           />
           <Route path="/search" element={<SearchPage />} />
+          <Route path="/feedback/organization/:organizationToken" element={<OrganizationFeedbackPage />} />
           <Route path="/feedback/:feedbackToken" element={<FeedbackPage />} />
-          <Route path="/roadmap/:feedbackToken" element={<VotingBoardPage />} />
-          <Route path="/board/:feedbackToken" element={<VotingBoardPage />} />
+          <Route path="/five-star/:organizationToken" element={<PublicOrganizationPage />} />
+          <Route path="/roadmap/:feedbackToken" element={<LegacyRoadmapRedirect />} />
+          <Route path="/board/:feedbackToken" element={<LegacyRoadmapRedirect />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="*" element={<Navigate to={isAuthenticated ? "/dashboard" : "/"} replace />} />
           </Routes>
@@ -1035,7 +1058,7 @@ function Dashboard({ currentOrg, isSuperuser, locationId, organizations, onShowC
         ? listOrganizationInitiatives(token, currentOrg.id, locationId)
         : Promise.resolve([]),
       feedEnabled && currentOrg.can_manage_organization
-        ? listSocialPosts(token, currentOrg.id, 100)
+        ? listSocialPosts(token, currentOrg.id, 100, locationId)
         : Promise.resolve([]),
     ]).then(([feedbackResult, initiativesResult, postsResult]) => {
       if (!active) return;
@@ -1279,7 +1302,7 @@ function VotingBoardAdminPage({
         isAdmin={canManage}
         locationId={locationId}
         locations={locations}
-        publicBoardUrl={currentLocation ? `/roadmap/${currentLocation.feedback_token}` : null}
+        publicBoardUrl={`/five-star/${currentOrg.feedback_token}?view=roadmap${currentLocation ? `&location=${currentLocation.id}` : ""}`}
       />
     </div>
   );

@@ -1,12 +1,5 @@
 import { useState } from "react";
 
-const ACCESS_ROLE_LABELS = {
-  organization_admin: "Organization admin",
-  organization_viewer: "Organization viewer",
-  location_admin: "Location admin",
-  location_viewer: "Location viewer",
-};
-
 export default function LocationSwitcher({
   canViewAll,
   currentLocationId,
@@ -37,13 +30,14 @@ export default function LocationSwitcher({
       >
         <span className="location-switcher-pin" aria-hidden="true">⌖</span>
         <span>{label}</span>
+        {locations.length > 1 && <span className="location-switcher-count">{locations.length}</span>}
         <span className="org-switcher-chevron" aria-hidden="true">{isOpen ? "▲" : "▼"}</span>
       </button>
 
       {isOpen && (
         <>
           <div className="location-switcher-menu">
-            <p className="organization-switcher-heading">Location scope</p>
+            <p className="organization-switcher-heading">Locations ({locations.length})</p>
             {canViewAll && (
               <button
                 type="button"
@@ -52,7 +46,7 @@ export default function LocationSwitcher({
               >
                 <span>
                   <strong>All locations</strong>
-                  <small>Organization rollup</small>
+                  <small>Organization-wide view</small>
                 </span>
                 {currentLocationId === "all" && <span aria-hidden="true">✓</span>}
               </button>
@@ -66,7 +60,10 @@ export default function LocationSwitcher({
               >
                 <span>
                   <strong>{location.name}</strong>
-                  <small>{ACCESS_ROLE_LABELS[location.access_role] || location.access_role}</small>
+                  <small>
+                    {location.address || (location.is_default ? "Default location" : "Location")}
+                    {location.access_role === "location_admin" ? " · You manage this location" : ""}
+                  </small>
                 </span>
                 {Number(currentLocationId) === location.id && <span aria-hidden="true">✓</span>}
               </button>

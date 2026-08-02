@@ -1,7 +1,7 @@
 import enum
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Enum as SQLEnum, ForeignKey, ForeignKeyConstraint, Integer, JSON, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Enum as SQLEnum, ForeignKey, ForeignKeyConstraint, Index, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -230,7 +230,7 @@ class Feedback(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"), nullable=False)
-    location_id: Mapped[int] = mapped_column(ForeignKey("locations.id", ondelete="RESTRICT"), nullable=False, index=True)
+    location_id: Mapped[int | None] = mapped_column(ForeignKey("locations.id", ondelete="RESTRICT"), nullable=True, index=True)
     content: Mapped[str] = mapped_column(String, nullable=False)
     submitter_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     submitter_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -238,7 +238,7 @@ class Feedback(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
     organization: Mapped["Organization"] = relationship(back_populates="feedback")
-    location: Mapped["Location"] = relationship(back_populates="feedback")
+    location: Mapped["Location | None"] = relationship(back_populates="feedback")
 
 
 class Initiative(Base):
@@ -246,7 +246,7 @@ class Initiative(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
-    location_id: Mapped[int] = mapped_column(ForeignKey("locations.id", ondelete="RESTRICT"), nullable=False, index=True)
+    location_id: Mapped[int | None] = mapped_column(ForeignKey("locations.id", ondelete="RESTRICT"), nullable=True, index=True)
     title: Mapped[str] = mapped_column(String(160), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[InitiativeStatus] = mapped_column(
@@ -334,6 +334,11 @@ class SocialConnection(Base):
         nullable=False,
         index=True,
     )
+    location_id: Mapped[int | None] = mapped_column(
+        ForeignKey("locations.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
     provider: Mapped[str] = mapped_column(String(32), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="connected")
     provider_account_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -353,10 +358,24 @@ class SocialConnection(Base):
     )
 
     organization: Mapped["Organization"] = relationship(back_populates="social_connections")
+    location: Mapped["Location | None"] = relationship()
     connected_user: Mapped["User"] = relationship(foreign_keys=[connected_by])
 
     __table_args__ = (
-        UniqueConstraint("organization_id", "provider", name="uq_social_connection_org_provider"),
+        Index(
+            "uq_social_connection_org_provider_default",
+            "organization_id",
+            "provider",
+            unique=True,
+            postgresql_where=location_id.is_(None),
+            sqlite_where=location_id.is_(None),
+        ),
+        UniqueConstraint(
+            "organization_id",
+            "location_id",
+            "provider",
+            name="uq_social_connection_org_location_provider",
+        ),
     )
 
 
@@ -368,6 +387,11 @@ class SocialOAuthState(Base):
     organization_id: Mapped[int] = mapped_column(
         ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
+    )
+    location_id: Mapped[int | None] = mapped_column(
+        ForeignKey("locations.id", ondelete="CASCADE"),
+        nullable=True,
         index=True,
     )
     provider: Mapped[str] = mapped_column(String(32), nullable=False)
@@ -388,6 +412,11 @@ class SocialConnectionSetup(Base):
     organization_id: Mapped[int] = mapped_column(
         ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
+    )
+    location_id: Mapped[int | None] = mapped_column(
+        ForeignKey("locations.id", ondelete="CASCADE"),
+        nullable=True,
         index=True,
     )
     provider: Mapped[str] = mapped_column(String(32), nullable=False)
@@ -413,6 +442,11 @@ class SocialPost(Base):
         nullable=False,
         index=True,
     )
+    location_id: Mapped[int | None] = mapped_column(
+        ForeignKey("locations.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     master_caption: Mapped[str] = mapped_column(Text, nullable=False)
     media_urls: Mapped[list | None] = mapped_column(JSON, nullable=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="draft")
@@ -428,6 +462,7 @@ class SocialPost(Base):
     )
 
     organization: Mapped["Organization"] = relationship(back_populates="social_posts")
+    location: Mapped["Location | None"] = relationship()
     creator: Mapped["User"] = relationship(foreign_keys=[created_by])
     targets: Mapped[list["SocialPostTarget"]] = relationship(
         back_populates="post",

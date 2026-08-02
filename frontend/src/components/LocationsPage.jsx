@@ -21,7 +21,16 @@ function PublicLink({ label, url }) {
   );
 }
 
-export default function LocationsPage({ locations, onLocationsChanged, orgId, roadmapEnabled = true, token }) {
+export default function LocationsPage({
+  locations,
+  onLocationsChanged,
+  orgId,
+  roadmapEnabled = true,
+  feedEnabled = true,
+  organizationToken,
+  token,
+}) {
+  const landingEnabled = roadmapEnabled || feedEnabled;
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [timezone, setTimezone] = useState("America/Chicago");
@@ -72,7 +81,7 @@ export default function LocationsPage({ locations, onLocationsChanged, orgId, ro
       <header className="portal-page-heading">
         <p className="dashboard-kicker">Admin</p>
         <h1>Locations</h1>
-        <p>Partition feedback, roadmap items, public links, and team access by business location.</p>
+        <p>Manage location-specific feedback links, content tags, and team access.</p>
       </header>
 
       {error && <p className="message message--error">{error}</p>}
@@ -82,7 +91,7 @@ export default function LocationsPage({ locations, onLocationsChanged, orgId, ro
           <div>
             <h2>Add a location</h2>
             <p className="portal-card-description">
-              Each location gets its own feedback link{roadmapEnabled ? " and roadmap link" : ""}.
+              Each location gets its own direct feedback link. The organization landing page is shared.
             </p>
           </div>
         </div>
@@ -157,15 +166,15 @@ export default function LocationsPage({ locations, onLocationsChanged, orgId, ro
                 label="Feedback"
                 url={`${window.location.origin}/feedback/${location.feedback_token}`}
               />
-              {roadmapEnabled ? (
+              {landingEnabled ? (
                 <PublicLink
-                  label="Roadmap"
-                  url={`${window.location.origin}/roadmap/${location.feedback_token}`}
+                  label="Landing page"
+                  url={`${window.location.origin}/five-star/${organizationToken}`}
                 />
               ) : (
                 <div className="location-public-link location-public-link--locked">
-                  <span>Roadmap</span>
-                  <strong>🔒 Roadmap module not enabled</strong>
+                  <span>Landing page</span>
+                  <strong>🔒 Enable Feed or Roadmap to publish a landing page</strong>
                 </div>
               )}
             </div>

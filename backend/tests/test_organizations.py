@@ -1,6 +1,6 @@
 from sqlalchemy import select
 
-from app.models import OrganizationMember, User
+from app.models import Organization, OrganizationMember, User
 from conftest import TestingSessionLocal
 
 
@@ -203,13 +203,66 @@ def test_update_review_links(client, auth_headers):
     headers = auth_headers()
     org = create_org(client, headers)
 
+    default_location = client.get(
+        f"/organizations/{org['id']}/locations",
+        headers=headers,
+    ).json()[0]
+    organization_default = [{"platform": "google", "url": "https://g.page/acme"}]
     response = client.patch(
         f"/organizations/{org['id']}/review-links",
-        json={"review_links": [{"platform": "google", "url": "https://g.page/acme"}]},
+        json={"review_links": organization_default},
         headers=headers,
     )
     assert response.status_code == 200
-    assert response.json()["review_links"] == [{"platform": "google", "url": "https://g.page/acme"}]
+    assert response.json()["review_links"] == organization_default
+
+    inherited = client.get(
+        f"/organizations/{org['id']}/locations",
+        headers=headers,
+    ).json()[0]
+    assert inherited["review_links"] == organization_default
+    assert inherited["review_links_override"] is None
+    assert client.get(f"/api/feedback/{default_location['feedback_token']}").json()["review_links"] == organization_default
+
+    second_location = client.post(
+        f"/organizations/{org['id']}/locations",
+        json={"name": "Downtown"},
+        headers=headers,
+    ).json()
+    assert second_location["review_links"] == organization_default
+    assert second_location["review_links_override"] is None
+
+    location_override = [{"platform": "yelp", "url": "https://yelp.com/biz/acme-downtown"}]
+    overridden = client.patch(
+        f"/organizations/{org['id']}/locations/{second_location['id']}/review-links",
+        json={"review_links": location_override},
+        headers=headers,
+    )
+    assert overridden.status_code == 200, overridden.text
+    assert overridden.json()["review_links"] == location_override
+    assert overridden.json()["review_links_override"] == location_override
+    assert client.get(f"/api/feedback/{second_location['feedback_token']}").json()["review_links"] == location_override
+
+    new_organization_default = [{"platform": "tripadvisor", "url": "https://tripadvisor.com/acme"}]
+    client.patch(
+        f"/organizations/{org['id']}/review-links",
+        json={"review_links": new_organization_default},
+        headers=headers,
+    )
+    locations = client.get(f"/organizations/{org['id']}/locations", headers=headers).json()
+    default_after_update = next(location for location in locations if location["id"] == default_location["id"])
+    overridden_after_update = next(location for location in locations if location["id"] == second_location["id"])
+    assert default_after_update["review_links"] == new_organization_default
+    assert overridden_after_update["review_links"] == location_override
+
+    reset = client.patch(
+        f"/organizations/{org['id']}/locations/{second_location['id']}/review-links",
+        json={"review_links": None},
+        headers=headers,
+    )
+    assert reset.status_code == 200, reset.text
+    assert reset.json()["review_links"] == new_organization_default
+    assert reset.json()["review_links_override"] is None
 
 
 def test_public_feedback_flow(client, auth_headers):
@@ -228,6 +281,75 @@ def test_public_feedback_flow(client, auth_headers):
     assert feedback.status_code == 200
     assert feedback.json()[0]["content"] == "Great service!"
     assert feedback.json()[0]["is_anonymous"] is True
+
+
+def test_search_and_organization_wide_feedback_for_multiple_locations(client, auth_headers):
+    headers = auth_headers("multi-location-owner@example.com")
+    org = create_org(client, headers, "Multi Location Diner")
+    default_location = client.get(
+        f"/organizations/{org['id']}/locations",
+        headers=headers,
+    ).json()[0]
+    second_location = client.post(
+        f"/organizations/{org['id']}/locations",
+        json={"name": "Downtown", "address": "12 Main Street"},
+        headers=headers,
+    ).json()
+
+    search = client.get("/organizations/search?q=Multi")
+    assert search.status_code == 200
+    assert search.json() == [{
+        "name": "Multi Location Diner",
+        "feedback_token": org["feedback_token"],
+        "landing_enabled": False,
+    }]
+
+    info = client.get(f"/api/feedback/organization/{org['feedback_token']}")
+    assert info.status_code == 200, info.text
+    assert info.json()["organization_name"] == "Multi Location Diner"
+    assert [location["id"] for location in info.json()["locations"]] == [
+        default_location["id"],
+        second_location["id"],
+    ]
+
+    submitted = client.post(
+        f"/api/feedback/organization/{org['feedback_token']}/submit",
+        json={"content": "This is about the organization overall."},
+    )
+    assert submitted.status_code == 201, submitted.text
+
+    all_feedback = client.get(
+        f"/organizations/{org['id']}/feedback",
+        headers=headers,
+    )
+    assert all_feedback.status_code == 200
+    assert all_feedback.json()[0]["location_id"] is None
+
+    location_feedback = client.get(
+        f"/organizations/{org['id']}/feedback?location_id={default_location['id']}",
+        headers=headers,
+    )
+    assert location_feedback.status_code == 200
+    assert location_feedback.json() == []
+
+    all_stats = client.get(
+        f"/organizations/{org['id']}/feedback/stats?days=1",
+        headers=headers,
+    )
+    assert all_stats.status_code == 200
+    assert all_stats.json()["data"][0]["count"] == 1
+    location_stats = client.get(
+        f"/organizations/{org['id']}/feedback/stats?days=1&location_id={default_location['id']}",
+        headers=headers,
+    )
+    assert location_stats.status_code == 200
+    assert location_stats.json()["data"][0]["count"] == 0
+
+    with TestingSessionLocal() as db:
+        organization = db.get(Organization, org["id"])
+        organization.feed_enabled = True
+        db.commit()
+    assert client.get("/organizations/search?q=Multi").json()[0]["landing_enabled"] is True
 
 
 def test_feedback_form_unknown_token(client):

@@ -73,7 +73,7 @@ def test_public_board_filters_sorts_and_tracks_one_anonymous_vote(client, auth_h
     org = create_org(client, owner_headers)
     low_priority = create_initiative(client, owner_headers, org["id"], "New loyalty card", status="planned")
     high_priority = create_initiative(client, owner_headers, org["id"], "Online booking", status="in_progress")
-    board_url = f"/api/boards/{org['feedback_token']}"
+    board_url = f"/api/hubs/{org['feedback_token']}/roadmap"
     voter_one = {"X-Visitor-ID": "7a8d7f1b-e1dd-48f6-9dcb-1f773c2d957e"}
     voter_two = {"X-Visitor-ID": "75e6d350-10a5-4dbe-bd9a-1e87d7dd8f38"}
 
@@ -136,7 +136,7 @@ def test_public_vote_requires_a_browser_identifier(client, auth_headers):
     initiative = create_initiative(client, headers, org["id"], "Online booking")
 
     response = client.put(
-        f"/api/boards/{org['feedback_token']}/initiatives/{initiative['id']}/vote",
+        f"/api/hubs/{org['feedback_token']}/roadmap/initiatives/{initiative['id']}/vote",
         json={"value": 1},
     )
     assert response.status_code == 400

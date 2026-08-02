@@ -85,13 +85,17 @@ from .schemas import (
     MetaPageOptionOut,
     OrganizationCreate,
     OrganizationFiveStarStatusUpdate,
+    OrganizationFeedbackFormInfo,
     OrganizationModulesOut,
     OrganizationModulesUpdate,
     OrganizationOut,
     OrganizationReviewLinksUpdate,
     OrganizationSearchResult,
     OrganizationUpdate,
+    PublicLocationOut,
+    PublicOrganizationHubOut,
     PublicInitiativeOut,
+    PublicSocialPostOut,
     ReviewLink,
     ReviewPolishRequest,
     ReviewPolishResponse,
@@ -384,7 +388,6 @@ def create_organization(
         name=org.name,
         is_default=True,
         feedback_token=org.feedback_token,
-        review_links=org.review_links,
         created_by=user.id,
     )
     db.add(default_location)
@@ -437,7 +440,14 @@ def search_organizations(request: Request, q: str, db: Session = Depends(get_db)
         .limit(20)
     ).all()
 
-    return [OrganizationSearchResult(name=org.name, feedback_token=org.feedback_token) for org in orgs]
+    return [
+        OrganizationSearchResult(
+            name=org.name,
+            feedback_token=org.feedback_token,
+            landing_enabled=org.feed_enabled or org.roadmap_enabled,
+        )
+        for org in orgs
+    ]
 
 
 @app.get("/organizations/{org_id}", response_model=OrganizationOut)
@@ -519,14 +529,6 @@ def update_review_links(
     membership = require_org_admin(db, user, org_id)
     org = membership.organization
     org.review_links = [link.model_dump() for link in payload.review_links]
-    default_location = db.scalar(
-        select(Location).where(
-            Location.organization_id == org_id,
-            Location.is_default.is_(True),
-        )
-    )
-    if default_location:
-        default_location.review_links = org.review_links
     db.commit()
     db.refresh(org)
 
@@ -562,6 +564,8 @@ def _validated_social_provider(provider: str) -> str:
 def _social_connection_out(
     provider: str,
     connection: SocialConnection | None,
+    *,
+    inherited: bool = False,
 ) -> SocialConnectionOut:
     details = PROVIDER_DETAILS[provider]
     connection_status = connection.status if connection else "not_connected"
@@ -600,13 +604,45 @@ def _social_connection_out(
         connection_method=provider_data.get("auth_type"),
         linked_page_name=provider_data.get("facebook_page_name"),
         diagnostic=diagnostic,
+        location_id=connection.location_id if connection else None,
+        inherited=inherited,
     )
+
+
+def _effective_social_connections(
+    db: Session,
+    organization_id: int,
+    location_id: int | None,
+) -> tuple[dict[str, SocialConnection], set[str]]:
+    query = select(SocialConnection).where(
+        SocialConnection.organization_id == organization_id
+    )
+    if location_id is None:
+        query = query.where(SocialConnection.location_id.is_(None))
+    else:
+        query = query.where(
+            or_(
+                SocialConnection.location_id.is_(None),
+                SocialConnection.location_id == location_id,
+            )
+        )
+    defaults: dict[str, SocialConnection] = {}
+    overrides: dict[str, SocialConnection] = {}
+    for connection in db.scalars(query).all():
+        if connection.location_id is None:
+            defaults[connection.provider] = connection
+        else:
+            overrides[connection.provider] = connection
+    if location_id is None:
+        return defaults, set()
+    return {**defaults, **overrides}, set(defaults).difference(overrides)
 
 
 def _upsert_social_connection(
     db: Session,
     *,
     organization_id: int,
+    location_id: int | None,
     provider: str,
     connected_by: int,
     access_token: str,
@@ -621,11 +657,15 @@ def _upsert_social_connection(
         select(SocialConnection).where(
             SocialConnection.organization_id == organization_id,
             SocialConnection.provider == provider,
+            SocialConnection.location_id.is_(None)
+            if location_id is None
+            else SocialConnection.location_id == location_id,
         )
     )
     if not connection:
         connection = SocialConnection(
             organization_id=organization_id,
+            location_id=location_id,
             provider=provider,
             access_token_encrypted=encrypt_token(access_token, settings),
             connected_by=connected_by,
@@ -654,19 +694,25 @@ def _upsert_social_connection(
 )
 def list_social_connections(
     org_id: int,
+    location_id: int | None = Query(default=None),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[SocialConnectionOut]:
     require_org_admin(db, user, org_id)
     require_module_enabled(db, org_id, "feed")
-    connections = {
-        connection.provider: connection
-        for connection in db.scalars(
-            select(SocialConnection).where(SocialConnection.organization_id == org_id)
-        ).all()
-    }
+    if location_id is not None:
+        require_location_access(db, user, org_id, location_id, manage=True)
+    connections, inherited_providers = _effective_social_connections(
+        db,
+        org_id,
+        location_id,
+    )
     return [
-        _social_connection_out(provider, connections.get(provider))
+        _social_connection_out(
+            provider,
+            connections.get(provider),
+            inherited=provider in inherited_providers,
+        )
         for provider in SUPPORTED_PROVIDERS
     ]
 
@@ -678,12 +724,15 @@ def list_social_connections(
 def authorize_social_connection(
     org_id: int,
     provider: str,
+    location_id: int | None = Query(default=None),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> SocialAuthorizationOut:
     provider = _validated_social_provider(provider)
     require_org_admin(db, user, org_id)
     require_module_enabled(db, org_id, "feed")
+    if location_id is not None:
+        require_location_access(db, user, org_id, location_id, manage=True)
     if not provider_configured(provider, settings):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -696,6 +745,7 @@ def authorize_social_connection(
         SocialOAuthState(
             state_hash=hash_oauth_state(raw_state),
             organization_id=org_id,
+            location_id=location_id,
             provider=provider,
             user_id=user.id,
             created_at=now,
@@ -713,11 +763,14 @@ def _social_callback_redirect(
     provider: str,
     result: str,
     message: str | None = None,
+    location_id: int | None = None,
     **extra: str,
 ) -> RedirectResponse:
     query = {"social": result, "provider": provider}
     if message:
         query["message"] = message
+    if location_id is not None:
+        query["location_id"] = str(location_id)
     query.update(extra)
     destination = (
         f"{settings.frontend_origin.rstrip('/')}/org/{org_id}/social?{urlencode(query)}"
@@ -765,6 +818,7 @@ def social_oauth_callback(
             provider,
             "error",
             str(exc.detail),
+            location_id=oauth_state.location_id,
         )
     if error or not code:
         return _social_callback_redirect(
@@ -772,6 +826,7 @@ def social_oauth_callback(
             provider,
             "error",
             error_description or error or "Authorization was cancelled",
+            location_id=oauth_state.location_id,
         )
 
     try:
@@ -787,6 +842,7 @@ def social_oauth_callback(
                 SocialConnectionSetup(
                     token_hash=hash_oauth_state(setup_token),
                     organization_id=oauth_state.organization_id,
+                    location_id=oauth_state.location_id,
                     provider=provider,
                     user_id=oauth_state.user_id,
                     access_token_encrypted=encrypt_token(access_token, settings),
@@ -800,6 +856,7 @@ def social_oauth_callback(
                 oauth_state.organization_id,
                 provider,
                 "selection_required",
+                location_id=oauth_state.location_id,
                 setup=setup_token,
             )
         identity = fetch_social_identity(provider, token_data)
@@ -809,6 +866,7 @@ def social_oauth_callback(
             provider,
             "error",
             str(exc),
+            location_id=oauth_state.location_id,
         )
 
     refresh_token = token_data.get("refresh_token")
@@ -818,6 +876,7 @@ def social_oauth_callback(
     _upsert_social_connection(
         db,
         organization_id=oauth_state.organization_id,
+        location_id=oauth_state.location_id,
         provider=provider,
         connected_by=oauth_state.user_id,
         access_token=access_token,
@@ -834,6 +893,7 @@ def social_oauth_callback(
         oauth_state.organization_id,
         provider,
         "connected",
+        location_id=oauth_state.location_id,
     )
 
 
@@ -961,6 +1021,7 @@ def complete_facebook_page_connection(
     _upsert_social_connection(
         db,
         organization_id=org_id,
+        location_id=connection_setup.location_id,
         provider="facebook",
         connected_by=user.id,
         access_token=selected_page["access_token"],
@@ -976,12 +1037,16 @@ def complete_facebook_page_connection(
         select(SocialConnection).where(
             SocialConnection.organization_id == org_id,
             SocialConnection.provider == "instagram",
+            SocialConnection.location_id.is_(None)
+            if connection_setup.location_id is None
+            else SocialConnection.location_id == connection_setup.location_id,
         )
     )
     if instagram:
         _upsert_social_connection(
             db,
             organization_id=org_id,
+            location_id=connection_setup.location_id,
             provider="instagram",
             connected_by=user.id,
             access_token=selected_page["access_token"],
@@ -1010,16 +1075,17 @@ def complete_facebook_page_connection(
     connection_setup.used_at = datetime.utcnow()
     db.commit()
 
-    connections = {
-        connection.provider: connection
-        for connection in db.scalars(
-            select(SocialConnection).where(
-                SocialConnection.organization_id == org_id
-            )
-        ).all()
-    }
+    connections, inherited_providers = _effective_social_connections(
+        db,
+        org_id,
+        connection_setup.location_id,
+    )
     return [
-        _social_connection_out(provider, connections.get(provider))
+        _social_connection_out(
+            provider,
+            connections.get(provider),
+            inherited=provider in inherited_providers,
+        )
         for provider in SUPPORTED_PROVIDERS
     ]
 
@@ -1031,16 +1097,22 @@ def complete_facebook_page_connection(
 def disconnect_social_connection(
     org_id: int,
     provider: str,
+    location_id: int | None = Query(default=None),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> None:
     provider = _validated_social_provider(provider)
     require_org_admin(db, user, org_id)
     require_module_enabled(db, org_id, "feed")
+    if location_id is not None:
+        require_location_access(db, user, org_id, location_id, manage=True)
     connection = db.scalar(
         select(SocialConnection).where(
             SocialConnection.organization_id == org_id,
             SocialConnection.provider == provider,
+            SocialConnection.location_id.is_(None)
+            if location_id is None
+            else SocialConnection.location_id == location_id,
         )
     )
     if not connection:
@@ -1056,6 +1128,9 @@ def disconnect_social_connection(
             select(SocialConnection).where(
                 SocialConnection.organization_id == org_id,
                 SocialConnection.provider == "instagram",
+                SocialConnection.location_id.is_(None)
+                if location_id is None
+                else SocialConnection.location_id == location_id,
             )
         )
         if (
@@ -1072,6 +1147,8 @@ def _social_post_out(post: SocialPost) -> SocialPostOut:
     return SocialPostOut(
         id=post.id,
         organization_id=post.organization_id,
+        location_id=post.location_id,
+        location_name=post.location.name if post.location else None,
         master_caption=post.master_caption,
         media_urls=post.media_urls or [],
         status=post.status,
@@ -1154,14 +1231,18 @@ def _publish_social_post(db: Session, post: SocialPost) -> SocialPost:
     if post.status == "published":
         return post
 
-    connections = {
-        connection.provider: connection
-        for connection in db.scalars(
-            select(SocialConnection).where(
-                SocialConnection.organization_id == post.organization_id
-            )
-        ).all()
-    }
+    if not post.targets:
+        post.status = "published"
+        post.published_at = datetime.utcnow()
+        db.commit()
+        db.refresh(post)
+        return post
+
+    connections, _ = _effective_social_connections(
+        db,
+        post.organization_id,
+        post.location_id,
+    )
     post.status = "publishing"
     db.commit()
 
@@ -1241,18 +1322,23 @@ def _publish_social_post(db: Session, post: SocialPost) -> SocialPost:
 def list_social_posts(
     org_id: int,
     limit: int = Query(default=25, ge=1, le=100),
+    location_id: int | None = Query(default=None),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[SocialPostOut]:
     require_org_admin(db, user, org_id)
     require_module_enabled(db, org_id, "feed")
+    query = (
+        select(SocialPost)
+        .options(joinedload(SocialPost.targets), joinedload(SocialPost.location))
+        .where(SocialPost.organization_id == org_id)
+    )
+    if location_id is not None:
+        require_location_access(db, user, org_id, location_id)
+        query = query.where(SocialPost.location_id == location_id)
     posts = (
         db.execute(
-            select(SocialPost)
-            .options(joinedload(SocialPost.targets))
-            .where(SocialPost.organization_id == org_id)
-            .order_by(SocialPost.created_at.desc())
-            .limit(limit)
+            query.order_by(SocialPost.created_at.desc()).limit(limit)
         )
         .unique()
         .scalars()
@@ -1274,6 +1360,8 @@ def create_social_post(
 ) -> SocialPostOut:
     require_org_admin(db, user, org_id)
     require_module_enabled(db, org_id, "feed")
+    if payload.location_id is not None:
+        require_location_access(db, user, org_id, payload.location_id, manage=True)
     providers = [target.provider for target in payload.targets]
     if len(providers) != len(set(providers)):
         raise HTTPException(
@@ -1307,15 +1395,7 @@ def create_social_post(
             detail="Instagram requires an uploaded image before publishing",
         )
 
-    connections = {
-        connection.provider: connection
-        for connection in db.scalars(
-            select(SocialConnection).where(
-                SocialConnection.organization_id == org_id,
-                SocialConnection.provider.in_(providers),
-            )
-        ).all()
-    }
+    connections, _ = _effective_social_connections(db, org_id, payload.location_id)
     unavailable = [
         PROVIDER_DETAILS[provider]["name"]
         for provider in providers
@@ -1340,6 +1420,7 @@ def create_social_post(
 
     post = SocialPost(
         organization_id=org_id,
+        location_id=payload.location_id,
         master_caption=payload.master_caption,
         media_urls=payload.media_urls or None,
         status=post_status,
@@ -1446,7 +1527,12 @@ def _location_out(
         timezone=location.timezone,
         is_default=location.is_default,
         feedback_token=location.feedback_token,
-        review_links=location.review_links,
+        review_links=(
+            location.review_links
+            if location.review_links is not None
+            else location.organization.review_links
+        ),
+        review_links_override=location.review_links,
         access_role=_access_role_from_membership(
             membership,
             [location_role] if location_role else None,
@@ -1577,9 +1663,11 @@ def update_location_review_links(
         location_id,
         manage=True,
     )
-    location.review_links = [link.model_dump() for link in payload.review_links]
-    if location.is_default:
-        membership.organization.review_links = location.review_links
+    location.review_links = (
+        [link.model_dump() for link in payload.review_links]
+        if payload.review_links is not None
+        else None
+    )
     db.commit()
     db.refresh(location)
     return _location_out(location, membership=membership, location_role=location_role)
@@ -2060,6 +2148,151 @@ def _get_public_location(db: Session, feedback_token: str) -> Location:
     return location
 
 
+def _get_public_organization(db: Session, organization_token: str) -> Organization:
+    organization = db.scalar(
+        select(Organization).where(Organization.feedback_token == organization_token)
+    )
+    if not organization:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Public page not found")
+    return organization
+
+
+def _require_public_hub(db: Session, organization_token: str) -> Organization:
+    organization = _get_public_organization(db, organization_token)
+    if not (organization.feed_enabled or organization.roadmap_enabled):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Public page not enabled")
+    return organization
+
+
+def _public_hub_location(db: Session, organization_id: int, location_id: int) -> Location:
+    location = db.scalar(
+        select(Location).where(
+            Location.id == location_id,
+            Location.organization_id == organization_id,
+        )
+    )
+    if not location:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Location not found")
+    return location
+
+
+@app.get("/api/hubs/{organization_token}", response_model=PublicOrganizationHubOut)
+def get_public_organization_hub(
+    organization_token: str,
+    db: Session = Depends(get_db),
+) -> PublicOrganizationHubOut:
+    organization = _require_public_hub(db, organization_token)
+    locations = db.scalars(
+        select(Location)
+        .where(Location.organization_id == organization.id)
+        .order_by(Location.is_default.desc(), Location.name)
+    ).all()
+    return PublicOrganizationHubOut(
+        organization_name=organization.name,
+        organization_token=organization.feedback_token,
+        five_star_status=organization.five_star_status,
+        modules=OrganizationModulesOut(
+            feedback=True,
+            roadmap=organization.roadmap_enabled,
+            feed=organization.feed_enabled,
+        ),
+        locations=[
+            PublicLocationOut(
+                id=location.id,
+                name=location.name,
+                address=location.address,
+                feedback_token=location.feedback_token,
+            )
+            for location in locations
+        ],
+    )
+
+
+@app.get(
+    "/api/feedback/organization/{organization_token}",
+    response_model=OrganizationFeedbackFormInfo,
+)
+def get_organization_feedback_form_info(
+    organization_token: str,
+    db: Session = Depends(get_db),
+) -> OrganizationFeedbackFormInfo:
+    """Public endpoint for organization-wide feedback and location choice."""
+    organization = _get_public_organization(db, organization_token)
+    locations = db.scalars(
+        select(Location)
+        .where(Location.organization_id == organization.id)
+        .order_by(Location.is_default.desc(), Location.name)
+    ).all()
+    return OrganizationFeedbackFormInfo(
+        organization_name=organization.name,
+        organization_id=organization.id,
+        organization_token=organization.feedback_token,
+        review_links=organization.review_links,
+        locations=[
+            PublicLocationOut(
+                id=location.id,
+                name=location.name,
+                address=location.address,
+                feedback_token=location.feedback_token,
+            )
+            for location in locations
+        ],
+    )
+
+
+@app.post(
+    "/api/feedback/organization/{organization_token}/submit",
+    response_model=FeedbackSubmitResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+@limiter.limit("10/minute")
+def submit_organization_feedback(
+    request: Request,
+    organization_token: str,
+    payload: FeedbackSubmit,
+    db: Session = Depends(get_db),
+) -> FeedbackSubmitResponse:
+    """Submit feedback about the organization as a whole."""
+    organization = _get_public_organization(db, organization_token)
+    feedback = Feedback(
+        organization_id=organization.id,
+        location_id=None,
+        content=payload.content,
+        submitter_email=payload.submitter_email.lower() if payload.submitter_email else None,
+        submitter_name=payload.submitter_name,
+        is_anonymous=not payload.submitter_email and not payload.submitter_name,
+    )
+    db.add(feedback)
+    db.commit()
+    return FeedbackSubmitResponse(success=True, message="Thank you for your feedback!")
+
+
+def _polished_review(payload: ReviewPolishRequest) -> ReviewPolishResponse:
+    if not settings.openai_api_key:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="AI not configured")
+    try:
+        draft = polish_review(api_key=settings.openai_api_key, content=payload.content, style=payload.style)
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"AI generation failed: {exc}")
+    return ReviewPolishResponse(draft=draft)
+
+
+@app.post(
+    "/api/feedback/organization/{organization_token}/polish",
+    response_model=ReviewPolishResponse,
+)
+@limiter.limit("5/minute")
+def polish_organization_feedback_for_review(
+    request: Request,
+    organization_token: str,
+    payload: ReviewPolishRequest,
+    db: Session = Depends(get_db),
+) -> ReviewPolishResponse:
+    """AI-polish organization-wide feedback into a public review draft."""
+    _get_public_organization(db, organization_token)
+    return _polished_review(payload)
+
+
 @app.get("/api/feedback/{feedback_token}", response_model=FeedbackFormInfo)
 def get_feedback_form_info(feedback_token: str, db: Session = Depends(get_db)) -> FeedbackFormInfo:
     """Public endpoint - get location info for feedback form."""
@@ -2067,9 +2300,14 @@ def get_feedback_form_info(feedback_token: str, db: Session = Depends(get_db)) -
     return FeedbackFormInfo(
         organization_name=location.organization.name,
         organization_id=location.organization_id,
+        organization_token=location.organization.feedback_token,
         location_name=location.name,
         location_id=location.id,
-        review_links=location.review_links,
+        review_links=(
+            location.review_links
+            if location.review_links is not None
+            else location.organization.review_links
+        ),
     )
 
 
@@ -2105,16 +2343,7 @@ def polish_feedback_for_review(
 ) -> ReviewPolishResponse:
     """Public endpoint - AI-polish feedback text into a public review draft."""
     _get_public_location(db, feedback_token)
-
-    if not settings.openai_api_key:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="AI not configured")
-
-    try:
-        draft = polish_review(api_key=settings.openai_api_key, content=payload.content, style=payload.style)
-    except Exception as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"AI generation failed: {exc}")
-
-    return ReviewPolishResponse(draft=draft)
+    return _polished_review(payload)
 
 
 @app.get("/organizations/{org_id}/feedback", response_model=list[FeedbackOut])
@@ -2125,13 +2354,16 @@ def list_organization_feedback(
     db: Session = Depends(get_db),
 ) -> list[FeedbackOut]:
     """List feedback across the caller's authorized location scope."""
-    _, locations = resolve_location_scope(db, user, org_id, location_id, manage=True)
+    membership, locations = resolve_location_scope(db, user, org_id, location_id, manage=True)
     location_ids = [location.id for location in locations]
+    location_filter = Feedback.location_id.in_(location_ids)
+    if location_id is None and membership.role != Role.LOCATION:
+        location_filter = or_(location_filter, Feedback.location_id.is_(None))
     feedback_list = db.scalars(
         select(Feedback)
         .where(
             Feedback.organization_id == org_id,
-            Feedback.location_id.in_(location_ids),
+            location_filter,
         )
         .order_by(Feedback.created_at.desc())
     ).all()
@@ -2202,7 +2434,7 @@ def _initiative_out(row, *, include_viewer_vote: bool) -> InitiativeOut | Public
         "id": initiative.id,
         "organization_id": initiative.organization_id,
         "location_id": initiative.location_id,
-        "location_name": initiative.location.name,
+        "location_name": initiative.location.name if initiative.location else None,
         "title": initiative.title,
         "description": initiative.description,
         "status": initiative.status.value,
@@ -2255,8 +2487,15 @@ def list_organization_initiatives(
     _, locations = resolve_location_scope(db, user, org_id, location_id)
     require_module_enabled(db, org_id, "roadmap")
     location_ids = [location.id for location in locations]
+    query = _initiative_rows_query(org_id)
+    if location_id is not None:
+        query = query.where(Initiative.location_id.in_(location_ids))
+    else:
+        query = query.where(
+            or_(Initiative.location_id.in_(location_ids), Initiative.location_id.is_(None))
+        )
     rows = db.execute(
-        _initiative_rows_query(org_id, location_ids=location_ids).order_by(Initiative.updated_at.desc())
+        query.order_by(Initiative.updated_at.desc())
     ).all()
     return [_initiative_out(row, include_viewer_vote=False) for row in rows]
 
@@ -2268,19 +2507,21 @@ def create_organization_initiative(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> InitiativeOut:
-    _, locations = resolve_location_scope(
-        db,
-        user,
-        org_id,
-        payload.location_id,
-        manage=True,
-        require_single=True,
-    )
     require_module_enabled(db, org_id, "roadmap")
-    location = locations[0]
+    if payload.location_id is None:
+        require_org_admin(db, user, org_id)
+        location = None
+    else:
+        _, location, _ = require_location_access(
+            db,
+            user,
+            org_id,
+            payload.location_id,
+            manage=True,
+        )
     initiative = Initiative(
         organization_id=org_id,
-        location_id=location.id,
+        location_id=location.id if location else None,
         title=_clean_initiative_text(payload.title, "Title"),
         description=_clean_initiative_text(payload.description, "Description"),
         status=InitiativeStatus(payload.status),
@@ -2288,7 +2529,7 @@ def create_organization_initiative(
     db.add(initiative)
     db.commit()
     row = db.execute(
-        _initiative_rows_query(org_id, location_ids=[location.id]).where(Initiative.id == initiative.id)
+        _initiative_rows_query(org_id).where(Initiative.id == initiative.id)
     ).one()
     return _initiative_out(row, include_viewer_vote=False)
 
@@ -2302,7 +2543,10 @@ def update_organization_initiative(
     db: Session = Depends(get_db),
 ) -> InitiativeOut:
     initiative = _get_initiative_or_404(db, org_id, initiative_id)
-    require_location_access(db, user, org_id, initiative.location_id, manage=True)
+    if initiative.location_id is None:
+        require_org_admin(db, user, org_id)
+    else:
+        require_location_access(db, user, org_id, initiative.location_id, manage=True)
     require_module_enabled(db, org_id, "roadmap")
     if payload.title is not None:
         initiative.title = _clean_initiative_text(payload.title, "Title")
@@ -2312,7 +2556,7 @@ def update_organization_initiative(
         initiative.status = InitiativeStatus(payload.status)
     db.commit()
     row = db.execute(
-        _initiative_rows_query(org_id, location_ids=[initiative.location_id]).where(Initiative.id == initiative_id)
+        _initiative_rows_query(org_id).where(Initiative.id == initiative_id)
     ).one()
     return _initiative_out(row, include_viewer_vote=False)
 
@@ -2325,7 +2569,10 @@ def delete_organization_initiative(
     db: Session = Depends(get_db),
 ) -> None:
     initiative = _get_initiative_or_404(db, org_id, initiative_id)
-    require_location_access(db, user, org_id, initiative.location_id, manage=True)
+    if initiative.location_id is None:
+        require_org_admin(db, user, org_id)
+    else:
+        require_location_access(db, user, org_id, initiative.location_id, manage=True)
     require_module_enabled(db, org_id, "roadmap")
     db.delete(initiative)
     db.commit()
@@ -2413,6 +2660,150 @@ def update_public_initiative_vote(
     return _initiative_out(row, include_viewer_vote=True)
 
 
+@app.get("/api/hubs/{organization_token}/roadmap", response_model=BoardOut)
+def get_public_organization_roadmap(
+    organization_token: str,
+    q: str = Query(default="", max_length=160),
+    status_filter: InitiativeStatus | None = Query(default=None, alias="status"),
+    sort: str = Query(default="top", pattern="^(top|new|updated)$"),
+    location_id: int | None = Query(default=None),
+    visitor_id: str | None = Header(default=None, alias="X-Visitor-ID"),
+    db: Session = Depends(get_db),
+) -> BoardOut:
+    organization = _require_public_hub(db, organization_token)
+    require_module_enabled(db, organization.id, "roadmap", public=True)
+    selected_location = (
+        _public_hub_location(db, organization.id, location_id)
+        if location_id is not None
+        else None
+    )
+    visitor_id = _valid_visitor_id(visitor_id)
+    query = _initiative_rows_query(
+        organization.id,
+        visitor_id,
+        [selected_location.id] if selected_location else None,
+    )
+    trimmed_query = q.strip()
+    if trimmed_query:
+        search_pattern = f"%{trimmed_query}%"
+        query = query.where(
+            Initiative.title.ilike(search_pattern) | Initiative.description.ilike(search_pattern)
+        )
+    if status_filter is not None:
+        query = query.where(Initiative.status == status_filter)
+
+    score = func.coalesce(
+        select(func.sum(InitiativeVote.value))
+        .where(InitiativeVote.initiative_id == Initiative.id)
+        .scalar_subquery(),
+        0,
+    )
+    if sort == "new":
+        query = query.order_by(Initiative.created_at.desc())
+    elif sort == "updated":
+        query = query.order_by(Initiative.updated_at.desc())
+    else:
+        query = query.order_by(score.desc(), Initiative.updated_at.desc())
+
+    rows = db.execute(query).all()
+    return BoardOut(
+        organization_name=organization.name,
+        organization_id=organization.id,
+        location_name=selected_location.name if selected_location else None,
+        location_id=selected_location.id if selected_location else None,
+        initiatives=[_initiative_out(row, include_viewer_vote=True) for row in rows],
+    )
+
+
+@app.put(
+    "/api/hubs/{organization_token}/roadmap/initiatives/{initiative_id}/vote",
+    response_model=PublicInitiativeOut,
+)
+@limiter.limit("60/minute")
+def update_public_organization_initiative_vote(
+    request: Request,
+    organization_token: str,
+    initiative_id: int,
+    payload: InitiativeVoteUpdate,
+    visitor_id: str | None = Header(default=None, alias="X-Visitor-ID"),
+    db: Session = Depends(get_db),
+) -> PublicInitiativeOut:
+    organization = _require_public_hub(db, organization_token)
+    require_module_enabled(db, organization.id, "roadmap", public=True)
+    visitor_id = _valid_visitor_id(visitor_id, required=True)
+    _get_initiative_or_404(db, organization.id, initiative_id)
+
+    vote = db.scalar(
+        select(InitiativeVote).where(
+            InitiativeVote.initiative_id == initiative_id,
+            InitiativeVote.visitor_id == visitor_id,
+        )
+    )
+    if payload.value is None:
+        if vote:
+            db.delete(vote)
+    elif vote:
+        vote.value = payload.value
+    else:
+        db.add(
+            InitiativeVote(
+                initiative_id=initiative_id,
+                visitor_id=visitor_id,
+                value=payload.value,
+            )
+        )
+    db.commit()
+    row = db.execute(
+        _initiative_rows_query(organization.id, visitor_id)
+        .where(Initiative.id == initiative_id)
+    ).one()
+    return _initiative_out(row, include_viewer_vote=True)
+
+
+@app.get(
+    "/api/hubs/{organization_token}/feed",
+    response_model=list[PublicSocialPostOut],
+)
+def get_public_organization_feed(
+    organization_token: str,
+    location_id: int | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=100),
+    db: Session = Depends(get_db),
+) -> list[PublicSocialPostOut]:
+    organization = _require_public_hub(db, organization_token)
+    require_module_enabled(db, organization.id, "feed", public=True)
+    selected_location = (
+        _public_hub_location(db, organization.id, location_id)
+        if location_id is not None
+        else None
+    )
+    query = (
+        select(SocialPost)
+        .options(joinedload(SocialPost.location))
+        .where(
+            SocialPost.organization_id == organization.id,
+            SocialPost.status == "published",
+            SocialPost.published_at.is_not(None),
+        )
+    )
+    if selected_location:
+        query = query.where(SocialPost.location_id == selected_location.id)
+    posts = db.scalars(
+        query.order_by(SocialPost.published_at.desc()).limit(limit)
+    ).all()
+    return [
+        PublicSocialPostOut(
+            id=post.id,
+            master_caption=post.master_caption,
+            media_urls=post.media_urls or [],
+            published_at=post.published_at,
+            location_id=post.location_id,
+            location_name=post.location.name if post.location else None,
+        )
+        for post in posts
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Feedback Stats (for digest chart)
 # ---------------------------------------------------------------------------
@@ -2427,13 +2818,14 @@ def get_feedback_stats(
     db: Session = Depends(get_db),
 ) -> FeedbackStatsOut:
     """Return daily feedback submission counts over the past N days (zero-filled)."""
-    _, locations = resolve_location_scope(db, user, org_id, location_id)
+    membership, locations = resolve_location_scope(db, user, org_id, location_id)
     location_ids = [location.id for location in locations]
     location_timezones = {
         location.id: _location_timezone(location)
         for location in locations
     }
     display_timezone = _location_timezone(locations[0])
+    include_organization_feedback = location_id is None and membership.role != Role.LOCATION
     today = datetime.now(display_timezone).date()
     first_day = today - timedelta(days=days - 1)
     since = min(
@@ -2443,17 +2835,21 @@ def get_feedback_stats(
         for location_timezone in location_timezones.values()
     )
 
+    location_filter = Feedback.location_id.in_(location_ids)
+    if include_organization_feedback:
+        location_filter = or_(location_filter, Feedback.location_id.is_(None))
     rows = db.execute(
         select(Feedback.created_at, Feedback.location_id)
         .where(Feedback.organization_id == org_id)
-        .where(Feedback.location_id.in_(location_ids))
+        .where(location_filter)
         .where(Feedback.created_at >= since)
         .order_by(Feedback.created_at)
     ).all()
 
     counts: dict[str, int] = {}
     for created_at, row_location_id in rows:
-        local_day = _as_utc(created_at).astimezone(location_timezones[row_location_id]).date()
+        row_timezone = location_timezones.get(row_location_id, display_timezone)
+        local_day = _as_utc(created_at).astimezone(row_timezone).date()
         if first_day <= local_day <= today:
             day_key = local_day.isoformat()
             counts[day_key] = counts.get(day_key, 0) + 1

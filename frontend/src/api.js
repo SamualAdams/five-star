@@ -145,21 +145,27 @@ export async function deleteOrganization(token, orgId) {
 
 // Social connections
 
-export async function listSocialConnections(token, orgId) {
-  return request(`/organizations/${orgId}/social-connections`, {
+export async function listSocialConnections(token, orgId, locationId = null) {
+  const params = new URLSearchParams();
+  if (locationId) params.set("location_id", locationId);
+  return request(`/organizations/${orgId}/social-connections${params.size ? `?${params}` : ""}`, {
     headers: authHeaders(token),
   });
 }
 
-export async function beginSocialConnection(token, orgId, provider) {
-  return request(`/organizations/${orgId}/social-connections/${provider}/authorize`, {
+export async function beginSocialConnection(token, orgId, provider, locationId = null) {
+  const params = new URLSearchParams();
+  if (locationId) params.set("location_id", locationId);
+  return request(`/organizations/${orgId}/social-connections/${provider}/authorize${params.size ? `?${params}` : ""}`, {
     method: "POST",
     headers: authHeaders(token),
   });
 }
 
-export async function disconnectSocialConnection(token, orgId, provider) {
-  return request(`/organizations/${orgId}/social-connections/${provider}`, {
+export async function disconnectSocialConnection(token, orgId, provider, locationId = null) {
+  const params = new URLSearchParams();
+  if (locationId) params.set("location_id", locationId);
+  return request(`/organizations/${orgId}/social-connections/${provider}${params.size ? `?${params}` : ""}`, {
     method: "DELETE",
     headers: authHeaders(token),
   });
@@ -180,8 +186,10 @@ export async function completeFacebookConnection(token, orgId, setupToken, pageI
   });
 }
 
-export async function listSocialPosts(token, orgId, limit = 25) {
-  return request(`/organizations/${orgId}/social-posts?limit=${limit}`, {
+export async function listSocialPosts(token, orgId, limit = 25, locationId = null) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (locationId) params.set("location_id", locationId);
+  return request(`/organizations/${orgId}/social-posts?${params}`, {
     headers: authHeaders(token),
   });
 }
@@ -323,6 +331,10 @@ export async function getFeedbackFormInfo(feedbackToken) {
   return request(`/api/feedback/${feedbackToken}`);
 }
 
+export async function getOrganizationFeedbackFormInfo(organizationToken) {
+  return request(`/api/feedback/organization/${organizationToken}`);
+}
+
 export async function submitFeedback(feedbackToken, content, submitterEmail = null, submitterName = null) {
   return request(`/api/feedback/${feedbackToken}/submit`, {
     method: "POST",
@@ -334,8 +346,26 @@ export async function submitFeedback(feedbackToken, content, submitterEmail = nu
   });
 }
 
+export async function submitOrganizationFeedback(organizationToken, content, submitterEmail = null, submitterName = null) {
+  return request(`/api/feedback/organization/${organizationToken}/submit`, {
+    method: "POST",
+    body: JSON.stringify({
+      content,
+      submitter_email: submitterEmail || undefined,
+      submitter_name: submitterName || undefined,
+    }),
+  });
+}
+
 export async function polishReview(feedbackToken, content, style) {
   return request(`/api/feedback/${feedbackToken}/polish`, {
+    method: "POST",
+    body: JSON.stringify({ content, style }),
+  });
+}
+
+export async function polishOrganizationReview(organizationToken, content, style) {
+  return request(`/api/feedback/organization/${organizationToken}/polish`, {
     method: "POST",
     body: JSON.stringify({ content, style }),
   });
@@ -394,6 +424,44 @@ export async function getPublicBoard(feedbackToken, { query = "", status = "", s
 
 export async function updatePublicInitiativeVote(feedbackToken, initiativeId, value, visitorId) {
   return request(`/api/boards/${feedbackToken}/initiatives/${initiativeId}/vote`, {
+    method: "PUT",
+    headers: { "X-Visitor-ID": visitorId },
+    body: JSON.stringify({ value }),
+  });
+}
+
+// Organization public hub
+
+export async function getPublicOrganizationHub(organizationToken) {
+  return request(`/api/hubs/${organizationToken}`);
+}
+
+export async function getPublicOrganizationFeed(organizationToken, locationId = null) {
+  const params = new URLSearchParams();
+  if (locationId) params.set("location_id", locationId);
+  return request(`/api/hubs/${organizationToken}/feed${params.size ? `?${params}` : ""}`);
+}
+
+export async function getPublicOrganizationRoadmap(
+  organizationToken,
+  { query = "", status = "", sort = "top", locationId = null, visitorId } = {}
+) {
+  const params = new URLSearchParams({ sort });
+  if (query.trim()) params.set("q", query.trim());
+  if (status) params.set("status", status);
+  if (locationId) params.set("location_id", locationId);
+  return request(`/api/hubs/${organizationToken}/roadmap?${params}`, {
+    headers: visitorId ? { "X-Visitor-ID": visitorId } : {},
+  });
+}
+
+export async function updatePublicOrganizationInitiativeVote(
+  organizationToken,
+  initiativeId,
+  value,
+  visitorId
+) {
+  return request(`/api/hubs/${organizationToken}/roadmap/initiatives/${initiativeId}/vote`, {
     method: "PUT",
     headers: { "X-Visitor-ID": visitorId },
     body: JSON.stringify({ value }),

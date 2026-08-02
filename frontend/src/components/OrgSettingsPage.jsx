@@ -8,6 +8,7 @@ import {
   getFacebookPageOptions,
   getOrganization,
   listSocialConnections,
+  updateOrgReviewLinks,
   updateLocationReviewLinks,
   updateLocationFiveStarStatus,
   updateOrganization,
@@ -25,6 +26,14 @@ const ACCESS_ROLE_LABELS = {
   location_admin: "Location admin",
   location_viewer: "Location viewer",
 };
+
+function reviewLinksToInputs(reviewLinks) {
+  const inputs = { google: "", yelp: "", tripadvisor: "" };
+  for (const link of reviewLinks || []) {
+    if (link.platform in inputs) inputs[link.platform] = link.url;
+  }
+  return inputs;
+}
 
 const SECTION_COPY = {
   general: {
@@ -69,7 +78,8 @@ const SOCIAL_MARKS = {
 const IS_LOCAL_APP_HOST = typeof window !== "undefined"
   && ["localhost", "127.0.0.1"].includes(window.location.hostname);
 
-function SocialAccountsManager({ token, orgId }) {
+function SocialAccountsManager({ token, orgId, currentLocation, organizationName }) {
+  const locationId = currentLocation?.id || null;
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [workingProvider, setWorkingProvider] = useState("");
@@ -96,7 +106,7 @@ function SocialAccountsManager({ token, orgId }) {
   async function loadAccounts() {
     setConnectionError("");
     try {
-      setAccounts(await listSocialConnections(token, orgId));
+      setAccounts(await listSocialConnections(token, orgId, locationId));
     } catch (err) {
       setConnectionError(err.message);
     } finally {
@@ -106,7 +116,7 @@ function SocialAccountsManager({ token, orgId }) {
 
   useEffect(() => {
     loadAccounts();
-  }, [token, orgId]);
+  }, [token, orgId, locationId]);
 
   useEffect(() => {
     if (!notice) return;
@@ -142,7 +152,7 @@ function SocialAccountsManager({ token, orgId }) {
     if (!account.publishing_enabled || !account.configured) return;
     setWorkingProvider(account.provider);
     try {
-      const result = await beginSocialConnection(token, orgId, account.provider);
+      const result = await beginSocialConnection(token, orgId, account.provider, locationId);
       window.location.assign(result.authorization_url);
     } catch (err) {
       setConnectionError(err.message);
@@ -159,7 +169,7 @@ function SocialAccountsManager({ token, orgId }) {
     setConnectionError("");
     setNotice(null);
     try {
-      await disconnectSocialConnection(token, orgId, account.provider);
+      await disconnectSocialConnection(token, orgId, account.provider, locationId);
       await loadAccounts();
     } catch (err) {
       setConnectionError(err.message);
@@ -197,7 +207,9 @@ function SocialAccountsManager({ token, orgId }) {
         <div>
           <h3 className="settings-heading">Publishing destinations</h3>
           <p className="settings-meta">
-            Choose a network, sign in, and authorize the account your team will use from Feed.
+            {currentLocation
+              ? `Choose the accounts used when publishing for ${currentLocation.name}. Organization accounts are inherited until you replace them here.`
+              : "Choose the default accounts used when publishing for the organization."}
           </p>
         </div>
         {!loading && (
@@ -299,7 +311,9 @@ function SocialAccountsManager({ token, orgId }) {
                 <span className="social-account-name-line">
                   <strong>{account.name}</strong>
                   {account.connected && !requiresReconnect && !isComingSoon && !isUnavailable && (
-                    <span className="status-pill status-pill--connected">Connected</span>
+                    <span className="status-pill status-pill--connected">
+                      {account.inherited ? "Inherited" : "Connected"}
+                    </span>
                   )}
                   {requiresReconnect && !isComingSoon && !isUnavailable && (
                     <span className="status-pill status-pill--attention">Reconnect</span>
@@ -336,7 +350,7 @@ function SocialAccountsManager({ token, orgId }) {
                 )}
               </span>
               <span className="social-account-actions">
-                {account.connected && (
+                {account.connected && !account.inherited && (
                   <button
                     className="btn btn--text btn--sm"
                     type="button"
@@ -355,7 +369,9 @@ function SocialAccountsManager({ token, orgId }) {
                   >
                     {isWorking
                       ? "Opening…"
-                      : account.provider === "facebook"
+                      : account.inherited
+                        ? "Use different account"
+                        : account.provider === "facebook"
                         ? "Change Page"
                         : "Reconnect"}
                   </button>
@@ -386,7 +402,9 @@ function SocialAccountsManager({ token, orgId }) {
         })
       )}
       <p className="social-account-footnote">
-        Connections are shared across this organization. You will never need to enter developer keys here.
+        {currentLocation
+          ? `${currentLocation.name} inherits ${organizationName} connections unless a location-specific account is connected.`
+          : "These connections are inherited by every location that does not have its own account override."}
       </p>
     </div>
   );
@@ -428,11 +446,7 @@ export default function OrgSettingsPage({
         if (!active) return;
         setOrg(data);
         setEditName(data.name);
-        const inputs = { google: "", yelp: "", tripadvisor: "" };
-        for (const link of currentLocation?.review_links || data.review_links || []) {
-          if (link.platform in inputs) inputs[link.platform] = link.url;
-        }
-        setLinkInputs(inputs);
+        setLinkInputs(reviewLinksToInputs(currentLocation?.review_links ?? data.review_links));
       } catch (err) {
         if (active) setError(err.message);
       }
@@ -449,15 +463,30 @@ export default function OrgSettingsPage({
       .filter((platform) => linkInputs[platform].trim())
       .map((platform) => ({ platform, url: linkInputs[platform].trim() }));
     try {
-      if (!currentLocation) {
-        throw new Error("Select one location before editing public review links.");
+      if (currentLocation) {
+        const savedLocation = await updateLocationReviewLinks(token, id, currentLocation.id, updated);
+        setLinkInputs(reviewLinksToInputs(savedLocation.review_links));
+        onLocationUpdated?.(savedLocation);
+      } else {
+        const savedOrganization = await updateOrgReviewLinks(token, id, updated);
+        setOrg(savedOrganization);
+        setLinkInputs(reviewLinksToInputs(savedOrganization.review_links));
+        onOrganizationUpdated?.(savedOrganization);
       }
-      const savedLocation = await updateLocationReviewLinks(token, id, currentLocation.id, updated);
-      const inputs = { google: "", yelp: "", tripadvisor: "" };
-      for (const link of savedLocation.review_links || []) {
-        if (link.platform in inputs) inputs[link.platform] = link.url;
-      }
-      setLinkInputs(inputs);
+      setReviewLinksSaved(true);
+      setTimeout(() => setReviewLinksSaved(false), 2000);
+    } catch (err) {
+      setReviewLinksError(err.message);
+    }
+  }
+
+  async function handleUseOrganizationReviewLinks() {
+    if (!currentLocation) return;
+    setReviewLinksError("");
+    setReviewLinksSaved(false);
+    try {
+      const savedLocation = await updateLocationReviewLinks(token, id, currentLocation.id, null);
+      setLinkInputs(reviewLinksToInputs(savedLocation.review_links));
       onLocationUpdated?.(savedLocation);
       setReviewLinksSaved(true);
       setTimeout(() => setReviewLinksSaved(false), 2000);
@@ -585,7 +614,7 @@ export default function OrgSettingsPage({
                         : `Set the default journey status for ${org.name} and every location without an override.`}
                     </p>
                   </div>
-                  <span className="status-pill status-pill--connected">Superuser only</span>
+                  <span className="status-pill status-pill--connected">Superuser</span>
                 </div>
                 <div className="five-star-status-picker" role="group" aria-label="Five Star status">
                   {[1, 2, 3, 4, 5].map((status) => {
@@ -636,7 +665,7 @@ export default function OrgSettingsPage({
                     <h3 className="settings-heading">Modules</h3>
                     <p className="settings-meta">Choose which Five* workspace modules this organization can use.</p>
                   </div>
-                  <span className="status-pill status-pill--connected">Superuser only</span>
+                  <span className="status-pill status-pill--connected">Superuser</span>
                 </div>
                 <div className="organization-module-list">
                   <div className="organization-module-row">
@@ -690,8 +719,8 @@ export default function OrgSettingsPage({
             <div className="settings-section">
               <h3 className="settings-heading">Location public links</h3>
               <p className="settings-meta">
-                Feedback URLs, roadmap URLs, and review destinations can vary by location.
-                Social publishing connections are shared across the organization.
+                Each location has a direct feedback URL and can override review destinations.
+                The public landing page is organization-wide, and social connections can be replaced per location.
               </p>
               <button
                 className="btn btn--ghost btn--sm"
@@ -720,13 +749,26 @@ export default function OrgSettingsPage({
       )}
 
       {section === "reviews" && canManageReviews && (
-        <div className="settings-section">
-          <h3 className="settings-heading">Review destinations</h3>
-          <p className="settings-meta">
-            {currentLocation
-              ? `These destinations apply to ${currentLocation.name}. Leave a field blank to omit it.`
-              : "Select one location from the sidebar before editing its public review destinations."}
-          </p>
+        <div className="settings-section review-destinations-section">
+          <div className="review-destinations-heading">
+            <div>
+              <h3 className="settings-heading">
+                {currentLocation ? `Review destinations for ${currentLocation.name}` : "Organization review destinations"}
+              </h3>
+              <p className="settings-meta">
+                {currentLocation
+                  ? currentLocation.review_links_override == null
+                    ? `These links are inherited from ${org.name}. Saving changes creates a location-specific override.`
+                    : `These links override ${org.name}’s organization defaults for this location.`
+                  : "Set the default destinations for every location. Locations can override these only when needed."}
+              </p>
+            </div>
+            {currentLocation && (
+              <span className={`review-inheritance-badge${currentLocation.review_links_override == null ? "" : " review-inheritance-badge--override"}`}>
+                {currentLocation.review_links_override == null ? "Inherited" : "Location override"}
+              </span>
+            )}
+          </div>
           <form className="review-links-form" onSubmit={handleSaveReviewLinks}>
             {PLATFORMS.map((platform) => (
               <div key={platform} className="review-link-row">
@@ -748,15 +790,33 @@ export default function OrgSettingsPage({
               </div>
             ))}
             {reviewLinksError && <p className="message message--error">{reviewLinksError}</p>}
-            <button type="submit" className="btn btn--primary btn--sm" disabled={!currentLocation}>
-              {reviewLinksSaved ? "Saved!" : "Save review links"}
-            </button>
+            <div className="review-links-actions">
+              <button type="submit" className="btn btn--primary btn--sm">
+                {reviewLinksSaved
+                  ? "Saved!"
+                  : currentLocation
+                    ? currentLocation.review_links_override == null
+                      ? "Save location override"
+                      : "Save location links"
+                    : "Save organization defaults"}
+              </button>
+              {currentLocation?.review_links_override != null && (
+                <button type="button" className="btn btn--ghost btn--sm" onClick={handleUseOrganizationReviewLinks}>
+                  Use organization defaults
+                </button>
+              )}
+            </div>
           </form>
         </div>
       )}
 
       {section === "social" && isAdmin && (
-        <SocialAccountsManager token={token} orgId={Number(id)} />
+        <SocialAccountsManager
+          token={token}
+          orgId={Number(id)}
+          currentLocation={currentLocation}
+          organizationName={org.name}
+        />
       )}
 
       {!isAdmin && section !== "users" && !(section === "reviews" && canManageReviews) && (

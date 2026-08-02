@@ -106,9 +106,13 @@ export default function TopbarSearch() {
     }, 200);
   }
 
-  function handleSelect(org) {
+  function handleSelect(org, destination = "feedback") {
     collapse();
-    navigate(`/feedback/${org.feedback_token}`);
+    navigate(
+      destination === "landing"
+        ? `/five-star/${org.feedback_token}`
+        : `/feedback/organization/${org.feedback_token}`
+    );
   }
 
   function handleKeyDown(e) {
@@ -138,7 +142,7 @@ export default function TopbarSearch() {
         position: "absolute",
         top: "calc(100% + 6px)",
         right: 0,
-        width: isMobile ? "100%" : 260,
+        width: isMobile ? "100%" : 360,
         border: "1px solid var(--color-border)",
         borderRadius: "12px",
         background: "var(--color-white)",
@@ -149,31 +153,21 @@ export default function TopbarSearch() {
       role="listbox"
     >
       {results.map((org, idx) => (
-        <button
+        <div
           key={org.feedback_token}
-          type="button"
           role="option"
           aria-selected={idx === activeIndex}
-          onClick={() => handleSelect(org)}
           onMouseEnter={() => setActiveIndex(idx)}
-          style={{
-            width: "100%",
-            textAlign: "left",
-            padding: "0.65rem 0.9rem",
-            border: "none",
-            borderBottom: idx < results.length - 1 ? "1px solid var(--color-border-muted)" : "none",
-            background: idx === activeIndex ? "var(--color-primary-soft)" : "var(--color-white)",
-            cursor: "pointer",
-            fontSize: "0.9rem",
-            color: "var(--color-ink)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
+          className={`topbar-search-result${idx === activeIndex ? " topbar-search-result--active" : ""}`}
         >
-          <span>{org.name}</span>
-          <span style={{ color: "var(--color-muted)", fontSize: "0.8rem" }}>→</span>
-        </button>
+          <strong>{org.name}</strong>
+          <span className="topbar-search-result-actions">
+            {org.landing_enabled && (
+              <button type="button" onClick={() => handleSelect(org, "landing")}>View page</button>
+            )}
+            <button type="button" onClick={() => handleSelect(org)}>Leave feedback</button>
+          </span>
+        </div>
       ))}
     </div>
   );
@@ -320,31 +314,21 @@ export default function TopbarSearch() {
                 role="listbox"
               >
                 {results.map((org, idx) => (
-                  <button
+                  <div
                     key={org.feedback_token}
-                    type="button"
                     role="option"
                     aria-selected={idx === activeIndex}
-                    onClick={() => handleSelect(org)}
                     onMouseEnter={() => setActiveIndex(idx)}
-                    style={{
-                      width: "100%",
-                      textAlign: "left",
-                      padding: "0.75rem 1rem",
-                      border: "none",
-                      borderBottom: idx < results.length - 1 ? "1px solid var(--color-border-muted)" : "none",
-                      background: idx === activeIndex ? "var(--color-primary-soft)" : "var(--color-white)",
-                      cursor: "pointer",
-                      fontSize: "0.95rem",
-                      color: "var(--color-ink)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                    }}
+                    className={`topbar-search-result${idx === activeIndex ? " topbar-search-result--active" : ""}`}
                   >
-                    <span>{org.name}</span>
-                    <span style={{ color: "var(--color-muted)", fontSize: "0.85rem" }}>→</span>
-                  </button>
+                    <strong>{org.name}</strong>
+                    <span className="topbar-search-result-actions">
+                      {org.landing_enabled && (
+                        <button type="button" onClick={() => handleSelect(org, "landing")}>View page</button>
+                      )}
+                      <button type="button" onClick={() => handleSelect(org)}>Leave feedback</button>
+                    </span>
+                  </div>
                 ))}
               </div>
             )}

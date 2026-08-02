@@ -77,9 +77,6 @@ export default function InitiativesManager({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState("gathering_feedback");
-  const [destinationLocationId, setDestinationLocationId] = useState(
-    locationId || locations[0]?.id || ""
-  );
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -108,17 +105,7 @@ export default function InitiativesManager({
     setDescription("");
     setStatus("gathering_feedback");
     setEditingId(null);
-    setDestinationLocationId(locationId || "");
   }, [locationId, orgId]);
-
-  useEffect(() => {
-    if (
-      !locationId
-      && !locations.some((location) => location.id === Number(destinationLocationId))
-    ) {
-      setDestinationLocationId(locations[0]?.id || "");
-    }
-  }, [destinationLocationId, locationId, locations]);
 
   async function handleCreate(event) {
     event.preventDefault();
@@ -129,7 +116,7 @@ export default function InitiativesManager({
         title,
         description,
         status,
-        location_id: Number(destinationLocationId),
+        location_id: locationId,
       });
       setInitiatives((current) => [created, ...current]);
       setTitle("");
@@ -189,7 +176,11 @@ export default function InitiativesManager({
         <form className="initiative-create-form" onSubmit={handleCreate}>
           <div className="initiative-form-heading">
             <strong>Add an initiative</strong>
-            <span>It will appear immediately on your public roadmap.</span>
+            <span>
+              It will appear immediately on your public roadmap as {locationId
+                ? locations.find((location) => location.id === locationId)?.name || "this location"
+                : "organization-wide"} content.
+            </span>
           </div>
           <label className="field-label" htmlFor="initiative-title">Title</label>
           <input
@@ -214,22 +205,6 @@ export default function InitiativesManager({
           />
           <div className="initiative-create-footer">
             <div className="initiative-create-selects">
-              {!locationId && (
-                <label className="initiative-status-select" htmlFor="initiative-location">
-                  <span>Location</span>
-                  <select
-                    id="initiative-location"
-                    className="field-select"
-                    value={destinationLocationId}
-                    required
-                    onChange={(event) => setDestinationLocationId(event.target.value)}
-                  >
-                    {locations.map((location) => (
-                      <option key={location.id} value={location.id}>{location.name}</option>
-                    ))}
-                  </select>
-                </label>
-              )}
               <label className="initiative-status-select" htmlFor="initiative-status">
                 <span>Status</span>
                 <select id="initiative-status" className="field-select" value={status} onChange={(event) => setStatus(event.target.value)}>
@@ -263,7 +238,11 @@ export default function InitiativesManager({
                 <>
                   <div className="initiative-admin-card-copy">
                     <div className="initiative-admin-meta">
-                      {!locationId && <span className="initiative-location-badge">{initiative.location_name}</span>}
+                      {!locationId && (
+                        <span className="initiative-location-badge">
+                          {initiative.location_name || "Organization-wide"}
+                        </span>
+                      )}
                       <span className={`initiative-status initiative-status--${initiative.status}`}>{statusLabel(initiative.status)}</span>
                       <span>{initiative.score > 0 ? "+" : ""}{initiative.score} score</span>
                       <span>{initiative.upvotes} up · {initiative.downvotes} down</span>

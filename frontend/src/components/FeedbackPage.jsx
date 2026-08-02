@@ -1,47 +1,33 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { getFeedbackFormInfo, submitFeedback, polishReview } from "../api";
+import { getFeedbackFormInfo, polishReview, submitFeedback } from "../api";
 
 const PLATFORM_LABELS = { google: "Google Reviews", yelp: "Yelp", tripadvisor: "TripAdvisor" };
 
-export default function FeedbackPage() {
-  const { feedbackToken } = useParams();
-  const [orgInfo, setOrgInfo] = useState(null);
+function destinationName(info) {
+  return info.location_name
+    ? `${info.organization_name} · ${info.location_name}`
+    : info.organization_name;
+}
+
+export function FeedbackExperience({ info, onSubmit, onPolish, onChangeDestination = null }) {
   const [content, setContent] = useState("");
   const [submitterEmail, setSubmitterEmail] = useState("");
   const [submitterName, setSubmitterName] = useState("");
   const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedContent, setSubmittedContent] = useState(null);
-
-  // Post-submission AI draft state
   const [draft, setDraft] = useState("");
   const [isPolishing, setIsPolishing] = useState(false);
   const [polishError, setPolishError] = useState("");
-  const [copied, setCopied] = useState(false);
   const [draftCopied, setDraftCopied] = useState(false);
 
-  useEffect(() => {
-    async function loadFormInfo() {
-      try {
-        const data = await getFeedbackFormInfo(feedbackToken);
-        setOrgInfo(data);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    loadFormInfo();
-  }, [feedbackToken]);
-
-  async function handleSubmit(e) {
-    e.preventDefault();
+  async function handleSubmit(event) {
+    event.preventDefault();
     setError("");
     setIsSubmitting(true);
     try {
-      await submitFeedback(feedbackToken, content, submitterEmail || null, submitterName || null);
+      await onSubmit(content, submitterEmail || null, submitterName || null);
       setSubmittedContent(content);
       setDraft(content);
       setContent("");
@@ -58,7 +44,7 @@ export default function FeedbackPage() {
     setPolishError("");
     setIsPolishing(true);
     try {
-      const result = await polishReview(feedbackToken, draft, style);
+      const result = await onPolish(draft, style);
       setDraft(result.draft);
       setDraftCopied(false);
     } catch (err) {
@@ -68,75 +54,57 @@ export default function FeedbackPage() {
     }
   }
 
-  async function copyToClipboard(text, setCopiedState) {
+  async function copyToClipboard(text) {
     try {
       await navigator.clipboard.writeText(text);
-      setCopiedState(true);
-      setTimeout(() => setCopiedState(false), 2000);
+      setDraftCopied(true);
+      setTimeout(() => setDraftCopied(false), 2000);
     } catch {
-      // ignore
+      // Clipboard access can be unavailable in privacy-focused browsers.
     }
   }
 
-  if (isLoading) return <div className="feedback-page"><div className="feedback-card"><p>Loading...</p></div></div>;
-  if (error && !orgInfo) return <div className="feedback-page"><div className="feedback-card"><h2>Form Not Found</h2><p className="message message--error">{error}</p></div></div>;
-
   if (submittedContent !== null) {
-    const reviewLinks = orgInfo?.review_links || [];
-
+    const reviewLinks = info.review_links || [];
     return (
       <div className="feedback-page">
         <div className="feedback-card">
-<h2 className="feedback-title">Feedback submitted</h2>
+          <h2 className="feedback-title">Feedback submitted</h2>
           <p className="feedback-subtitle">
-            Thank you for sharing with <strong>{orgInfo.organization_name} · {orgInfo.location_name}</strong>.
+            Thank you for sharing with <strong>{destinationName(info)}</strong>.
           </p>
 
           {reviewLinks.length > 0 && (
             <div className="review-share-section">
               <p className="review-share-heading">Want to share publicly?</p>
               <p className="review-share-desc">Your draft is ready to copy and paste to a review site.</p>
-
               <div className="review-draft-box">
                 <textarea
                   className="review-draft-textarea"
                   value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
+                  onChange={(event) => setDraft(event.target.value)}
                   rows={5}
                 />
                 <div className="review-draft-actions">
                   <div className="review-polish-buttons">
-                    <button
-                      type="button"
-                      className="btn btn--ghost btn--sm"
-                      onClick={() => handlePolish("shorten")}
-                      disabled={isPolishing}
-                    >
-                      Shorten
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn--ghost btn--sm"
-                      onClick={() => handlePolish("polish")}
-                      disabled={isPolishing}
-                    >
-                      Polish
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn--ghost btn--sm"
-                      onClick={() => handlePolish("simplify")}
-                      disabled={isPolishing}
-                    >
-                      Simplify
-                    </button>
+                    {[
+                      ["shorten", "Shorten"],
+                      ["polish", "Polish"],
+                      ["simplify", "Simplify"],
+                    ].map(([style, label]) => (
+                      <button
+                        type="button"
+                        className="btn btn--ghost btn--sm"
+                        onClick={() => handlePolish(style)}
+                        disabled={isPolishing}
+                        key={style}
+                      >
+                        {label}
+                      </button>
+                    ))}
                     {isPolishing && <span className="review-polish-status">Working...</span>}
                   </div>
-                  <button
-                    type="button"
-                    className="btn btn--primary btn--sm"
-                    onClick={() => copyToClipboard(draft, setDraftCopied)}
-                  >
+                  <button type="button" className="btn btn--primary btn--sm" onClick={() => copyToClipboard(draft)}>
                     {draftCopied ? "Copied!" : "Copy"}
                   </button>
                 </div>
@@ -151,7 +119,7 @@ export default function FeedbackPage() {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn btn--outline"
-                    onClick={() => copyToClipboard(draft, setDraftCopied)}
+                    onClick={() => copyToClipboard(draft)}
                   >
                     {PLATFORM_LABELS[link.platform] || link.platform}
                   </a>
@@ -168,9 +136,14 @@ export default function FeedbackPage() {
   return (
     <div className="feedback-page">
       <div className="feedback-card">
+        {onChangeDestination && (
+          <button className="feedback-change-destination" type="button" onClick={onChangeDestination}>
+            ← Change destination
+          </button>
+        )}
         <h2 className="feedback-title">Share Your Feedback</h2>
         <p className="feedback-subtitle">
-          Send anonymous feedback to <strong>{orgInfo.organization_name} · {orgInfo.location_name}</strong>
+          Send private feedback to <strong>{destinationName(info)}</strong>
         </p>
 
         <form className="feedback-form" onSubmit={handleSubmit}>
@@ -181,7 +154,7 @@ export default function FeedbackPage() {
             rows="6"
             placeholder="Tell us what you think..."
             value={content}
-            onChange={(e) => setContent(e.target.value)}
+            onChange={(event) => setContent(event.target.value)}
             required
             maxLength={5000}
           />
@@ -195,7 +168,7 @@ export default function FeedbackPage() {
               type="text"
               placeholder="John Doe"
               value={submitterName}
-              onChange={(e) => setSubmitterName(e.target.value)}
+              onChange={(event) => setSubmitterName(event.target.value)}
               maxLength={255}
             />
             <label className="field-label" htmlFor="email">Your email</label>
@@ -205,7 +178,7 @@ export default function FeedbackPage() {
               type="email"
               placeholder="john@example.com"
               value={submitterEmail}
-              onChange={(e) => setSubmitterEmail(e.target.value)}
+              onChange={(event) => setSubmitterEmail(event.target.value)}
             />
           </div>
 
@@ -213,9 +186,38 @@ export default function FeedbackPage() {
             {isSubmitting ? "Submitting..." : "Submit Feedback"}
           </button>
         </form>
-
         {error && <p className="message message--error">{error}</p>}
       </div>
     </div>
+  );
+}
+
+export default function FeedbackPage() {
+  const { feedbackToken } = useParams();
+  const [info, setInfo] = useState(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    setInfo(null);
+    setError("");
+    getFeedbackFormInfo(feedbackToken)
+      .then((data) => { if (active) setInfo(data); })
+      .catch((err) => { if (active) setError(err.message); });
+    return () => { active = false; };
+  }, [feedbackToken]);
+
+  if (error) {
+    return <div className="feedback-page"><div className="feedback-card"><h2>Form Not Found</h2><p className="message message--error">{error}</p></div></div>;
+  }
+  if (!info) {
+    return <div className="feedback-page"><div className="feedback-card"><p>Loading...</p></div></div>;
+  }
+  return (
+    <FeedbackExperience
+      info={info}
+      onSubmit={(content, email, name) => submitFeedback(feedbackToken, content, email, name)}
+      onPolish={(content, style) => polishReview(feedbackToken, content, style)}
+    />
   );
 }
