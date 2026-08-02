@@ -129,6 +129,22 @@ class LocationReviewLinksUpdate(BaseModel):
     review_links: list[ReviewLink] | None = None
 
 
+class LocationDeletionImpact(BaseModel):
+    feedback: int = 0
+    roadmap_items: int = 0
+    feed_posts: int = 0
+    reports: int = 0
+    social_connections: int = 0
+    team_assignments: int = 0
+    pending_invites: int = 0
+
+
+class LocationDeleteRequest(BaseModel):
+    destination: Literal["organization", "location"] | None = None
+    destination_location_id: int | None = None
+    delete_reports: bool = False
+
+
 class LocationAssignment(BaseModel):
     location_id: int
     role: Literal["manager", "viewer"] = "viewer"
@@ -349,12 +365,34 @@ class SocialDraftContent(BaseModel):
     tiktok: str = Field(min_length=1, max_length=10000)
 
 
+class WordsmithRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=10000)
+    style: Literal["polish", "shorten", "warmer"]
+    scope: Literal["selection", "caption"] = "caption"
+
+
+class WordsmithOption(BaseModel):
+    label: str = Field(min_length=1, max_length=80)
+    text: str = Field(min_length=1, max_length=10000)
+
+
+class WordsmithResponse(BaseModel):
+    options: list[WordsmithOption] = Field(min_length=3, max_length=3)
+
+
 class SocialPostCreate(BaseModel):
     master_caption: str = Field(min_length=1, max_length=10000)
     targets: list[SocialPostTargetCreate] = Field(default_factory=list, max_length=4)
     media_urls: list[str] = Field(default_factory=list, max_length=10)
     scheduled_at: datetime | None = None
     location_id: int | None = None
+
+
+class MediaAssetOut(BaseModel):
+    url: str
+    filename: str
+    content_type: str
+    byte_size: int
 
 
 class SocialPostTargetOut(BaseModel):
@@ -388,6 +426,7 @@ class PublicLocationOut(BaseModel):
     id: int
     name: str
     address: str | None = None
+    is_default: bool
     feedback_token: str
 
 

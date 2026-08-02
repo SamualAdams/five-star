@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 import app.main as main_module
 from app.models import Organization, SocialConnection, SocialPost, User
-from app.schemas import SocialDraftContent
+from app.schemas import SocialDraftContent, WordsmithOption, WordsmithResponse
 from app.social import SocialProviderError, encrypt_token, publish_social_content
 from conftest import TestingSessionLocal
 
@@ -217,6 +217,80 @@ def test_social_draft_generation_is_authenticated_and_structured(
     assert unauthenticated.status_code == 401
 
 
+def test_wordsmithing_targets_selected_text_or_the_whole_caption(
+    client,
+    auth_headers,
+    monkeypatch,
+):
+    headers = auth_headers("wordsmith-owner@example.com")
+    org = create_org(client, headers, "Wordsmith Diner")
+    monkeypatch.setattr(main_module.settings, "openai_api_key", "test-key")
+    calls = []
+
+    def fake_wordsmith(*, api_key, content, style, scope):
+        calls.append((api_key, content, style, scope))
+        return WordsmithResponse(
+            options=[
+                WordsmithOption(label="Option one", text="First rewrite"),
+                WordsmithOption(label="Option two", text="Second rewrite"),
+                WordsmithOption(label="Option three", text="Third rewrite"),
+            ]
+        )
+
+    monkeypatch.setattr(main_module, "generate_wordsmith_options", fake_wordsmith)
+    response = client.post(
+        f"/organizations/{org['id']}/social-posts/wordsmith",
+        json={"text": "new patio", "style": "polish", "scope": "selection"},
+        headers=headers,
+    )
+    assert response.status_code == 200, response.text
+    assert [option["text"] for option in response.json()["options"]] == [
+        "First rewrite",
+        "Second rewrite",
+        "Third rewrite",
+    ]
+    assert calls == [("test-key", "new patio", "polish", "selection")]
+
+
+def test_uploaded_image_is_served_and_appears_on_the_public_feed(client, auth_headers):
+    headers = auth_headers("image-publisher@example.com")
+    org = create_org(client, headers, "Image Publisher")
+    image_bytes = b"\x89PNG\r\n\x1a\n" + b"five-star-image"
+
+    upload = client.post(
+        f"/organizations/{org['id']}/media",
+        files={"file": ("patio photo.png", image_bytes, "image/png")},
+        headers=headers,
+    )
+    assert upload.status_code == 201, upload.text
+    assert upload.json()["content_type"] == "image/png"
+    assert upload.json()["byte_size"] == len(image_bytes)
+
+    served = client.get(upload.json()["url"])
+    assert served.status_code == 200
+    assert served.headers["content-type"] == "image/png"
+    assert served.content == image_bytes
+
+    created = client.post(
+        f"/organizations/{org['id']}/social-posts",
+        json={
+            "master_caption": "Our new patio",
+            "media_urls": [upload.json()["url"]],
+        },
+        headers=headers,
+    )
+    assert created.status_code == 201, created.text
+    published = client.post(
+        f"/organizations/{org['id']}/social-posts/{created.json()['id']}/publish",
+        headers=headers,
+    )
+    assert published.status_code == 200, published.text
+
+    public_feed = client.get(f"/api/hubs/{org['feedback_token']}/feed")
+    assert public_feed.status_code == 200, public_feed.text
+    assert public_feed.json()[0]["media_urls"] == [upload.json()["url"]]
+
+
 def test_social_posts_schedule_and_publish_to_each_selected_destination(
     client,
     auth_headers,
@@ -362,6 +436,52 @@ def test_social_post_reports_partial_provider_failure(
         if target["provider"] == "instagram"
     )
     assert instagram["error"] == "Instagram rejected the media"
+
+
+def test_social_failure_does_not_hide_the_five_star_post(
+    client,
+    auth_headers,
+    monkeypatch,
+):
+    email = "five-star-first@example.com"
+    headers = auth_headers(email)
+    org = create_org(client, headers, "Five Star First")
+    add_connection(
+        organization_id=org["id"],
+        user_email=email,
+        provider="facebook",
+        account_id="page-failing",
+        account_name="Five Star First",
+    )
+
+    def failing_publish(provider, **kwargs):
+        raise SocialProviderError(f"{provider} is temporarily unavailable")
+
+    monkeypatch.setattr(main_module, "publish_social_content", failing_publish)
+    created = client.post(
+        f"/organizations/{org['id']}/social-posts",
+        json={
+            "master_caption": "This belongs on Five* even if Facebook is down",
+            "targets": [{"provider": "facebook", "content": "Facebook version"}],
+        },
+        headers=headers,
+    )
+    assert created.status_code == 201, created.text
+
+    published = client.post(
+        f"/organizations/{org['id']}/social-posts/{created.json()['id']}/publish",
+        headers=headers,
+    )
+    assert published.status_code == 200, published.text
+    assert published.json()["status"] == "partial_failure"
+    assert published.json()["published_at"] is not None
+    assert published.json()["targets"][0]["status"] == "failed"
+
+    public_feed = client.get(f"/api/hubs/{org['feedback_token']}/feed")
+    assert public_feed.status_code == 200, public_feed.text
+    assert [post["master_caption"] for post in public_feed.json()] == [
+        "This belongs on Five* even if Facebook is down"
+    ]
 
 
 def test_scheduled_posts_pause_while_feed_is_disabled_and_resume_when_enabled(

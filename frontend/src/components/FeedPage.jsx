@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   createSocialPost,
   generateSocialDrafts,
+  generateWordsmithOptions,
   listSocialConnections,
   listSocialPosts,
   publishSocialPost,
+  uploadOrganizationMedia,
 } from "../api";
 
 const CHANNELS = [
@@ -23,6 +25,33 @@ function platformDrafts(source) {
   };
 }
 
+function starterWordsmithOptions(source, style) {
+  const normalized = source.trim().replace(/\s+/g, " ");
+  const punctuated = /[.!?]$/.test(normalized) ? normalized : `${normalized}.`;
+  const polished = punctuated.charAt(0).toUpperCase() + punctuated.slice(1);
+  if (style === "shorten") {
+    const direct = normalized.replace(/\b(really|very|just|actually|basically)\b\s*/gi, "").trim();
+    const firstSentence = normalized.split(/(?<=[.!?])\s+/)[0];
+    return [
+      { label: "More direct", text: direct || normalized },
+      { label: "First thought", text: firstSentence || normalized },
+      { label: "Clean and concise", text: polished },
+    ];
+  }
+  if (style === "warmer") {
+    return [
+      { label: "Conversational", text: polished },
+      { label: "Invite a response", text: `${polished} We’d love to hear what you think.` },
+      { label: "Friendly and direct", text: `Here’s what’s happening: ${normalized.charAt(0).toLowerCase()}${normalized.slice(1)}` },
+    ];
+  }
+  return [
+    { label: "Polished", text: polished },
+    { label: "Natural", text: normalized },
+    { label: "Clear and direct", text: polished.replace(/\s+([,.!?])/g, "$1") },
+  ];
+}
+
 function postStatusLabel(status) {
   return {
     draft: "Draft",
@@ -36,12 +65,20 @@ function postStatusLabel(status) {
 
 export default function FeedPage({ token, orgId, organizationName, locationId = null, locationName = null }) {
   const [message, setMessage] = useState("");
+  const [captionSelection, setCaptionSelection] = useState({ start: 0, end: 0 });
+  const [captionWordsmithing, setCaptionWordsmithing] = useState("");
+  const [wordsmithOptions, setWordsmithOptions] = useState([]);
+  const [wordsmithTarget, setWordsmithTarget] = useState(null);
+  const [selectionMenu, setSelectionMenu] = useState({ visible: false, x: 0, y: 0 });
   const [drafts, setDrafts] = useState({});
   const [activeChannel, setActiveChannel] = useState(CHANNELS[0].id);
+  const [socialExpanded, setSocialExpanded] = useState(false);
+  const [imageExpanded, setImageExpanded] = useState(false);
   const [publishMode, setPublishMode] = useState("now");
   const [channels, setChannels] = useState([]);
-  const [imageNames, setImageNames] = useState([]);
-  const [mediaUrl, setMediaUrl] = useState("");
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState("");
+  const [uploadedImage, setUploadedImage] = useState(null);
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("");
   const [connections, setConnections] = useState([]);
@@ -51,6 +88,10 @@ export default function FeedPage({ token, orgId, organizationName, locationId = 
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const submitLock = useRef(false);
+  const messageInputRef = useRef(null);
+  const messageWrapRef = useRef(null);
+  const selectionMenuRef = useRef(null);
 
   const activePlatform = CHANNELS.find((channel) => channel.id === activeChannel) || CHANNELS[0];
   const activeDraft = drafts[activeChannel] || "";
@@ -66,20 +107,28 @@ export default function FeedPage({ token, orgId, organizationName, locationId = 
     ),
     [connections]
   );
-  const canDraft = Boolean(message.trim());
-  const canPreview = useMemo(
-    () => Boolean(Object.values(drafts).some((draft) => draft.trim()) || imageNames.length || mediaUrl.trim()),
-    [drafts, imageNames, mediaUrl]
+  const connectedChannels = useMemo(
+    () => CHANNELS.filter((channel) => connectedProviders.has(channel.id)),
+    [connectedProviders]
   );
+  const selectedCaptionText = message.slice(captionSelection.start, captionSelection.end);
+  const hasCaptionSelection = Boolean(selectedCaptionText.trim());
+  const canDraft = Boolean(message.trim());
   const scheduledPosts = posts.filter((post) => post.status === "scheduled");
   const savedDrafts = posts.filter((post) => post.status === "draft");
-  const selectedInstagramWithoutMedia = channels.includes("instagram") && !mediaUrl.trim();
-  const canSave = (
+  const publishedPosts = posts.filter((post) => ["published", "partial_failure"].includes(post.status));
+  const selectedInstagramWithoutMedia = channels.includes("instagram") && !imageFile;
+  const canSaveDraft = (
     Boolean(message.trim())
     && channels.every((channel) => drafts[channel]?.trim())
     && !selectedInstagramWithoutMedia
   );
-  const canSubmit = canSave && (
+  const canPublish = (
+    Boolean(message.trim())
+    && channels.every((channel) => drafts[channel]?.trim())
+    && !selectedInstagramWithoutMedia
+  );
+  const canSubmit = canPublish && (
     publishMode !== "schedule" || (scheduleDate && scheduleTime)
   );
 
@@ -94,6 +143,14 @@ export default function FeedPage({ token, orgId, organizationName, locationId = 
       ]);
       setConnections(connectionData);
       setPosts(postData);
+      const availableProviders = new Set(
+        connectionData
+          .filter((connection) => connection.connected && connection.status === "connected" && connection.publishing_enabled)
+          .map((connection) => connection.provider)
+      );
+      const firstConnected = CHANNELS.find((channel) => availableProviders.has(channel.id));
+      if (firstConnected) setActiveChannel(firstConnected.id);
+      setChannels((current) => current.filter((provider) => availableProviders.has(provider)));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -104,6 +161,28 @@ export default function FeedPage({ token, orgId, organizationName, locationId = 
   useEffect(() => {
     loadPublishingData();
   }, [token, orgId, locationId]);
+
+  useEffect(() => {
+    if (!imageFile) {
+      setImagePreviewUrl("");
+      return undefined;
+    }
+    const previewUrl = URL.createObjectURL(imageFile);
+    setImagePreviewUrl(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [imageFile]);
+
+  useEffect(() => {
+    function closeSelectionMenu(event) {
+      if (
+        selectionMenuRef.current?.contains(event.target)
+        || event.target === messageInputRef.current
+      ) return;
+      setSelectionMenu((current) => ({ ...current, visible: false }));
+    }
+    document.addEventListener("mousedown", closeSelectionMenu);
+    return () => document.removeEventListener("mousedown", closeSelectionMenu);
+  }, []);
 
   function toggleChannel(channel) {
     if (!connectedProviders.has(channel)) {
@@ -116,6 +195,93 @@ export default function FeedPage({ token, orgId, organizationName, locationId = 
         ? current.filter((item) => item !== channel)
         : [...current, channel]
     ));
+  }
+
+  function captureCaptionSelection(event) {
+    const nextSelection = {
+      start: event.currentTarget.selectionStart,
+      end: event.currentTarget.selectionEnd,
+    };
+    setCaptionSelection(nextSelection);
+    return nextSelection;
+  }
+
+  function showSelectionMenu(event, preferPointer = false) {
+    const nextSelection = captureCaptionSelection(event);
+    const selected = event.currentTarget.value.slice(nextSelection.start, nextSelection.end).trim();
+    if (!selected) {
+      setSelectionMenu((current) => ({ ...current, visible: false }));
+      return false;
+    }
+    const bounds = messageWrapRef.current?.getBoundingClientRect();
+    const availableWidth = bounds?.width || 320;
+    const menuWidth = Math.min(360, availableWidth - 16);
+    const pointerX = preferPointer && "clientX" in event ? event.clientX - (bounds?.left || 0) : availableWidth - menuWidth - 8;
+    const pointerY = preferPointer && "clientY" in event ? event.clientY - (bounds?.top || 0) + 12 : 12;
+    setSelectionMenu({
+      visible: true,
+      x: Math.max(8, Math.min(pointerX, availableWidth - menuWidth - 8)),
+      y: Math.max(8, pointerY),
+    });
+    if (wordsmithTarget?.scope !== "selection") {
+      setWordsmithOptions([]);
+      setWordsmithTarget(null);
+    }
+    return true;
+  }
+
+  async function wordsmithCaption(style, requestedScope = "caption") {
+    if (!message.trim() || captionWordsmithing) return;
+    if (requestedScope === "caption") {
+      setSelectionMenu((current) => ({ ...current, visible: false }));
+    }
+    const target = requestedScope === "selection" && hasCaptionSelection
+      ? {
+          start: captionSelection.start,
+          end: captionSelection.end,
+          text: selectedCaptionText,
+          scope: "selection",
+        }
+      : { start: 0, end: message.length, text: message, scope: "caption" };
+    setCaptionWordsmithing(style);
+    setWordsmithOptions([]);
+    setWordsmithTarget({ ...target, sourceMessage: message });
+    setError("");
+    setNotice("");
+    try {
+      const generated = await generateWordsmithOptions(token, orgId, target.text, style, target.scope);
+      setWordsmithOptions(generated.options);
+    } catch {
+      setWordsmithOptions(starterWordsmithOptions(target.text, style));
+      setNotice("AI wordsmithing is unavailable locally, so starter edits are shown instead.");
+    } finally {
+      setCaptionWordsmithing("");
+    }
+  }
+
+  function applyWordsmithOption(option) {
+    if (!wordsmithTarget || wordsmithTarget.sourceMessage !== message) {
+      setWordsmithOptions([]);
+      setWordsmithTarget(null);
+      setError("The caption changed. Choose a wordsmith option again.");
+      return;
+    }
+    const nextMessage = wordsmithTarget.scope === "selection"
+      ? `${message.slice(0, wordsmithTarget.start)}${option.text}${message.slice(wordsmithTarget.end)}`
+      : option.text;
+    const nextSelection = wordsmithTarget.scope === "selection"
+      ? { start: wordsmithTarget.start, end: wordsmithTarget.start + option.text.length }
+      : { start: 0, end: 0 };
+    setMessage(nextMessage);
+    setCaptionSelection(nextSelection);
+    setWordsmithOptions([]);
+    setWordsmithTarget(null);
+    setSelectionMenu((current) => ({ ...current, visible: false }));
+    setNotice("Wordsmith edit applied. Review it before publishing.");
+    window.setTimeout(() => {
+      messageInputRef.current?.focus();
+      messageInputRef.current?.setSelectionRange(nextSelection.start, nextSelection.end);
+    }, 0);
   }
 
   async function generatePlatformDrafts() {
@@ -149,8 +315,9 @@ export default function FeedPage({ token, orgId, organizationName, locationId = 
   }
 
   async function submitPost(submitMode = publishMode) {
-    const validForMode = submitMode === "draft" ? canSave : canSubmit;
-    if (!validForMode || working) return;
+    const validForMode = submitMode === "draft" ? canSaveDraft : canSubmit;
+    if (!validForMode || working || submitLock.current) return;
+    submitLock.current = true;
     setWorking(true);
     setError("");
     setNotice("");
@@ -159,13 +326,24 @@ export default function FeedPage({ token, orgId, organizationName, locationId = 
       if (submitMode === "schedule") {
         scheduledAt = new Date(`${scheduleDate}T${scheduleTime}`).toISOString();
       }
+      let uploadedMediaUrl = "";
+      if (imageFile) {
+        if (uploadedImage?.file === imageFile) {
+          uploadedMediaUrl = uploadedImage.url;
+        } else {
+          setNotice("Uploading image…");
+          const uploaded = await uploadOrganizationMedia(token, orgId, imageFile);
+          uploadedMediaUrl = uploaded.url;
+          setUploadedImage({ file: imageFile, url: uploaded.url });
+        }
+      }
       const created = await createSocialPost(token, orgId, {
         master_caption: message.trim(),
         targets: channels.map((provider) => ({
           provider,
           content: drafts[provider].trim(),
         })),
-        media_urls: mediaUrl.trim() ? [mediaUrl.trim()] : [],
+        media_urls: uploadedMediaUrl ? [uploadedMediaUrl] : [],
         scheduled_at: scheduledAt,
         location_id: locationId,
       });
@@ -179,14 +357,29 @@ export default function FeedPage({ token, orgId, organizationName, locationId = 
           : submitMode === "schedule"
             ? "Post scheduled."
           : completed.status === "published"
-            ? "Post published."
+            ? "Published to your Five* feed."
             : completed.status === "partial_failure"
-              ? "Some destinations published; review the errors below."
-              : "Publishing failed. Review the destination errors below."
+              ? "Published to Five*. One or more social destinations need attention."
+              : "Five* publishing failed. Review the error below."
       );
+      setMessage("");
+      setCaptionSelection({ start: 0, end: 0 });
+      setWordsmithOptions([]);
+      setWordsmithTarget(null);
+      setSelectionMenu((current) => ({ ...current, visible: false }));
+      setDrafts({});
+      setChannels([]);
+      setImageFile(null);
+      setUploadedImage(null);
+      setScheduleDate("");
+      setScheduleTime("");
+      setPublishMode("now");
+      setSocialExpanded(false);
+      setImageExpanded(false);
     } catch (err) {
       setError(err.message);
     } finally {
+      submitLock.current = false;
       setWorking(false);
     }
   }
@@ -198,9 +391,6 @@ export default function FeedPage({ token, orgId, organizationName, locationId = 
         <h1>Feed</h1>
         <p>Publish directly to your Five* feed, then optionally send adapted versions to connected social accounts.</p>
       </header>
-
-      {error && <p className="message message--error">{error}</p>}
-      {notice && <p className="message message--success">{notice}</p>}
 
       <div className="feed-layout">
         <section className="portal-card feed-workspace">
@@ -215,190 +405,230 @@ export default function FeedPage({ token, orgId, organizationName, locationId = 
 
           <div className="feed-master-section">
             <label className="field-label" htmlFor="feed-message">Master caption</label>
-            <textarea
-              className="field-textarea feed-message"
-              id="feed-message"
-              onChange={(event) => setMessage(event.target.value)}
-              placeholder="Share the idea, announcement, or update you want to turn into platform posts…"
-              rows="6"
-              value={message}
-            />
+            <div className="feed-message-wrap" ref={messageWrapRef}>
+              <textarea
+                className="field-textarea feed-message"
+                id="feed-message"
+                onChange={(event) => {
+                  setMessage(event.target.value);
+                  setWordsmithOptions([]);
+                  setWordsmithTarget(null);
+                  setSelectionMenu((current) => ({ ...current, visible: false }));
+                  captureCaptionSelection(event);
+                }}
+                onContextMenu={(event) => {
+                  if (showSelectionMenu(event, true)) event.preventDefault();
+                }}
+                onKeyUp={(event) => showSelectionMenu(event)}
+                onMouseUp={(event) => showSelectionMenu(event, true)}
+                onSelect={captureCaptionSelection}
+                placeholder="Share the idea, announcement, or update you want to turn into platform posts…"
+                ref={messageInputRef}
+                rows="4"
+                value={message}
+              />
 
-            <div className="feed-media-fields">
-              <label className="feed-media-picker" htmlFor="feed-media">
-                <span className="feed-media-icon" aria-hidden="true">＋</span>
-                <span>
-                  <strong>Choose local images</strong>
-                  <small>Preview only until managed media storage is enabled</small>
-                </span>
-                <input
-                  id="feed-media"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  multiple
-                  onChange={(event) => setImageNames(Array.from(event.target.files || []).map((file) => file.name))}
-                />
-              </label>
-              <label className="feed-media-url">
-                <span className="field-label">Hosted image URL</span>
-                <input
-                  className="field-input"
-                  onChange={(event) => setMediaUrl(event.target.value)}
-                  placeholder="https://images.example.com/post.jpg"
-                  type="url"
-                  value={mediaUrl}
-                />
-                <small>Required for Instagram publishing in this integration pass.</small>
-              </label>
+              {selectionMenu.visible && hasCaptionSelection && (
+                <div
+                  className="feed-selection-wordsmith"
+                  onMouseDown={(event) => event.preventDefault()}
+                  ref={selectionMenuRef}
+                  style={{ left: selectionMenu.x, top: selectionMenu.y }}
+                >
+                  <div className="feed-selection-wordsmith-heading">
+                    <strong>AI edit selection</strong>
+                    <small>“{selectedCaptionText}”</small>
+                  </div>
+                  {wordsmithTarget?.scope === "selection" && wordsmithOptions.length ? (
+                    <div className="feed-selection-options">
+                      {wordsmithOptions.map((option) => (
+                        <button key={`${option.label}-${option.text}`} onClick={() => applyWordsmithOption(option)} type="button">
+                          <strong>{option.label}</strong>
+                          <span>{option.text}</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="feed-selection-wordsmith-actions">
+                      {[
+                        ["polish", "Polish"],
+                        ["shorten", "Shorten"],
+                        ["warmer", "Warmer"],
+                      ].map(([style, label]) => (
+                        <button
+                          disabled={Boolean(captionWordsmithing)}
+                          key={style}
+                          onClick={() => wordsmithCaption(style, "selection")}
+                          type="button"
+                        >
+                          {captionWordsmithing === style ? "…" : label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
-            {imageNames.length > 0 && (
-              <div className="feed-file-list" aria-label="Selected images">
-                {imageNames.map((name) => <span key={name}>{name}</span>)}
+            <div className="feed-caption-wordsmith">
+              <div className="feed-caption-wordsmith-heading">
+                <div>
+                  <strong>AI wordsmith</strong>
+                  <span>Entire caption</span>
+                </div>
+                <div className="feed-caption-wordsmith-actions" aria-label="Wordsmith style">
+                  {[
+                    ["polish", "Polish"],
+                    ["shorten", "Shorten"],
+                    ["warmer", "Make warmer"],
+                  ].map(([style, label]) => (
+                    <button
+                      className="btn btn--ghost btn--sm"
+                      disabled={!message.trim() || Boolean(captionWordsmithing)}
+                      key={style}
+                      onClick={() => wordsmithCaption(style, "caption")}
+                      type="button"
+                    >
+                      {captionWordsmithing === style ? "Thinking…" : label}
+                    </button>
+                  ))}
+                </div>
               </div>
-            )}
 
-            <div className="feed-wordsmith-bar">
-              <div>
-                <strong>AI wordsmith</strong>
-                <span>Adapt this idea for every platform, then review each version.</span>
-              </div>
-              <button className="btn btn--ghost btn--sm" disabled={!canDraft || wordsmithing} onClick={generatePlatformDrafts} type="button">
-                {wordsmithing ? "Wordsmithing…" : "Wordsmith with AI"}
+              {wordsmithTarget?.scope === "caption" && wordsmithOptions.length > 0 && (
+                <div className="feed-wordsmith-options" aria-label="Wordsmith suggestions">
+                  {wordsmithOptions.map((option) => (
+                    <button key={`${option.label}-${option.text}`} onClick={() => applyWordsmithOption(option)} type="button">
+                      <strong>{option.label}</strong>
+                      <span>{option.text}</span>
+                      <small>Use this</small>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="feed-image-disclosure">
+              <button
+                aria-expanded={imageExpanded}
+                className="feed-image-toggle"
+                onClick={() => setImageExpanded((current) => !current)}
+                type="button"
+              >
+                <span aria-hidden="true">{imageExpanded ? "−" : "+"}</span>
+                {imageFile ? "Image added" : "Add an image"}
+                <small>Optional</small>
               </button>
+              {imageExpanded && (
+                <div className="feed-image-upload">
+                  {imageFile ? (
+                    <div className="feed-image-preview">
+                      <img alt="Post preview" src={imagePreviewUrl} />
+                      <div>
+                        <strong>{imageFile.name}</strong>
+                        <small>{(imageFile.size / (1024 * 1024)).toFixed(1)} MB</small>
+                      </div>
+                      <button
+                        className="btn btn--ghost btn--sm"
+                        onClick={() => {
+                          setImageFile(null);
+                          setUploadedImage(null);
+                        }}
+                        type="button"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="feed-image-picker" htmlFor="feed-image-upload">
+                      <span className="feed-media-icon" aria-hidden="true">＋</span>
+                      <span>
+                        <strong>Choose an image</strong>
+                        <small>JPEG, PNG, or WebP · up to 8 MB</small>
+                      </span>
+                      <input
+                        accept="image/jpeg,image/png,image/webp"
+                        id="feed-image-upload"
+                        onChange={(event) => {
+                          const selected = event.target.files?.[0] || null;
+                          event.target.value = "";
+                          if (selected && selected.size > 8 * 1024 * 1024) {
+                            setError("Images must be 8 MB or smaller.");
+                            return;
+                          }
+                          setError("");
+                          setImageFile(selected);
+                          setUploadedImage(null);
+                        }}
+                        type="file"
+                      />
+                    </label>
+                  )}
+                  {channels.includes("instagram") && <small className="feed-image-note">Instagram requires an image.</small>}
+                </div>
+              )}
             </div>
           </div>
 
-          <section className="feed-drafts-section" aria-labelledby="feed-drafts-heading">
+          <section className="feed-publish-inline" aria-labelledby="feed-timing-heading">
             <div className="feed-section-heading">
               <div>
-              <h3 id="feed-drafts-heading">Optional social versions</h3>
-              <p>Adapt the post for any connected accounts you want to publish to at the same time.</p>
+                <h3 id="feed-timing-heading">Post timing</h3>
+                <p>Post now or choose a later date. Social accounts are optional and never required.</p>
               </div>
-              <span className="feed-selection-count">{channels.length} selected</span>
             </div>
 
-            <div className="feed-draft-tabs" role="tablist" aria-label="Platform drafts">
-              {CHANNELS.map((channel) => {
-                const isConnected = connectedProviders.has(channel.id);
-                return (
-                  <button
-                    aria-selected={activeChannel === channel.id}
-                    className={`feed-draft-tab${activeChannel === channel.id ? " feed-draft-tab--active" : ""}${isConnected ? "" : " feed-draft-tab--unavailable"}`}
-                    key={channel.id}
-                    onClick={() => setActiveChannel(channel.id)}
-                    role="tab"
-                    type="button"
-                  >
-                    <span className="feed-draft-tab-mark" aria-hidden="true">{channel.label.slice(0, 1)}</span>
-                    <span>{channel.label}</span>
-                    <span className={`feed-draft-tab-check${channels.includes(channel.id) ? " feed-draft-tab-check--selected" : ""}`} aria-hidden="true">
-                      {channels.includes(channel.id) ? "✓" : isConnected ? "+" : "—"}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="feed-draft-panel" role="tabpanel">
-              <div className="feed-draft-panel-heading">
-                <div>
-                  <h4>{activePlatform.label} draft</h4>
-                  <p>{activePlatform.prompt}</p>
-                </div>
-                <label className="feed-draft-include">
-                  <input
-                    checked={channels.includes(activeChannel)}
-                    disabled={!connectedProviders.has(activeChannel)}
-                    onChange={() => toggleChannel(activeChannel)}
-                    type="checkbox"
-                  />
-                  {connectedProviders.has(activeChannel) ? "Include in publish" : "Not connected"}
-                </label>
-              </div>
-              <textarea
-                aria-label={`${activePlatform.label} draft`}
-                className="field-textarea feed-platform-draft"
-                onChange={(event) => updateActiveDraft(event.target.value)}
-                placeholder={`Your ${activePlatform.label} draft will appear here…`}
-                rows="6"
-                value={activeDraft}
-              />
-              <div className="feed-draft-panel-footer">
-                <span>{activeDraft.length} characters</span>
-                <button className="btn btn--ghost btn--sm" disabled={!message.trim()} onClick={resetActiveDraft} type="button">
-                  Use master caption
+            <div className="feed-schedule-row">
+              <div className="feed-publish-toggle" aria-label="Publishing time">
+                <button
+                  className={publishMode === "now" ? "feed-publish-option feed-publish-option--active" : "feed-publish-option"}
+                  onClick={() => setPublishMode("now")}
+                  type="button"
+                >
+                  Now
+                </button>
+                <button
+                  className={publishMode === "schedule" ? "feed-publish-option feed-publish-option--active" : "feed-publish-option"}
+                  onClick={() => setPublishMode("schedule")}
+                  type="button"
+                >
+                  Schedule for later
                 </button>
               </div>
+              {publishMode === "schedule" && (
+                <div className="feed-date-fields">
+                  <input
+                    className="field-input"
+                    aria-label="Schedule date"
+                    onChange={(event) => setScheduleDate(event.target.value)}
+                    type="date"
+                    value={scheduleDate}
+                  />
+                  <input
+                    className="field-input"
+                    aria-label="Schedule time"
+                    onChange={(event) => setScheduleTime(event.target.value)}
+                    type="time"
+                    value={scheduleTime}
+                  />
+                </div>
+              )}
             </div>
-          </section>
-        </section>
 
-        <section className="portal-card feed-publish-card">
-          <div className="feed-section-heading">
-            <div>
-              <h3>Publish or schedule</h3>
-              <p>Choose when the post appears on Five*. Selected social versions will publish with it.</p>
-            </div>
-          </div>
-
-          <div className="feed-schedule-row">
-            <div className="feed-publish-toggle" aria-label="Publishing time">
-              <button
-                className={publishMode === "now" ? "feed-publish-option feed-publish-option--active" : "feed-publish-option"}
-                onClick={() => setPublishMode("now")}
-                type="button"
-              >
-                Publish now
-              </button>
-              <button
-                className={publishMode === "schedule" ? "feed-publish-option feed-publish-option--active" : "feed-publish-option"}
-                onClick={() => setPublishMode("schedule")}
-                type="button"
-              >
-                Schedule
-              </button>
-            </div>
-            {publishMode === "schedule" && (
-              <div className="feed-date-fields">
-                <input
-                  className="field-input"
-                  aria-label="Schedule date"
-                  onChange={(event) => setScheduleDate(event.target.value)}
-                  type="date"
-                  value={scheduleDate}
-                />
-                <input
-                  className="field-input"
-                  aria-label="Schedule time"
-                  onChange={(event) => setScheduleTime(event.target.value)}
-                  type="time"
-                  value={scheduleTime}
-                />
-              </div>
+            {selectedInstagramWithoutMedia && (
+              <p className="message message--error">Add an image link to include Instagram.</p>
             )}
-          </div>
+            {error && <p className="message message--error" role="alert">{error}</p>}
+            {notice && <p className="message message--success" role="status">{notice}</p>}
 
-          {selectedInstagramWithoutMedia && (
-            <p className="message message--error">Instagram requires a hosted image URL.</p>
-          )}
-
-          <div className="feed-composer-actions">
+            <div className="feed-composer-actions">
             <button
               className="btn btn--ghost"
               type="button"
-              disabled={!canSave || working}
+              disabled={!canSaveDraft || working}
               onClick={() => submitPost("draft")}
             >
               Save draft
-            </button>
-            <button
-              className="btn btn--ghost"
-              type="button"
-              disabled={!canPreview}
-              onClick={() => setNotice("Review each selected platform draft above before publishing.")}
-            >
-              Review selected
             </button>
             <button
               className="btn btn--primary"
@@ -410,12 +640,136 @@ export default function FeedPage({ token, orgId, organizationName, locationId = 
                 ? "Working…"
                 : publishMode === "schedule"
                   ? "Schedule post"
-                  : "Publish post"}
+                  : "Publish to Five*"}
             </button>
-          </div>
+            </div>
+          </section>
+
+          <section className={`feed-drafts-section${socialExpanded ? " feed-drafts-section--expanded" : ""}`} aria-labelledby="feed-drafts-heading">
+            <button
+              aria-expanded={socialExpanded}
+              className="feed-drafts-toggle"
+              onClick={() => setSocialExpanded((current) => !current)}
+              type="button"
+            >
+              <span>
+                <strong id="feed-drafts-heading">Social publishing</strong>
+                <small>Optional versions for connected accounts</small>
+              </span>
+              <span className="feed-drafts-toggle-status">
+                {connectedChannels.length ? `${connectedChannels.length} connected` : "No accounts connected"}
+                <span aria-hidden="true">{socialExpanded ? "−" : "+"}</span>
+              </span>
+            </button>
+
+            {socialExpanded && (
+              <div className="feed-drafts-content">
+                {connectedChannels.length ? (
+                  <>
+                    <div className="feed-wordsmith-bar">
+                      <div>
+                        <strong>AI wordsmith</strong>
+                        <span>Adapt the Five* caption for your connected platforms.</span>
+                      </div>
+                      <button className="btn btn--ghost btn--sm" disabled={!canDraft || wordsmithing} onClick={generatePlatformDrafts} type="button">
+                        {wordsmithing ? "Wordsmithing…" : "Wordsmith with AI"}
+                      </button>
+                    </div>
+
+                    <div className="feed-draft-tabs" role="tablist" aria-label="Connected platform drafts">
+                      {connectedChannels.map((channel) => (
+                        <button
+                          aria-selected={activeChannel === channel.id}
+                          className={`feed-draft-tab${activeChannel === channel.id ? " feed-draft-tab--active" : ""}`}
+                          key={channel.id}
+                          onClick={() => setActiveChannel(channel.id)}
+                          role="tab"
+                          type="button"
+                        >
+                          <span className="feed-draft-tab-mark" aria-hidden="true">{channel.label.slice(0, 1)}</span>
+                          <span>{channel.label}</span>
+                          <span className={`feed-draft-tab-check${channels.includes(channel.id) ? " feed-draft-tab-check--selected" : ""}`} aria-hidden="true">
+                            {channels.includes(channel.id) ? "✓" : "+"}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="feed-draft-panel" role="tabpanel">
+                      <div className="feed-draft-panel-heading">
+                        <div>
+                          <h4>{activePlatform.label} version</h4>
+                          <p>{activePlatform.prompt}</p>
+                        </div>
+                        <label className="feed-draft-include">
+                          <input
+                            checked={channels.includes(activeChannel)}
+                            onChange={() => toggleChannel(activeChannel)}
+                            type="checkbox"
+                          />
+                          Include with Five* post
+                        </label>
+                      </div>
+                      <textarea
+                        aria-label={`${activePlatform.label} version`}
+                        className="field-textarea feed-platform-draft"
+                        onChange={(event) => updateActiveDraft(event.target.value)}
+                        placeholder={`Write a ${activePlatform.label} version…`}
+                        rows="5"
+                        value={activeDraft}
+                      />
+                      <div className="feed-draft-panel-footer">
+                        <span>{activeDraft.length} characters</span>
+                        <button className="btn btn--ghost btn--sm" disabled={!message.trim()} onClick={resetActiveDraft} type="button">
+                          Use Five* caption
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="feed-no-connections">
+                    <div>
+                      <strong>No social accounts are connected</strong>
+                      <p>You can publish to Five* without connecting anything.</p>
+                    </div>
+                    <Link className="btn btn--ghost btn--sm" to={`/org/${orgId}/social`}>Connect accounts</Link>
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
         </section>
 
         <div className="feed-secondary-grid">
+          <section className="portal-card feed-recent-card">
+            <div className="portal-card-heading">
+              <h2>Recent Five* posts</h2>
+              <span className="portal-count">{publishedPosts.length}</span>
+            </div>
+            {publishedPosts.length ? (
+              <div className="feed-post-list">
+                {publishedPosts.map((post) => (
+                  <article className="feed-post-summary" key={post.id}>
+                    {post.media_urls?.[0] && <img alt="" className="feed-post-summary-image" src={post.media_urls[0]} />}
+                    <strong>{post.master_caption}</strong>
+                    <small>Published {new Date(post.published_at).toLocaleString()}</small>
+                    <span>
+                      {post.targets.length
+                        ? `${post.targets.filter((target) => target.status === "published").length} of ${post.targets.length} social destinations published`
+                        : "Five* only"}
+                    </span>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="feed-empty-state">
+                <span aria-hidden="true">*</span>
+                <strong>No Five* posts yet</strong>
+                <p>Published posts will appear here immediately.</p>
+              </div>
+            )}
+          </section>
+
           <section className="portal-card">
             <div className="portal-card-heading">
               <h2>Saved drafts</h2>

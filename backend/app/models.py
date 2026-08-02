@@ -1,7 +1,7 @@
 import enum
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Enum as SQLEnum, ForeignKey, ForeignKeyConstraint, Index, Integer, JSON, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Enum as SQLEnum, ForeignKey, ForeignKeyConstraint, Index, Integer, JSON, LargeBinary, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -75,6 +75,10 @@ class Organization(Base):
         cascade="all, delete-orphan",
     )
     social_posts: Mapped[list["SocialPost"]] = relationship(
+        back_populates="organization",
+        cascade="all, delete-orphan",
+    )
+    media_assets: Mapped[list["MediaAsset"]] = relationship(
         back_populates="organization",
         cascade="all, delete-orphan",
     )
@@ -469,6 +473,27 @@ class SocialPost(Base):
         cascade="all, delete-orphan",
         order_by="SocialPostTarget.id",
     )
+
+
+class MediaAsset(Base):
+    __tablename__ = "media_assets"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    token: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    byte_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    uploaded_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+    organization: Mapped["Organization"] = relationship(back_populates="media_assets")
+    uploader: Mapped["User"] = relationship(foreign_keys=[uploaded_by])
 
 
 class SocialPostTarget(Base):

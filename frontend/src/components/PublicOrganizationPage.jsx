@@ -8,6 +8,7 @@ import {
   updatePublicOrganizationInitiativeVote,
 } from "../api";
 
+const ASTERISK_SRC = `${import.meta.env.BASE_URL}brand/five-star-asterisk.svg`;
 const VISITOR_KEY = "five-star-board-visitor-id";
 const STATUS_OPTIONS = [
   { value: "", label: "All" },
@@ -292,17 +293,25 @@ function PublicRoadmap({ organizationToken, selectedLocationId }) {
 
 function PublicLocations({ locations }) {
   return (
-    <div className="public-location-list">
-      {locations.map((location) => (
-        <article className="public-location-card" key={location.id}>
-          <span className="public-location-mark" aria-hidden="true">⌖</span>
-          <div>
-            <h2>{location.name}</h2>
-            {location.address && <p>{location.address}</p>}
-          </div>
-        </article>
-      ))}
-    </div>
+    <>
+      <div className="public-hub-section-heading">
+        <p className="board-eyebrow">Locations</p>
+        <h2>Find this organization</h2>
+        <p>Browse its locations and choose the one most relevant to your visit.</p>
+      </div>
+      <div className="public-location-list">
+        {locations.map((location) => (
+          <article className="public-location-card" key={location.id}>
+            <span className="public-location-mark" aria-hidden="true">⌖</span>
+            <div>
+              <p className="public-location-kind">{location.is_default ? "Main location" : "Location"}</p>
+              <h2>{location.name}</h2>
+              <p>{location.address || "Address not provided"}</p>
+            </div>
+          </article>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -408,13 +417,12 @@ export default function PublicOrganizationPage() {
   return (
     <div className="public-hub-page">
       <header className="public-hub-header">
-        <div className="public-hub-status" aria-label={`${hub.five_star_status} of 5 Five Star status`}>
-          {[1, 2, 3, 4, 5].map((step) => (
-            <span className={step <= hub.five_star_status ? "public-hub-star public-hub-star--earned" : "public-hub-star"} key={step}>*</span>
+        <h1>{hub.organization_name}</h1>
+        <div className="public-hub-recognition" aria-label={`${hub.five_star_status} Five Star ${hub.five_star_status === 1 ? "mark" : "marks"}`}>
+          {Array.from({ length: hub.five_star_status }, (_, index) => (
+            <img className="public-hub-recognition-mark" src={ASTERISK_SRC} alt="" aria-hidden="true" key={index} />
           ))}
         </div>
-        <p className="board-eyebrow">Five Star organization</p>
-        <h1>{hub.organization_name}</h1>
         <nav className="public-hub-nav" aria-label="Organization page">
           {hub.modules.feed && (
             <button className={view === "feed" ? "public-hub-nav-item public-hub-nav-item--active" : "public-hub-nav-item"} onClick={() => updateView("feed")} type="button">Feed</button>

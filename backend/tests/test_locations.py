@@ -2,7 +2,7 @@ from datetime import date
 
 from sqlalchemy import select
 
-from app.models import Digest, DigestStatus, Organization, User
+from app.models import Digest, DigestStatus, Feedback, Initiative, Location, Organization, SocialPost, User
 from conftest import TestingSessionLocal
 
 
@@ -217,6 +217,149 @@ def test_public_roadmaps_are_isolated_by_location_token(client, auth_headers):
         headers=voter,
     )
     assert cross_location_vote.status_code == 404
+
+
+def test_location_deletion_previews_and_reassigns_content(client, auth_headers):
+    email = "location-delete-owner@example.com"
+    headers = auth_headers(email)
+    org = create_org(client, headers, "Location Delete Group")
+    source = client.post(
+        f"/organizations/{org['id']}/locations",
+        json={"name": "Closing location"},
+        headers=headers,
+    ).json()
+    destination = client.post(
+        f"/organizations/{org['id']}/locations",
+        json={"name": "Receiving location"},
+        headers=headers,
+    ).json()
+
+    with TestingSessionLocal() as db:
+        owner = db.scalar(select(User).where(User.email == email))
+        db.add_all([
+            Feedback(
+                organization_id=org["id"],
+                location_id=source["id"],
+                content="Move this feedback",
+                is_anonymous=True,
+            ),
+            Initiative(
+                organization_id=org["id"],
+                location_id=source["id"],
+                title="Move this roadmap item",
+                description="Still relevant elsewhere.",
+            ),
+            SocialPost(
+                organization_id=org["id"],
+                location_id=source["id"],
+                master_caption="Move this feed post",
+                status="published",
+                created_by=owner.id,
+            ),
+            Digest(
+                organization_id=org["id"],
+                location_id=source["id"],
+                status=DigestStatus.DRAFT,
+                period_start=date(2026, 7, 1),
+                period_end=date(2026, 7, 7),
+                summary="Move this report",
+                insights=[],
+                immediate_actions=[],
+                long_term_goals=[],
+                feedback_count=1,
+                generated_by=owner.id,
+            ),
+        ])
+        db.commit()
+
+    impact = client.get(
+        f"/organizations/{org['id']}/locations/{source['id']}/deletion-impact",
+        headers=headers,
+    )
+    assert impact.status_code == 200, impact.text
+    assert impact.json() == {
+        "feedback": 1,
+        "roadmap_items": 1,
+        "feed_posts": 1,
+        "reports": 1,
+        "social_connections": 0,
+        "team_assignments": 0,
+        "pending_invites": 0,
+    }
+
+    blocked = client.request(
+        "DELETE",
+        f"/organizations/{org['id']}/locations/{source['id']}",
+        headers=headers,
+    )
+    assert blocked.status_code == 409
+
+    removed = client.request(
+        "DELETE",
+        f"/organizations/{org['id']}/locations/{source['id']}",
+        json={
+            "destination": "location",
+            "destination_location_id": destination["id"],
+        },
+        headers=headers,
+    )
+    assert removed.status_code == 204, removed.text
+
+    with TestingSessionLocal() as db:
+        assert db.get(Location, source["id"]) is None
+        assert db.scalar(select(Feedback.location_id)) == destination["id"]
+        assert db.scalar(select(Initiative.location_id)) == destination["id"]
+        assert db.scalar(select(SocialPost.location_id)) == destination["id"]
+        assert db.scalar(select(Digest.location_id)) == destination["id"]
+
+
+def test_location_content_can_become_organization_wide(client, auth_headers):
+    email = "location-org-wide-owner@example.com"
+    headers = auth_headers(email)
+    org = create_org(client, headers, "Organization-wide Group")
+    source = client.post(
+        f"/organizations/{org['id']}/locations",
+        json={"name": "Temporary location"},
+        headers=headers,
+    ).json()
+
+    with TestingSessionLocal() as db:
+        owner = db.scalar(select(User).where(User.email == email))
+        db.add_all([
+            Feedback(
+                organization_id=org["id"],
+                location_id=source["id"],
+                content="Organization feedback",
+                is_anonymous=True,
+            ),
+            Initiative(
+                organization_id=org["id"],
+                location_id=source["id"],
+                title="Organization roadmap item",
+                description="Applies everywhere.",
+            ),
+            SocialPost(
+                organization_id=org["id"],
+                location_id=source["id"],
+                master_caption="Organization feed post",
+                status="draft",
+                created_by=owner.id,
+            ),
+        ])
+        db.commit()
+
+    removed = client.request(
+        "DELETE",
+        f"/organizations/{org['id']}/locations/{source['id']}",
+        json={"destination": "organization"},
+        headers=headers,
+    )
+    assert removed.status_code == 204, removed.text
+
+    with TestingSessionLocal() as db:
+        assert db.scalar(select(Feedback.location_id)) is None
+        assert db.scalar(select(Initiative.location_id)) is None
+        assert db.scalar(select(SocialPost.location_id)) is None
 
 
 def test_location_manager_can_reopen_drafts_while_viewer_waits_for_publish(client, auth_headers):

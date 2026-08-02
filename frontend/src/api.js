@@ -8,10 +8,11 @@ function hasBearerAuthorization(headers = {}) {
 }
 
 async function request(path, options = {}) {
+  const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers: {
-      "Content-Type": "application/json",
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...(options.headers || {}),
     },
   });
@@ -202,6 +203,14 @@ export async function generateSocialDrafts(token, orgId, masterCaption) {
   });
 }
 
+export async function generateWordsmithOptions(token, orgId, text, style, scope) {
+  return request(`/organizations/${orgId}/social-posts/wordsmith`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ text, style, scope }),
+  });
+}
+
 export async function createSocialPost(token, orgId, data) {
   return request(`/organizations/${orgId}/social-posts`, {
     method: "POST",
@@ -214,6 +223,16 @@ export async function publishSocialPost(token, orgId, postId) {
   return request(`/organizations/${orgId}/social-posts/${postId}/publish`, {
     method: "POST",
     headers: authHeaders(token),
+  });
+}
+
+export async function uploadOrganizationMedia(token, orgId, file) {
+  const form = new FormData();
+  form.append("file", file);
+  return request(`/organizations/${orgId}/media`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: form,
   });
 }
 
@@ -241,10 +260,17 @@ export async function updateLocation(token, orgId, locationId, data) {
   });
 }
 
-export async function deleteLocation(token, orgId, locationId) {
+export async function getLocationDeletionImpact(token, orgId, locationId) {
+  return request(`/organizations/${orgId}/locations/${locationId}/deletion-impact`, {
+    headers: authHeaders(token),
+  });
+}
+
+export async function deleteLocation(token, orgId, locationId, data = null) {
   return request(`/organizations/${orgId}/locations/${locationId}`, {
     method: "DELETE",
     headers: authHeaders(token),
+    body: data ? JSON.stringify(data) : undefined,
   });
 }
 

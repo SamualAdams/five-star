@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createLocation, deleteLocation, updateLocation } from "../api";
+import { createLocation, deleteLocation, getLocationDeletionImpact, updateLocation } from "../api";
 
 function PublicLink({ label, url }) {
   const [copied, setCopied] = useState(false);
@@ -21,6 +21,109 @@ function PublicLink({ label, url }) {
   );
 }
 
+function DeleteLocationDialog({ impact, isDeleting, location, locations, onCancel, onConfirm, submitError }) {
+  const otherLocations = locations.filter((item) => item.id !== location.id);
+  const [destination, setDestination] = useState("organization");
+  const [deleteReports, setDeleteReports] = useState(false);
+  const movableCount = impact.feedback + impact.roadmap_items + impact.feed_posts + impact.reports;
+  const destinationIsOrganization = destination === "organization";
+  const reportsNeedDecision = destinationIsOrganization && impact.reports > 0;
+  const inventory = [
+    ["Feedback submissions", impact.feedback],
+    ["Roadmap items", impact.roadmap_items],
+    ["Feed posts", impact.feed_posts],
+    ["Feedback reports", impact.reports],
+  ].filter(([, count]) => count > 0);
+
+  function submit() {
+    if (!movableCount) {
+      onConfirm(null);
+      return;
+    }
+    onConfirm({
+      destination: destinationIsOrganization ? "organization" : "location",
+      destination_location_id: destinationIsOrganization ? null : Number(destination),
+      delete_reports: reportsNeedDecision && deleteReports,
+    });
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={isDeleting ? undefined : onCancel}>
+      <div className="modal-card location-delete-modal" role="dialog" aria-modal="true" aria-labelledby="delete-location-title" onClick={(event) => event.stopPropagation()}>
+        <h2 className="modal-title" id="delete-location-title">Delete “{location.name}”?</h2>
+        <p className="modal-subtitle">
+          {movableCount
+            ? "Choose where this location’s content should live after it is deleted."
+            : "This location has no feedback, roadmap items, posts, or reports."}
+        </p>
+
+        {inventory.length > 0 && (
+          <div className="location-delete-inventory" aria-label="Location content">
+            {inventory.map(([label, count]) => (
+              <div key={label}>
+                <strong>{count}</strong>
+                <span>{label}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {movableCount > 0 && (
+          <label className="location-delete-destination" htmlFor="location-delete-destination">
+            <span className="field-label">Move content to</span>
+            <select
+              className="field-select"
+              id="location-delete-destination"
+              value={destination}
+              onChange={(event) => {
+                setDestination(event.target.value);
+                setDeleteReports(false);
+              }}
+            >
+              <option value="organization">Organization-wide</option>
+              {otherLocations.map((item) => (
+                <option value={item.id} key={item.id}>{item.name}</option>
+              ))}
+            </select>
+            <small>
+              {destinationIsOrganization
+                ? "Feedback, roadmap items, and feed posts will no longer have a location tag."
+                : "All listed content, including reports, will move to the selected location."}
+            </small>
+          </label>
+        )}
+
+        {reportsNeedDecision && (
+          <label className="location-delete-report-warning">
+            <input type="checkbox" checked={deleteReports} onChange={(event) => setDeleteReports(event.target.checked)} />
+            <span>
+              Permanently delete {impact.reports} feedback report{impact.reports === 1 ? "" : "s"}.
+              Reports cannot be organization-wide.
+            </span>
+          </label>
+        )}
+
+        {(impact.social_connections > 0 || impact.team_assignments > 0 || impact.pending_invites > 0) && (
+          <div className="location-delete-side-effects">
+            {impact.social_connections > 0 && <p>{impact.social_connections} location-specific social connection{impact.social_connections === 1 ? "" : "s"} will be disconnected.</p>}
+            {impact.team_assignments > 0 && <p>{impact.team_assignments} team assignment{impact.team_assignments === 1 ? "" : "s"} will be removed.</p>}
+            {impact.pending_invites > 0 && <p>{impact.pending_invites} pending invite{impact.pending_invites === 1 ? "" : "s"} will be cancelled.</p>}
+          </div>
+        )}
+
+        {submitError && <p className="message message--error">{submitError}</p>}
+
+        <div className="location-delete-actions">
+          <button className="btn btn--ghost" type="button" onClick={onCancel} disabled={isDeleting}>Cancel</button>
+          <button className="btn btn--danger" type="button" onClick={submit} disabled={isDeleting || (reportsNeedDecision && !deleteReports)}>
+            {isDeleting ? "Deleting…" : movableCount ? "Move content and delete" : "Delete location"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function LocationsPage({
   locations,
   onLocationsChanged,
@@ -36,6 +139,9 @@ export default function LocationsPage({
   const [timezone, setTimezone] = useState("America/Chicago");
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
+  const [deleteDialog, setDeleteDialog] = useState(null);
+  const [deleteError, setDeleteError] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
 
   async function handleCreate(event) {
     event.preventDefault();
@@ -66,13 +172,27 @@ export default function LocationsPage({
   }
 
   async function handleDelete(location) {
-    if (!window.confirm(`Delete "${location.name}"?`)) return;
     setError("");
     try {
-      await deleteLocation(token, orgId, location.id);
-      await onLocationsChanged();
+      const impact = await getLocationDeletionImpact(token, orgId, location.id);
+      setDeleteDialog({ location, impact });
+      setDeleteError("");
     } catch (err) {
       setError(err.message);
+    }
+  }
+
+  async function confirmDelete(payload) {
+    setDeleteError("");
+    setIsDeleting(true);
+    try {
+      await deleteLocation(token, orgId, deleteDialog.location.id, payload);
+      setDeleteDialog(null);
+      await onLocationsChanged();
+    } catch (err) {
+      setDeleteError(err.message);
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -181,6 +301,19 @@ export default function LocationsPage({
           </article>
         ))}
       </section>
+
+      {deleteDialog && (
+        <DeleteLocationDialog
+          key={deleteDialog.location.id}
+          impact={deleteDialog.impact}
+          isDeleting={isDeleting}
+          location={deleteDialog.location}
+          locations={locations}
+          onCancel={() => !isDeleting && setDeleteDialog(null)}
+          onConfirm={confirmDelete}
+          submitError={deleteError}
+        />
+      )}
     </div>
   );
 }

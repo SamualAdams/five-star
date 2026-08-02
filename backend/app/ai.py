@@ -3,7 +3,7 @@ import json
 from openai import OpenAI
 from pydantic import ValidationError
 
-from .schemas import DigestContent, SocialDraftContent
+from .schemas import DigestContent, SocialDraftContent, WordsmithResponse
 
 STYLE_PROMPTS = {
     "shorten": "Shorten this into a concise public review (2-3 sentences max). Keep the core message.",
@@ -59,6 +59,41 @@ def generate_social_drafts(api_key: str, content: str) -> SocialDraftContent:
     )
     if not response.output_parsed:
         raise ValueError("OpenAI did not return platform drafts")
+    return response.output_parsed
+
+
+def generate_wordsmith_options(
+    api_key: str,
+    content: str,
+    style: str,
+    scope: str,
+) -> WordsmithResponse:
+    """Return three editable alternatives for a caption or selected phrase."""
+    client = OpenAI(api_key=api_key)
+    style_instruction = {
+        "polish": "Polish the writing so it is clear, natural, and confident.",
+        "shorten": "Make the writing meaningfully shorter while preserving every factual claim.",
+        "warmer": "Make the writing warmer and more conversational without inventing enthusiasm or facts.",
+    }[style]
+    scope_instruction = (
+        "The input is a selected phrase from a longer caption. Each option must be a drop-in phrase replacement, not a complete post."
+        if scope == "selection"
+        else "The input is the complete caption. Each option must be a complete replacement caption."
+    )
+    response = client.responses.parse(
+        model="gpt-4o-mini",
+        instructions=(
+            "You are a careful editor for local businesses. Return exactly three genuinely distinct alternatives. "
+            "Preserve names, dates, offers, claims, and meaning. Do not invent facts, hashtags, or promises. "
+            f"{style_instruction} {scope_instruction} "
+            "Give each option a short, useful label describing its approach."
+        ),
+        input=content,
+        max_output_tokens=1200,
+        text_format=WordsmithResponse,
+    )
+    if not response.output_parsed:
+        raise ValueError("OpenAI did not return wordsmith options")
     return response.output_parsed
 
 

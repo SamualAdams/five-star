@@ -1,21 +1,22 @@
 import asyncio
 import json
+import secrets
 from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import httpx
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, status
+from fastapi import Depends, FastAPI, File, Header, HTTPException, Query, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from pydantic import ValidationError
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
-from sqlalchemy import case, func, or_, select
+from sqlalchemy import case, delete, func, or_, select, update
 from sqlalchemy.orm import Session, joinedload
 
-from .ai import generate_digest_content, generate_social_drafts, polish_review
+from .ai import generate_digest_content, generate_social_drafts, generate_wordsmith_options, polish_review
 from .config import get_settings
 from .database import Base, SessionLocal, engine, get_db
 from .dependencies import (
@@ -38,6 +39,7 @@ from .models import (
     Location,
     LocationMembership,
     LocationRole,
+    MediaAsset,
     Organization,
     OrganizationMember,
     PasswordResetToken,
@@ -72,6 +74,8 @@ from .schemas import (
     InitiativeVoteUpdate,
     LocationAssignment,
     LocationCreate,
+    LocationDeleteRequest,
+    LocationDeletionImpact,
     LocationFiveStarStatusUpdate,
     LocationOut,
     LocationReviewLinksUpdate,
@@ -79,6 +83,7 @@ from .schemas import (
     MemberOut,
     MemberLocationAssignmentsUpdate,
     MemberUpdateRole,
+    MediaAssetOut,
     MetaConnectionComplete,
     MetaConnectionOptionsOut,
     MetaInstagramAccountOut,
@@ -112,6 +117,8 @@ from .schemas import (
     UserCreate,
     UserLogin,
     UserOut,
+    WordsmithRequest,
+    WordsmithResponse,
 )
 from .email import send_password_reset_email
 from .ratelimit import limiter
@@ -1198,6 +1205,86 @@ def _load_social_post(
     return post
 
 
+MAX_MEDIA_UPLOAD_BYTES = 8 * 1024 * 1024
+
+
+def _image_content_type(data: bytes) -> str | None:
+    if data.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
+@app.post(
+    "/organizations/{org_id}/media",
+    response_model=MediaAssetOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_organization_media(
+    org_id: int,
+    request: Request,
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MediaAssetOut:
+    require_org_admin(db, user, org_id)
+    require_module_enabled(db, org_id, "feed")
+    data = await file.read(MAX_MEDIA_UPLOAD_BYTES + 1)
+    if not data:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Choose an image to upload")
+    if len(data) > MAX_MEDIA_UPLOAD_BYTES:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Images must be 8 MB or smaller")
+    content_type = _image_content_type(data)
+    if not content_type:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Upload a JPEG, PNG, or WebP image",
+        )
+
+    original_filename = Path(file.filename or "image").name[:255]
+    safe_filename = "".join(
+        character
+        for character in original_filename
+        if character.isascii() and (character.isalnum() or character in "._-")
+    ) or "image"
+    asset = MediaAsset(
+        organization_id=org_id,
+        token=secrets.token_urlsafe(32),
+        filename=safe_filename,
+        content_type=content_type,
+        byte_size=len(data),
+        data=data,
+        uploaded_by=user.id,
+    )
+    db.add(asset)
+    db.commit()
+    db.refresh(asset)
+    return MediaAssetOut(
+        url=str(request.url_for("get_media_asset", media_token=asset.token)),
+        filename=asset.filename,
+        content_type=asset.content_type,
+        byte_size=asset.byte_size,
+    )
+
+
+@app.get("/api/media/{media_token}", name="get_media_asset")
+def get_media_asset(media_token: str, db: Session = Depends(get_db)) -> Response:
+    asset = db.scalar(select(MediaAsset).where(MediaAsset.token == media_token))
+    if not asset:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found")
+    return Response(
+        content=asset.data,
+        media_type=asset.content_type,
+        headers={
+            "Cache-Control": "public, max-age=31536000, immutable",
+            "Content-Disposition": f'inline; filename="{asset.filename}"',
+        },
+    )
+
+
 @app.post(
     "/organizations/{org_id}/social-posts/drafts/generate",
     response_model=SocialDraftContent,
@@ -1224,6 +1311,37 @@ def generate_social_post_drafts(
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"AI generation failed: {exc}",
+        ) from exc
+
+
+@app.post(
+    "/organizations/{org_id}/social-posts/wordsmith",
+    response_model=WordsmithResponse,
+)
+def wordsmith_social_post_text(
+    org_id: int,
+    payload: WordsmithRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> WordsmithResponse:
+    require_org_admin(db, user, org_id)
+    require_module_enabled(db, org_id, "feed")
+    if not settings.openai_api_key:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI wordsmithing is not configured",
+        )
+    try:
+        return generate_wordsmith_options(
+            api_key=settings.openai_api_key,
+            content=payload.text,
+            style=payload.style,
+            scope=payload.scope,
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"AI wordsmithing failed: {exc}",
         ) from exc
 
 
@@ -1303,13 +1421,12 @@ def _publish_social_post(db: Session, post: SocialPost) -> SocialPost:
     now = datetime.utcnow()
     if target_statuses == {"published"}:
         post.status = "published"
-        post.published_at = now
-    elif "published" in target_statuses:
-        post.status = "partial_failure"
-        post.published_at = now
     else:
-        post.status = "failed"
-        post.published_at = None
+        # The Five* feed is the primary destination and is independent of the
+        # optional social copies. A provider failure must never hide the Five*
+        # post that the user just published.
+        post.status = "partial_failure"
+    post.published_at = now
     db.commit()
     db.refresh(post)
     return post
@@ -1677,6 +1794,7 @@ def update_location_review_links(
 def delete_location(
     org_id: int,
     location_id: int,
+    payload: LocationDeleteRequest | None = None,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> None:
@@ -1688,17 +1806,101 @@ def delete_location(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Location not found")
     if location.is_default:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="The default location cannot be deleted")
-    content_count = sum(
-        int(db.scalar(select(func.count()).select_from(model).where(model.location_id == location_id)) or 0)
-        for model in (Feedback, Initiative, Digest)
-    )
-    if content_count:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Move or delete this location's content before deleting it",
-        )
+
+    impact = _location_deletion_impact(db, location_id)
+    movable_count = impact.feedback + impact.roadmap_items + impact.feed_posts + impact.reports
+    if movable_count:
+        if not payload or not payload.destination:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Choose where to move this location's content before deleting it",
+            )
+
+        destination_location_id: int | None = None
+        if payload.destination == "location":
+            if payload.destination_location_id is None or payload.destination_location_id == location_id:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Choose another location")
+            destination = db.scalar(
+                select(Location).where(
+                    Location.id == payload.destination_location_id,
+                    Location.organization_id == org_id,
+                )
+            )
+            if not destination:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Destination location not found")
+            destination_location_id = destination.id
+        elif impact.reports and not payload.delete_reports:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Reports cannot be organization-wide. Move them to another location or confirm their deletion.",
+            )
+
+        for model in (Feedback, Initiative, SocialPost):
+            db.execute(
+                update(model)
+                .where(model.location_id == location_id)
+                .values(location_id=destination_location_id)
+            )
+        if destination_location_id is not None:
+            db.execute(
+                update(Digest)
+                .where(Digest.location_id == location_id)
+                .values(location_id=destination_location_id)
+            )
+        elif impact.reports:
+            db.execute(delete(Digest).where(Digest.location_id == location_id))
+
     db.delete(location)
     db.commit()
+
+
+def _location_deletion_impact(db: Session, location_id: int) -> LocationDeletionImpact:
+    def count(model) -> int:
+        return int(
+            db.scalar(select(func.count()).select_from(model).where(model.location_id == location_id))
+            or 0
+        )
+
+    return LocationDeletionImpact(
+        feedback=count(Feedback),
+        roadmap_items=count(Initiative),
+        feed_posts=count(SocialPost),
+        reports=count(Digest),
+        social_connections=count(SocialConnection),
+        team_assignments=count(LocationMembership),
+        pending_invites=int(
+            db.scalar(
+                select(func.count())
+                .select_from(Invite)
+                .where(
+                    Invite.location_id == location_id,
+                    Invite.used_at.is_(None),
+                )
+            )
+            or 0
+        ),
+    )
+
+
+@app.get(
+    "/organizations/{org_id}/locations/{location_id}/deletion-impact",
+    response_model=LocationDeletionImpact,
+)
+def get_location_deletion_impact(
+    org_id: int,
+    location_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> LocationDeletionImpact:
+    require_org_admin(db, user, org_id)
+    location = db.scalar(
+        select(Location).where(Location.id == location_id, Location.organization_id == org_id)
+    )
+    if not location:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Location not found")
+    if location.is_default:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="The default location cannot be deleted")
+    return _location_deletion_impact(db, location_id)
 
 
 # ---------------------------------------------------------------------------
@@ -2201,6 +2403,7 @@ def get_public_organization_hub(
                 id=location.id,
                 name=location.name,
                 address=location.address,
+                is_default=location.is_default,
                 feedback_token=location.feedback_token,
             )
             for location in locations
@@ -2233,6 +2436,7 @@ def get_organization_feedback_form_info(
                 id=location.id,
                 name=location.name,
                 address=location.address,
+                is_default=location.is_default,
                 feedback_token=location.feedback_token,
             )
             for location in locations
@@ -2782,7 +2986,7 @@ def get_public_organization_feed(
         .options(joinedload(SocialPost.location))
         .where(
             SocialPost.organization_id == organization.id,
-            SocialPost.status == "published",
+            SocialPost.status.in_(("published", "partial_failure")),
             SocialPost.published_at.is_not(None),
         )
     )
