@@ -448,13 +448,15 @@ export default function App() {
             path="/org/:id/feed"
             element={
               isAuthenticated ? (
-                currentOrg?.modules?.feed === false ? (
+                !currentOrg ? (
+                  <div className="route-loading" role="status">Loading feed…</div>
+                ) : currentOrg.modules?.feed === false ? (
                   <ModuleLockedPage isSuperuser={Boolean(user?.is_superuser)} moduleName="Feed" orgId={currentOrg.id} />
                 ) : (
                   <FeedPage
                     token={token}
-                    orgId={currentOrg?.id}
-                    organizationName={currentOrg?.name}
+                    orgId={currentOrg.id}
+                    organizationName={currentOrg.name}
                     locationId={selectedLocationId}
                     locationName={currentLocation?.name}
                     publicPageUrl={`/five-star/${currentOrg.feedback_token}?view=feed${currentLocation ? `&location=${currentLocation.id}` : ""}`}
