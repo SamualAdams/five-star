@@ -3468,10 +3468,25 @@ def serve_frontend(full_path: str) -> FileResponse:
 
     asset_path = (FRONTEND_DIST_DIR / full_path).resolve()
     if full_path and FRONTEND_DIST_DIR in asset_path.parents and asset_path.is_file():
-        return FileResponse(asset_path)
+        # Build assets carry a content hash in their filename, so they can be
+        # cached indefinitely. Everything else is unhashed and may change in place.
+        cache_control = (
+            "public, max-age=31536000, immutable"
+            if full_path.startswith("assets/")
+            else "public, max-age=3600"
+        )
+        return FileResponse(asset_path, headers={"Cache-Control": cache_control})
+
+    # A request for a missing *file* must 404 instead of falling back to the SPA
+    # shell. Returning index.html for a stale `/assets/index-<oldhash>.js` makes
+    # the browser parse HTML as JavaScript, which silently blanks the whole app.
+    if "." in Path(full_path).name:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
 
     index_file = FRONTEND_DIST_DIR / "index.html"
     if index_file.exists():
-        return FileResponse(index_file)
+        # index.html names the hashed assets, so it must never be reused without
+        # revalidating — a stale copy points at builds that no longer exist.
+        return FileResponse(index_file, headers={"Cache-Control": "no-cache"})
 
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Frontend assets not available")
