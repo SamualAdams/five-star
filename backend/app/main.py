@@ -3208,17 +3208,20 @@ def generate_digest(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> DigestOut:
-    """Admin triggers AI generation of a digest for a date range."""
+    """Admin triggers AI generation of a digest for a date range.
+
+    Omitting location_id generates an organization-wide digest that rolls
+    up feedback across every accessible location (plus org-level feedback).
+    """
     membership, locations = resolve_location_scope(
         db,
         user,
         org_id,
         payload.location_id,
         manage=True,
-        require_single=True,
     )
     org = membership.organization
-    location = locations[0]
+    is_org_wide = payload.location_id is None
 
     if not settings.openai_api_key:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="AI generation not configured")
@@ -3226,23 +3229,28 @@ def generate_digest(
     if payload.period_start > payload.period_end:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="period_start must be on or before period_end")
 
-    location_timezone = _location_timezone(location)
-    period_start_utc = (
-        datetime.combine(payload.period_start, time.min, tzinfo=location_timezone)
-        .astimezone(timezone.utc)
-        .replace(tzinfo=None)
+    # Use the widest inclusive window across every location's local timezone
+    # so no feedback near the boundary is dropped due to timezone offsets.
+    location_timezones = [_location_timezone(location) for location in locations]
+    period_start_utc = min(
+        datetime.combine(payload.period_start, time.min, tzinfo=tz).astimezone(timezone.utc).replace(tzinfo=None)
+        for tz in location_timezones
     )
-    period_end_utc = (
-        datetime.combine(payload.period_end + timedelta(days=1), time.min, tzinfo=location_timezone)
-        .astimezone(timezone.utc)
-        .replace(tzinfo=None)
+    period_end_utc = max(
+        datetime.combine(payload.period_end + timedelta(days=1), time.min, tzinfo=tz).astimezone(timezone.utc).replace(tzinfo=None)
+        for tz in location_timezones
     )
+
+    location_ids = [location.id for location in locations]
+    location_filter = Feedback.location_id.in_(location_ids)
+    if is_org_wide and membership.role != Role.LOCATION:
+        location_filter = or_(location_filter, Feedback.location_id.is_(None))
 
     # Fetch feedback in the location's local date range (inclusive).
     feedback_rows = db.scalars(
         select(Feedback)
         .where(Feedback.organization_id == org_id)
-        .where(Feedback.location_id == location.id)
+        .where(location_filter)
         .where(Feedback.created_at >= period_start_utc)
         .where(Feedback.created_at < period_end_utc)
         .order_by(Feedback.created_at)
@@ -3265,7 +3273,7 @@ def generate_digest(
 
     digest = Digest(
         organization_id=org_id,
-        location_id=location.id,
+        location_id=None if is_org_wide else locations[0].id,
         status=DigestStatus.DRAFT,
         period_start=payload.period_start,
         period_end=payload.period_end,
@@ -3294,9 +3302,13 @@ def list_digests(
     is_admin = membership.role == Role.ADMIN
     location_ids = [location.id for location in locations]
 
+    digest_location_filter = Digest.location_id.in_(location_ids)
+    if location_id is None and membership.role != Role.LOCATION:
+        digest_location_filter = or_(digest_location_filter, Digest.location_id.is_(None))
+
     query = select(Digest).where(
         Digest.organization_id == org_id,
-        Digest.location_id.in_(location_ids),
+        digest_location_filter,
     )
     if not is_admin:
         manager_location_ids = list(
@@ -3341,9 +3353,12 @@ def get_digest(
     if not digest:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Digest not found")
 
-    _, _, location_role = require_location_access(db, user, org_id, digest.location_id)
+    if digest.location_id is not None:
+        _, _, location_role = require_location_access(db, user, org_id, digest.location_id)
+        can_view_draft = is_admin or location_role == LocationRole.MANAGER
+    else:
+        can_view_draft = is_admin
 
-    can_view_draft = is_admin or location_role == LocationRole.MANAGER
     if not can_view_draft and digest.status != DigestStatus.PUBLISHED:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Digest not found")
 
@@ -3364,7 +3379,10 @@ def update_digest(
     )
     if not digest:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Digest not found")
-    require_location_access(db, user, org_id, digest.location_id, manage=True)
+    if digest.location_id is not None:
+        require_location_access(db, user, org_id, digest.location_id, manage=True)
+    else:
+        require_org_admin(db, user, org_id)
 
     if digest.status == DigestStatus.PUBLISHED:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Published digests cannot be edited")
@@ -3396,7 +3414,10 @@ def publish_digest(
     )
     if not digest:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Digest not found")
-    require_location_access(db, user, org_id, digest.location_id, manage=True)
+    if digest.location_id is not None:
+        require_location_access(db, user, org_id, digest.location_id, manage=True)
+    else:
+        require_org_admin(db, user, org_id)
 
     if digest.status == DigestStatus.PUBLISHED:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Digest is already published")
@@ -3423,7 +3444,10 @@ def delete_digest(
     )
     if not digest:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Digest not found")
-    require_location_access(db, user, org_id, digest.location_id, manage=True)
+    if digest.location_id is not None:
+        require_location_access(db, user, org_id, digest.location_id, manage=True)
+    else:
+        require_org_admin(db, user, org_id)
 
     db.delete(digest)
     db.commit()

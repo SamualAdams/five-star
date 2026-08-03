@@ -82,6 +82,7 @@ export default function InitiativesManager({
   const [isSaving, setIsSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState("");
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -145,12 +146,12 @@ export default function InitiativesManager({
   }
 
   async function handleDelete(initiative) {
-    if (!window.confirm(`Delete "${initiative.title}"? This cannot be undone.`)) return;
     setIsSaving(true);
     setError("");
     try {
       await deleteOrganizationInitiative(token, orgId, initiative.id);
       setInitiatives((current) => current.filter((item) => item.id !== initiative.id));
+      setDeletingId(null);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -255,8 +256,18 @@ export default function InitiativesManager({
                   </div>
                   {isAdmin && (
                     <div className="initiative-admin-actions">
-                      <button className="btn btn--ghost btn--sm" type="button" disabled={isSaving} onClick={() => setEditingId(initiative.id)}>Edit</button>
-                      <button className="btn btn--ghost btn--sm initiative-delete-button" type="button" disabled={isSaving} onClick={() => handleDelete(initiative)}>Delete</button>
+                      {deletingId === initiative.id ? (
+                        <>
+                          <span>Delete "{initiative.title}"?</span>
+                          <button className="btn btn--danger btn--sm" type="button" disabled={isSaving} onClick={() => handleDelete(initiative)}>Confirm</button>
+                          <button className="btn btn--ghost btn--sm" type="button" disabled={isSaving} onClick={() => setDeletingId(null)}>Cancel</button>
+                        </>
+                      ) : (
+                        <>
+                          <button className="btn btn--ghost btn--sm" type="button" disabled={isSaving} onClick={() => setEditingId(initiative.id)}>Edit</button>
+                          <button className="btn btn--ghost btn--sm initiative-delete-button" type="button" disabled={isSaving} onClick={() => setDeletingId(initiative.id)}>Delete</button>
+                        </>
+                      )}
                     </div>
                   )}
                 </>

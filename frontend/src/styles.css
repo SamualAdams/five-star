@@ -5501,9 +5501,9 @@ html {
 }
 
 .owner-feature-page {
-  width: min(100%, 920px);
+  width: min(100%, 980px);
   margin: 0 auto;
-  padding: 2rem;
+  padding: 3.5rem 2.5rem;
 }
 
 .owner-feature-page .initiatives-manager {
@@ -5812,7 +5812,7 @@ html {
 /* ── Feed and admin scaffolds ───────────────────────────────────────────── */
 
 .feed-page {
-  width: min(100%, 1120px);
+  width: min(100%, 980px);
   margin: 0 auto;
   padding: 3.5rem 2.5rem;
 }
@@ -6960,7 +6960,7 @@ html {
   }
 
   .owner-feature-page {
-    padding: 1.25rem 1rem 2rem;
+    padding: 2.25rem 1.25rem;
   }
 
   .dashboard-widget-grid {
@@ -7179,6 +7179,10 @@ html {
   }
 
   .locations-page {
+    padding: 2rem 1rem;
+  }
+
+  .owner-feature-page {
     padding: 2rem 1rem;
   }
 

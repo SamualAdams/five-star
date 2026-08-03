@@ -84,7 +84,7 @@ export default function FeedPage({
   const [activeChannel, setActiveChannel] = useState(CHANNELS[0].id);
   const [socialExpanded, setSocialExpanded] = useState(false);
   const [imageExpanded, setImageExpanded] = useState(false);
-  const [publishMode, setPublishMode] = useState("now");
+  const [scheduleExpanded, setScheduleExpanded] = useState(false);
   const [channels, setChannels] = useState([]);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState("");
@@ -145,7 +145,7 @@ export default function FeedPage({
     && !selectedInstagramWithoutMedia
   );
   const canSubmit = canPublish && (
-    publishMode !== "schedule" || (scheduleDate && scheduleTime)
+    !scheduleExpanded || (scheduleDate && scheduleTime)
   );
 
   async function loadPublishingData() {
@@ -387,7 +387,7 @@ export default function FeedPage({
     }
   }
 
-  async function submitPost(submitMode = publishMode) {
+  async function submitPost(submitMode = "now") {
     const validForMode = submitMode === "draft" ? canSaveDraft : canSubmit;
     if (!validForMode || working || submitLock.current) return;
     submitLock.current = true;
@@ -396,7 +396,7 @@ export default function FeedPage({
     setNotice("");
     try {
       let scheduledAt = null;
-      if (submitMode === "schedule") {
+      if (scheduleExpanded && scheduleDate && scheduleTime) {
         scheduledAt = new Date(`${scheduleDate}T${scheduleTime}`).toISOString();
       }
       let uploadedMediaUrl = "";
@@ -420,14 +420,14 @@ export default function FeedPage({
         scheduled_at: scheduledAt,
         location_id: locationId,
       });
-      const completed = submitMode === "now"
+      const completed = !scheduledAt
         ? await publishSocialPost(token, orgId, created.id)
         : created;
       setPosts((current) => [completed, ...current.filter((post) => post.id !== completed.id)]);
       setNotice(
         submitMode === "draft"
           ? "Draft saved."
-          : submitMode === "schedule"
+          : scheduledAt
             ? "Post scheduled."
           : completed.status === "published"
             ? "Published to your Five* feed."
@@ -446,7 +446,7 @@ export default function FeedPage({
       setUploadedImage(null);
       setScheduleDate("");
       setScheduleTime("");
-      setPublishMode("now");
+      setScheduleExpanded(false);
       setSocialExpanded(false);
       setImageExpanded(false);
     } catch (err) {
@@ -645,58 +645,46 @@ export default function FeedPage({
             </div>
           </div>
 
-          <section className="feed-publish-inline" aria-labelledby="feed-timing-heading">
-            <div className="feed-section-heading">
-              <div>
-                <h3 id="feed-timing-heading">Post timing</h3>
-                <p>Post now or choose a later date. Social accounts are optional and never required.</p>
-              </div>
-            </div>
+          {selectedInstagramWithoutMedia && (
+            <p className="message message--error">Add an image link to include Instagram.</p>
+          )}
+          {error && <p className="message message--error" role="alert">{error}</p>}
+          {notice && <p className="message message--success" role="status">{notice}</p>}
 
-            <div className="feed-schedule-row">
-              <div className="feed-publish-toggle" aria-label="Publishing time">
-                <button
-                  className={publishMode === "now" ? "feed-publish-option feed-publish-option--active" : "feed-publish-option"}
-                  onClick={() => setPublishMode("now")}
-                  type="button"
-                >
-                  Now
-                </button>
-                <button
-                  className={publishMode === "schedule" ? "feed-publish-option feed-publish-option--active" : "feed-publish-option"}
-                  onClick={() => setPublishMode("schedule")}
-                  type="button"
-                >
-                  Schedule for later
-                </button>
-              </div>
-              {publishMode === "schedule" && (
-                <div className="feed-date-fields">
-                  <input
-                    className="field-input"
-                    aria-label="Schedule date"
-                    onChange={(event) => setScheduleDate(event.target.value)}
-                    type="date"
-                    value={scheduleDate}
-                  />
-                  <input
-                    className="field-input"
-                    aria-label="Schedule time"
-                    onChange={(event) => setScheduleTime(event.target.value)}
-                    type="time"
-                    value={scheduleTime}
-                  />
-                </div>
-              )}
-            </div>
+          <section className="feed-schedule-section" aria-labelledby="feed-schedule-heading">
+            <button
+              aria-expanded={scheduleExpanded}
+              className="feed-image-toggle"
+              onClick={() => setScheduleExpanded((current) => !current)}
+              type="button"
+              id="feed-schedule-heading"
+            >
+              <span aria-hidden="true">{scheduleExpanded ? "−" : "+"}</span>
+              Schedule post
+              <small>Optional</small>
+            </button>
 
-            {selectedInstagramWithoutMedia && (
-              <p className="message message--error">Add an image link to include Instagram.</p>
+            {scheduleExpanded && (
+              <div className="feed-date-fields">
+                <input
+                  className="field-input"
+                  aria-label="Schedule date"
+                  onChange={(event) => setScheduleDate(event.target.value)}
+                  type="date"
+                  value={scheduleDate}
+                />
+                <input
+                  className="field-input"
+                  aria-label="Schedule time"
+                  onChange={(event) => setScheduleTime(event.target.value)}
+                  type="time"
+                  value={scheduleTime}
+                />
+              </div>
             )}
-            {error && <p className="message message--error" role="alert">{error}</p>}
-            {notice && <p className="message message--success" role="status">{notice}</p>}
+          </section>
 
-            <div className="feed-composer-actions">
+          <div className="feed-composer-actions">
             <button
               className="btn btn--ghost"
               type="button"
@@ -709,16 +697,15 @@ export default function FeedPage({
               className="btn btn--primary"
               type="button"
               disabled={!canSubmit || working}
-              onClick={() => submitPost(publishMode)}
+              onClick={() => submitPost("now")}
             >
               {working
                 ? "Working…"
-                : publishMode === "schedule"
+                : scheduleExpanded && scheduleDate && scheduleTime
                   ? "Schedule post"
                   : "Publish to Five*"}
             </button>
-            </div>
-          </section>
+          </div>
 
           <section className={`feed-drafts-section${socialExpanded ? " feed-drafts-section--expanded" : ""}`} aria-labelledby="feed-drafts-heading">
             <button
@@ -932,7 +919,6 @@ export default function FeedPage({
               </div>
             ) : (
               <div className="feed-empty-state">
-                <span aria-hidden="true">*</span>
                 <strong>No Five* posts yet</strong>
                 <p>Published posts will appear here immediately.</p>
               </div>
@@ -956,7 +942,6 @@ export default function FeedPage({
               </div>
             ) : (
               <div className="feed-empty-state">
-                <span aria-hidden="true">◇</span>
                 <strong>No saved drafts</strong>
                 <p>Save a prepared post to finish it later.</p>
               </div>
@@ -980,7 +965,6 @@ export default function FeedPage({
               </div>
             ) : (
               <div className="feed-empty-state">
-                <span aria-hidden="true">◷</span>
                 <strong>No posts scheduled</strong>
                 <p>Your scheduled content will appear here.</p>
               </div>

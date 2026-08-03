@@ -14,9 +14,7 @@ const HORIZONS = [
   { label: "Last 3 days", days: 3 },
   { label: "Last 7 days", days: 7 },
   { label: "Last month", days: 30 },
-  { label: "Last quarter", days: 90 },
   { label: "Last 6 months", days: 180 },
-  { label: "Last year", days: 365 },
 ];
 
 function dateInTimezoneIso(daysAgo, timezone) {
@@ -471,7 +469,7 @@ export default function DigestManager({ token, orgId, locationId, isAdmin, timez
         <div style={{ marginBottom: "1.5rem" }}>
           {!locationId && (
             <p className="message message--info" style={{ marginBottom: "0.5rem" }}>
-              Select one location to generate a report. The chart and existing reports can still roll up every location.
+              This will generate an organization-wide report rolling up every location. Choose a single location above to scope it instead.
             </p>
           )}
           {generateError && <p className="message message--error" style={{ marginBottom: "0.5rem" }}>{generateError}</p>}
@@ -479,7 +477,7 @@ export default function DigestManager({ token, orgId, locationId, isAdmin, timez
             type="button"
             className="btn btn--primary"
             onClick={handleGenerate}
-            disabled={isGenerating || !locationId}
+            disabled={isGenerating}
           >
             {isGenerating ? "Generating report…" : `Generate Report for ${selectedHorizon.label.toLowerCase()}`}
           </button>
