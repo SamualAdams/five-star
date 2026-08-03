@@ -513,7 +513,7 @@ class DigestUpdate(BaseModel):
 class DigestOut(BaseModel):
     id: int
     organization_id: int
-    location_id: int
+    location_id: int | None
     location_name: str
     status: str
     period_start: Date

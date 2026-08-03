@@ -293,7 +293,7 @@ class Digest(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"), nullable=False)
-    location_id: Mapped[int] = mapped_column(ForeignKey("locations.id", ondelete="RESTRICT"), nullable=False, index=True)
+    location_id: Mapped[int | None] = mapped_column(ForeignKey("locations.id", ondelete="RESTRICT"), nullable=True, index=True)
     status: Mapped[DigestStatus] = mapped_column(SQLEnum(DigestStatus), nullable=False, default=DigestStatus.DRAFT)
     period_start: Mapped[date] = mapped_column(Date, nullable=False)
     period_end: Mapped[date] = mapped_column(Date, nullable=False)
@@ -308,13 +308,13 @@ class Digest(Base):
     published_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
 
     organization: Mapped["Organization"] = relationship(back_populates="digests")
-    location: Mapped["Location"] = relationship(back_populates="digests")
+    location: Mapped["Location | None"] = relationship(back_populates="digests")
     generator: Mapped["User"] = relationship(foreign_keys=[generated_by])
     publisher: Mapped["User | None"] = relationship(foreign_keys=[published_by])
 
     @property
     def location_name(self) -> str:
-        return self.location.name
+        return self.location.name if self.location else "All locations"
 
 
 class PasswordResetToken(Base):
