@@ -144,62 +144,13 @@ export async function deleteOrganization(token, orgId) {
   });
 }
 
-// Social connections
-
-export async function listSocialConnections(token, orgId, locationId = null) {
-  const params = new URLSearchParams();
-  if (locationId) params.set("location_id", locationId);
-  return request(`/organizations/${orgId}/social-connections${params.size ? `?${params}` : ""}`, {
-    headers: authHeaders(token),
-  });
-}
-
-export async function beginSocialConnection(token, orgId, provider, locationId = null) {
-  const params = new URLSearchParams();
-  if (locationId) params.set("location_id", locationId);
-  return request(`/organizations/${orgId}/social-connections/${provider}/authorize${params.size ? `?${params}` : ""}`, {
-    method: "POST",
-    headers: authHeaders(token),
-  });
-}
-
-export async function disconnectSocialConnection(token, orgId, provider, locationId = null) {
-  const params = new URLSearchParams();
-  if (locationId) params.set("location_id", locationId);
-  return request(`/organizations/${orgId}/social-connections/${provider}${params.size ? `?${params}` : ""}`, {
-    method: "DELETE",
-    headers: authHeaders(token),
-  });
-}
-
-export async function getFacebookPageOptions(token, orgId, setupToken) {
-  return request(
-    `/organizations/${orgId}/social-connections/facebook/options?setup=${encodeURIComponent(setupToken)}`,
-    { headers: authHeaders(token) }
-  );
-}
-
-export async function completeFacebookConnection(token, orgId, setupToken, pageId) {
-  return request(`/organizations/${orgId}/social-connections/facebook/complete`, {
-    method: "POST",
-    headers: authHeaders(token),
-    body: JSON.stringify({ setup_token: setupToken, page_id: pageId }),
-  });
-}
+// Feed posts
 
 export async function listSocialPosts(token, orgId, limit = 25, locationId = null) {
   const params = new URLSearchParams({ limit: String(limit) });
   if (locationId) params.set("location_id", locationId);
   return request(`/organizations/${orgId}/social-posts?${params}`, {
     headers: authHeaders(token),
-  });
-}
-
-export async function generateSocialDrafts(token, orgId, masterCaption) {
-  return request(`/organizations/${orgId}/social-posts/drafts/generate`, {
-    method: "POST",
-    headers: authHeaders(token),
-    body: JSON.stringify({ master_caption: masterCaption }),
   });
 }
 
@@ -364,6 +315,10 @@ export async function acceptInvite(authToken, inviteToken) {
 
 export async function searchOrganizations(query) {
   return request(`/organizations/search?q=${encodeURIComponent(query)}`);
+}
+
+export async function searchDirectory(query) {
+  return request(`/directory/search?q=${encodeURIComponent(query)}`);
 }
 
 export async function submitUnlistedBusinessFeedback(data) {

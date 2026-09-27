@@ -63,11 +63,11 @@ class OrganizationModulesUpdate(BaseModel):
 
 
 class OrganizationFiveStarStatusUpdate(BaseModel):
-    status: int = Field(ge=1, le=5)
+    status: int = Field(ge=0, le=5)
 
 
 class LocationFiveStarStatusUpdate(BaseModel):
-    status: int | None = Field(default=None, ge=1, le=5)
+    status: int | None = Field(default=None, ge=0, le=5)
 
 
 class ReviewLink(BaseModel):
@@ -83,14 +83,16 @@ class OrganizationOut(BaseModel):
     id: int
     name: str
     created_at: datetime
-    created_by: int
+    created_by: int | None
     role: str
     feedback_token: str
     review_links: list[ReviewLink] | None = None
     can_view_all_locations: bool = False
     can_manage_organization: bool = False
     modules: OrganizationModulesOut
-    five_star_status: int = 1
+    five_star_status: int = 0
+    # False for businesses five* created from the directory that nobody has joined yet
+    is_claimed: bool = True
 
 
 # Location schemas
@@ -120,7 +122,7 @@ class LocationOut(BaseModel):
     review_links_override: list[ReviewLink] | None = None
     access_role: str
     can_manage: bool
-    five_star_status: int = 1
+    five_star_status: int = 0
     five_star_status_override: int | None = None
     created_at: datetime
 
@@ -134,7 +136,6 @@ class LocationDeletionImpact(BaseModel):
     roadmap_items: int = 0
     feed_posts: int = 0
     reports: int = 0
-    social_connections: int = 0
     team_assignments: int = 0
     pending_invites: int = 0
 
@@ -253,6 +254,17 @@ class UnlistedBusinessFeedbackSubmit(BaseModel):
     content: str = Field(min_length=1, max_length=5000)
     submitter_email: EmailStr | None = None
     submitter_name: str | None = Field(None, max_length=255)
+    directory_place_id: int | None = None
+
+
+class DirectoryPlaceResult(BaseModel):
+    id: int
+    name: str
+    street: str | None
+    city: str | None
+    state: str | None
+    zip: str | None
+    category: str | None
 
 
 class InitiativeCreate(BaseModel):
@@ -308,71 +320,6 @@ class ReviewPolishResponse(BaseModel):
     draft: str
 
 
-# Social connection schemas
-
-
-class SocialConnectionOut(BaseModel):
-    provider: Literal["facebook", "instagram", "tiktok"]
-    name: str
-    description: str
-    configured: bool
-    connected: bool
-    publishing_enabled: bool
-    status: str
-    provider_account_id: str | None = None
-    provider_account_name: str | None = None
-    scopes: list[str] = Field(default_factory=list)
-    expires_at: datetime | None = None
-    connected_at: datetime | None = None
-    connection_method: str | None = None
-    linked_page_name: str | None = None
-    diagnostic: str | None = None
-    location_id: int | None = None
-    inherited: bool = False
-
-
-class SocialAuthorizationOut(BaseModel):
-    authorization_url: str
-
-
-class MetaInstagramAccountOut(BaseModel):
-    id: str
-    username: str | None = None
-    name: str | None = None
-    profile_picture_url: str | None = None
-
-
-class MetaPageOptionOut(BaseModel):
-    id: str
-    name: str
-    tasks: list[str] = Field(default_factory=list)
-    instagram: MetaInstagramAccountOut | None = None
-
-
-class MetaConnectionOptionsOut(BaseModel):
-    pages: list[MetaPageOptionOut]
-
-
-class MetaConnectionComplete(BaseModel):
-    setup_token: str = Field(min_length=20, max_length=200)
-    page_id: str = Field(min_length=1, max_length=255)
-
-
-class SocialPostTargetCreate(BaseModel):
-    provider: Literal["facebook", "instagram", "tiktok"]
-    content: str = Field(min_length=1, max_length=10000)
-
-
-class SocialDraftGenerate(BaseModel):
-    master_caption: str = Field(min_length=1, max_length=10000)
-
-
-class SocialDraftContent(BaseModel):
-    facebook: str = Field(min_length=1, max_length=10000)
-    instagram: str = Field(min_length=1, max_length=10000)
-    tiktok: str = Field(min_length=1, max_length=10000)
-
-
 class WordsmithRequest(BaseModel):
     text: str = Field(min_length=1, max_length=10000)
     style: Literal["polish", "shorten", "warmer"]
@@ -390,7 +337,6 @@ class WordsmithResponse(BaseModel):
 
 class SocialPostCreate(BaseModel):
     master_caption: str = Field(min_length=1, max_length=10000)
-    targets: list[SocialPostTargetCreate] = Field(default_factory=list, max_length=4)
     media_urls: list[str] = Field(default_factory=list, max_length=10)
     scheduled_at: datetime | None = None
     location_id: int | None = None
@@ -407,17 +353,6 @@ class MediaAssetOut(BaseModel):
     byte_size: int
 
 
-class SocialPostTargetOut(BaseModel):
-    id: int
-    # Old saved posts can retain a now-hidden provider; keep their history readable.
-    provider: str
-    content: str
-    status: str
-    remote_post_id: str | None = None
-    error: str | None = None
-    published_at: datetime | None = None
-
-
 class SocialPostOut(BaseModel):
     id: int
     organization_id: int
@@ -431,7 +366,6 @@ class SocialPostOut(BaseModel):
     created_by: int
     created_at: datetime
     updated_at: datetime
-    targets: list[SocialPostTargetOut] = Field(default_factory=list)
 
 
 class PublicLocationOut(BaseModel):

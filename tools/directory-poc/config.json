@@ -1,0 +1,37 @@
+{
+  "overture_release": "2026-09-23.1",
+  "stale_before": "2024-01-01",
+  "areas": {
+    "baton_rouge": {
+      "label": "Greater Baton Rouge, LA",
+      "bbox": { "xmin": -91.30, "ymin": 30.30, "xmax": -90.95, "ymax": 30.60 }
+    },
+    "louisiana": {
+      "label": "Louisiana",
+      "bbox": { "xmin": -94.05, "ymin": 28.85, "xmax": -88.75, "ymax": 33.03 },
+      "region": "LA"
+    }
+  },
+  "exclude_top_categories": [
+    "geographic_entities",
+    "cultural_and_historic",
+    "community_and_government"
+  ],
+  "exclude_categories": [
+    "atm", "park", "playground", "recreational_trail_or_path", "dog_park", "skate_park",
+    "sport_field", "sport_court", "swimming_pool", "public_plaza", "public_fountain",
+    "parking", "parking_lot", "parking_garage", "bridge",
+    "elementary_school", "middle_school", "high_school", "school_district_office",
+    "education_office", "campus_building",
+    "corporate_or_business_office", "manufacturer", "wholesaler", "supplier_or_distributor",
+    "industrial_facility_or_service", "b2b_service", "b2b_transportation_and_storage_service",
+    "b2b_office_and_professional_service", "b2b_industrial_and_machine_service",
+    "b2b_energy_and_utility_service", "b2b_science_and_technology_service"
+  ],
+  "department_words": [
+    "pharmacy", "bakery", "deli", "garden center", "vision", "vision center", "vision glasses",
+    "optical", "tech", "auto care", "auto care center", "auto care centers", "auto center",
+    "tire", "tire center", "photo", "photo center", "money center", "pickup", "fuel", "gas",
+    "gas station", "floral", "meat", "seafood", "liquor", "wine", "pharmacy drive thru"
+  ]
+}

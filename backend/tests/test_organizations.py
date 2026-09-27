@@ -17,7 +17,7 @@ def test_create_and_list_organization(client, auth_headers):
     assert org["role"] == "organization_admin"
     assert org["feedback_token"]
     assert org["modules"] == {"feedback": True, "roadmap": False, "feed": False}
-    assert org["five_star_status"] == 1
+    assert org["five_star_status"] == 0
 
     listing = client.get("/organizations", headers=headers)
     assert listing.status_code == 200
@@ -211,6 +211,21 @@ def test_superuser_manages_inherited_organization_and_location_five_star_status(
     status_by_id = {location["id"]: location["five_star_status"] for location in locations_after_org_change}
     assert status_by_id[second_location["id"]] == 2
     assert 5 in status_by_id.values()
+
+    # 0 (not verified) is a valid status for organizations and location overrides
+    zeroed = client.patch(
+        f"/organizations/{org['id']}/locations/{second_location['id']}/five-star-status",
+        json={"status": 0},
+        headers=superuser_headers,
+    )
+    assert zeroed.status_code == 200, zeroed.text
+    assert zeroed.json()["five_star_status"] == 0
+    assert zeroed.json()["five_star_status_override"] == 0
+    assert client.patch(
+        f"/organizations/{org['id']}/five-star-status",
+        json={"status": -1},
+        headers=superuser_headers,
+    ).status_code == 422
 
     inherited_again = client.patch(
         f"/organizations/{org['id']}/locations/{second_location['id']}/five-star-status",

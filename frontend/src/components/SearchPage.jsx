@@ -1,12 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { searchOrganizations, submitUnlistedBusinessFeedback } from "../api";
+import { searchDirectory, searchOrganizations, submitUnlistedBusinessFeedback } from "../api";
+
+const SEARCH_DEBOUNCE_MS = 250;
+
+function formatPlaceAddress(place) {
+  return [place.street, place.city, place.state].filter(Boolean).join(", ");
+}
 
 export default function SearchPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
+  const [places, setPlaces] = useState([]);
+  const [selectedPlace, setSelectedPlace] = useState(null);
+  const searchTimer = useRef(null);
+  const latestSearch = useRef(0);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [showMissingBusinessForm, setShowMissingBusinessForm] = useState(false);
@@ -21,34 +31,57 @@ export default function SearchPage() {
   const [missingBusinessError, setMissingBusinessError] = useState("");
   const [missingBusinessSubmitted, setMissingBusinessSubmitted] = useState(false);
 
-  async function handleSearch(searchQuery) {
+  function handleSearch(searchQuery) {
     setQuery(searchQuery);
+    clearTimeout(searchTimer.current);
 
     if (!searchQuery || searchQuery.trim().length < 2) {
+      latestSearch.current += 1;
       setResults([]);
+      setPlaces([]);
       setHasSearched(false);
+      setIsSearching(false);
       return;
     }
 
     setIsSearching(true);
-    setHasSearched(true);
+    searchTimer.current = setTimeout(() => runSearch(searchQuery), SEARCH_DEBOUNCE_MS);
+  }
 
-    try {
-      const orgs = await searchOrganizations(searchQuery);
-      setResults(orgs);
-    } catch (err) {
-      setResults([]);
-    } finally {
-      setIsSearching(false);
-    }
+  async function runSearch(searchQuery) {
+    const searchId = ++latestSearch.current;
+    const [orgs, directoryPlaces] = await Promise.all([
+      searchOrganizations(searchQuery).catch(() => []),
+      searchDirectory(searchQuery).catch(() => []),
+    ]);
+    // A slower, older request must not overwrite results for what's typed now.
+    if (searchId !== latestSearch.current) return;
+    setResults(orgs);
+    setPlaces(directoryPlaces);
+    setHasSearched(true);
+    setIsSearching(false);
   }
 
   function openMissingBusinessForm() {
+    setSelectedPlace(null);
     setMissingBusiness((current) => ({
       ...current,
       business_name: current.business_name || query.trim(),
     }));
     setMissingBusinessError("");
+    setMissingBusinessSubmitted(false);
+    setShowMissingBusinessForm(true);
+  }
+
+  function openPlaceFeedbackForm(place) {
+    setSelectedPlace(place);
+    setMissingBusiness((current) => ({
+      ...current,
+      business_name: place.name,
+      location_hint: formatPlaceAddress(place) || place.name,
+    }));
+    setMissingBusinessError("");
+    setMissingBusinessSubmitted(false);
     setShowMissingBusinessForm(true);
   }
 
@@ -65,6 +98,7 @@ export default function SearchPage() {
     try {
       await submitUnlistedBusinessFeedback({
         ...missingBusiness,
+        directory_place_id: selectedPlace?.id,
         submitter_name: missingBusiness.submitter_name || undefined,
         submitter_email: missingBusiness.submitter_email || undefined,
       });
@@ -81,6 +115,7 @@ export default function SearchPage() {
     if (q) {
       handleSearch(q);
     }
+    return () => clearTimeout(searchTimer.current);
   }, []);
 
   return (
@@ -103,12 +138,13 @@ export default function SearchPage() {
           {isSearching && <div className="search-spinner">Searching...</div>}
         </div>
 
-        {hasSearched && !isSearching && (
+        {hasSearched && !isSearching && !showMissingBusinessForm && (
           <div className="search-results">
-            {results.length > 0 ? (
+            {results.length + places.length > 0 ? (
               <>
                 <p className="search-results-count">
-                  Found {results.length} organization{results.length !== 1 ? "s" : ""}
+                  Found {results.length + places.length} business
+                  {results.length + places.length !== 1 ? "es" : ""}
                 </p>
                 <ul className="search-results-list">
                   {results.map((org) => (
@@ -122,6 +158,23 @@ export default function SearchPage() {
                             </button>
                           )}
                           <button className="btn btn--primary btn--sm" type="button" onClick={() => navigate(`/feedback/organization/${org.feedback_token}`)}>
+                            Leave feedback
+                          </button>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                  {places.map((place) => (
+                    <li key={`place-${place.id}`} className="search-result-item">
+                      <div className="search-result-card">
+                        <div className="search-result-text">
+                          <span className="search-result-name">{place.name}</span>
+                          {formatPlaceAddress(place) && (
+                            <span className="search-result-address">{formatPlaceAddress(place)}</span>
+                          )}
+                        </div>
+                        <div className="search-result-actions">
+                          <button className="btn btn--primary btn--sm" type="button" onClick={() => openPlaceFeedbackForm(place)}>
                             Leave feedback
                           </button>
                         </div>
@@ -145,7 +198,7 @@ export default function SearchPage() {
           </div>
         )}
 
-        {hasSearched && results.length > 0 && !showMissingBusinessForm && (
+        {hasSearched && !isSearching && results.length + places.length > 0 && !showMissingBusinessForm && (
           <button className="search-missing-link" type="button" onClick={openMissingBusinessForm}>
             Can&apos;t find the exact business or location?
           </button>
@@ -158,41 +211,61 @@ export default function SearchPage() {
                 <p className="section-kicker">We&apos;ve got it</p>
                 <h2 id="missing-business-title">We&apos;ll take it from here.</h2>
                 <p>
-                  We&apos;ll find the business, identify the right location, and make sure your
-                  feedback gets where it belongs.
+                  {selectedPlace
+                    ? `We'll make sure ${selectedPlace.name} gets your feedback.`
+                    : "We'll find the business, identify the right location, and make sure your feedback gets where it belongs."}
                 </p>
               </div>
             ) : (
               <form onSubmit={handleMissingBusinessSubmit}>
-                <p className="section-kicker">Not in the catalog yet</p>
-                <h2 id="missing-business-title">Tell us what you know.</h2>
-                <p className="search-missing-intro">
-                  A business does not need to be listed for you to speak. Give us enough detail to
-                  find it, then share what is on your mind.
-                </p>
+                {selectedPlace ? (
+                  <>
+                    <p className="section-kicker">Leave feedback</p>
+                    <h2 id="missing-business-title">{selectedPlace.name}</h2>
+                    <p className="search-missing-intro">
+                      {formatPlaceAddress(selectedPlace)}
+                      {formatPlaceAddress(selectedPlace) && <br />}
+                      This business isn&apos;t on five* yet. Share what&apos;s on your mind and
+                      we&apos;ll make sure it reaches them.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="section-kicker">Not in the catalog yet</p>
+                    <h2 id="missing-business-title">Tell us what you know.</h2>
+                    <p className="search-missing-intro">
+                      A business does not need to be listed for you to speak. Give us enough detail to
+                      find it, then share what is on your mind.
+                    </p>
+                  </>
+                )}
 
-                <label className="field-label" htmlFor="missing-business-name">Business name</label>
-                <input
-                  id="missing-business-name"
-                  className="search-input"
-                  name="business_name"
-                  value={missingBusiness.business_name}
-                  onChange={updateMissingBusinessField}
-                  maxLength={255}
-                  required
-                />
+                {!selectedPlace && (
+                  <>
+                    <label className="field-label" htmlFor="missing-business-name">Business name</label>
+                    <input
+                      id="missing-business-name"
+                      className="search-input"
+                      name="business_name"
+                      value={missingBusiness.business_name}
+                      onChange={updateMissingBusinessField}
+                      maxLength={255}
+                      required
+                    />
 
-                <label className="field-label" htmlFor="missing-location">Location</label>
-                <input
-                  id="missing-location"
-                  className="search-input"
-                  name="location_hint"
-                  value={missingBusiness.location_hint}
-                  onChange={updateMissingBusinessField}
-                  placeholder="Street, neighborhood, city, or nearby landmark"
-                  maxLength={500}
-                  required
-                />
+                    <label className="field-label" htmlFor="missing-location">Location</label>
+                    <input
+                      id="missing-location"
+                      className="search-input"
+                      name="location_hint"
+                      value={missingBusiness.location_hint}
+                      onChange={updateMissingBusinessField}
+                      placeholder="Street, neighborhood, city, or nearby landmark"
+                      maxLength={500}
+                      required
+                    />
+                  </>
+                )}
 
                 <label className="field-label" htmlFor="missing-feedback">Your feedback</label>
                 <textarea

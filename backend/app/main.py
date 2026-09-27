@@ -3,21 +3,21 @@ import json
 import secrets
 from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
-from urllib.parse import urlencode
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-import httpx
-from fastapi import Depends, FastAPI, File, Header, HTTPException, Query, Request, UploadFile, status
+from fastapi import BackgroundTasks, Depends, FastAPI, File, Header, HTTPException, Query, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, Response
 from pydantic import ValidationError
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
 from sqlalchemy import case, delete, func, or_, select, update
 from sqlalchemy.orm import Session, joinedload
 
-from .ai import generate_digest_content, generate_social_drafts, generate_wordsmith_options, polish_review
+from .ai import generate_digest_content, generate_wordsmith_options, polish_review
 from .config import get_settings
+from .directory_orgs import is_claimed, location_for_place
+from .directory_text import split_query
 from .database import Base, SessionLocal, engine, get_db
 from .dependencies import (
     get_accessible_locations,
@@ -31,6 +31,7 @@ from .dependencies import (
 from .models import (
     Digest,
     DigestStatus,
+    DirectoryPlace,
     Feedback,
     Initiative,
     InitiativeStatus,
@@ -44,12 +45,8 @@ from .models import (
     OrganizationMember,
     PasswordResetToken,
     Role,
-    SocialConnection,
-    SocialConnectionSetup,
-    SocialOAuthState,
     SocialPost,
     SocialPostReaction,
-    SocialPostTarget,
     UnlistedBusinessFeedback,
     User,
 )
@@ -58,6 +55,7 @@ from .schemas import (
     BoardOut,
     DigestContent,
     DigestGenerate,
+    DirectoryPlaceResult,
     DigestOut,
     DigestUpdate,
     FeedbackFormInfo,
@@ -86,10 +84,6 @@ from .schemas import (
     MemberLocationAssignmentsUpdate,
     MemberUpdateRole,
     MediaAssetOut,
-    MetaConnectionComplete,
-    MetaConnectionOptionsOut,
-    MetaInstagramAccountOut,
-    MetaPageOptionOut,
     OrganizationCreate,
     OrganizationFiveStarStatusUpdate,
     OrganizationFeedbackFormInfo,
@@ -106,14 +100,9 @@ from .schemas import (
     ReviewLink,
     ReviewPolishRequest,
     ReviewPolishResponse,
-    SocialAuthorizationOut,
-    SocialConnectionOut,
-    SocialDraftContent,
-    SocialDraftGenerate,
     SocialPostCreate,
     SocialPostOut,
     SocialPostReactionUpdate,
-    SocialPostTargetOut,
     SocialPostUpdate,
     ForgotPasswordRequest,
     ResetPasswordRequest,
@@ -125,7 +114,7 @@ from .schemas import (
     WordsmithRequest,
     WordsmithResponse,
 )
-from .email import send_password_reset_email
+from .email import send_feedback_notification, send_password_reset_email
 from .ratelimit import limiter
 from .security import (
     create_access_token,
@@ -136,26 +125,6 @@ from .security import (
     hash_reset_token,
     is_invite_valid,
     verify_password,
-)
-from .social import (
-    PROVIDER_DETAILS,
-    SUPPORTED_PROVIDERS,
-    SocialProviderError,
-    build_authorization_url,
-    decrypt_token,
-    encrypt_token,
-    exchange_social_code,
-    fetch_facebook_pages,
-    fetch_social_identity,
-    generate_oauth_state,
-    hash_oauth_state,
-    parse_meta_signed_request,
-    provider_configured,
-    publish_social_content,
-    requested_scopes,
-    revoke_social_token,
-    token_expiry,
-    validate_provider,
 )
 
 
@@ -373,6 +342,7 @@ def _organization_out(db: Session, membership: OrganizationMember) -> Organizati
             feed=org.feed_enabled,
         ),
         five_star_status=org.five_star_status,
+        is_claimed=is_claimed(db, org.id),
     )
 
 
@@ -471,6 +441,47 @@ def search_organizations(request: Request, q: str, db: Session = Depends(get_db)
     ]
 
 
+@app.get("/directory/search", response_model=list[DirectoryPlaceResult])
+@limiter.limit("30/minute")
+def search_directory(
+    request: Request,
+    q: str,
+    lat: float | None = Query(None, ge=-90, le=90),
+    lon: float | None = Query(None, ge=-180, le=180),
+    db: Session = Depends(get_db),
+) -> list[DirectoryPlaceResult]:
+    """Public endpoint - search businesses that aren't on five* yet.
+
+    Understands "canes on lee" / "chick fil a ben hur": each reading from
+    split_query is tried in order (whole query as the name first), every word
+    must prefix-match a word of the name or street. Closest first when the
+    caller passes lat/lon. Places that already became organizations stay
+    searchable; feedback for them goes to their location.
+    """
+    limit = 20
+    results: dict[int, DirectoryPlace] = {}
+    for name, street in split_query(q):
+        if len(name) < 2:
+            continue
+        conditions = [DirectoryPlace.active.is_(True)]
+        conditions += [DirectoryPlace.name_search.like(f"% {w}%") for w in name.split()]
+        conditions += [DirectoryPlace.street_search.like(f"% {w}%") for w in street.split()]
+        ordering = [case((DirectoryPlace.name_search == f" {name} ", 0), else_=1)]
+        if lat is not None and lon is not None:
+            ordering.append(
+                (DirectoryPlace.lat - lat) * (DirectoryPlace.lat - lat)
+                + (DirectoryPlace.lon - lon) * (DirectoryPlace.lon - lon) * 0.75
+            )
+        ordering += [func.length(DirectoryPlace.name), DirectoryPlace.id]
+        for place in db.scalars(
+            select(DirectoryPlace).where(*conditions).order_by(*ordering).limit(limit)
+        ):
+            results.setdefault(place.id, place)
+        if len(results) >= limit:
+            break
+    return [DirectoryPlaceResult.model_validate(p, from_attributes=True) for p in list(results.values())[:limit]]
+
+
 @app.post(
     "/api/feedback/unlisted",
     response_model=FeedbackSubmitResponse,
@@ -480,9 +491,43 @@ def search_organizations(request: Request, q: str, db: Session = Depends(get_db)
 def submit_unlisted_business_feedback(
     request: Request,
     payload: UnlistedBusinessFeedbackSubmit,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ) -> FeedbackSubmitResponse:
-    """Accept feedback even when the sender cannot find the business in the catalog."""
+    """Feedback for a business from the directory, or one the sender couldn't find.
+
+    A directory place becomes an (unclaimed) organization + location on its first
+    feedback, and the feedback is stored like any other. Free-text businesses the
+    sender couldn't find are kept separately for five* to track down.
+    """
+    place = (
+        db.scalar(select(DirectoryPlace).where(DirectoryPlace.id == payload.directory_place_id, DirectoryPlace.active))
+        if payload.directory_place_id
+        else None
+    )
+    if place is not None:
+        location = location_for_place(db, place)
+        feedback = Feedback(
+            organization_id=location.organization_id,
+            location_id=location.id,
+            content=payload.content.strip(),
+            submitter_email=payload.submitter_email.lower() if payload.submitter_email else None,
+            submitter_name=payload.submitter_name.strip() if payload.submitter_name else None,
+            is_anonymous=not payload.submitter_email and not payload.submitter_name,
+        )
+        db.add(feedback)
+        db.commit()
+        background_tasks.add_task(
+            send_feedback_notification,
+            kind="claimed" if is_claimed(db, location.organization_id) else "unclaimed",
+            business_name=location.organization.name,
+            location=location.address or location.name,
+            content=feedback.content,
+            submitter_name=feedback.submitter_name,
+            submitter_email=feedback.submitter_email,
+        )
+        return FeedbackSubmitResponse(success=True, message="Thank you for your feedback!")
+
     submission = UnlistedBusinessFeedback(
         business_name=payload.business_name.strip(),
         location_hint=payload.location_hint.strip(),
@@ -492,6 +537,15 @@ def submit_unlisted_business_feedback(
     )
     db.add(submission)
     db.commit()
+    background_tasks.add_task(
+        send_feedback_notification,
+        kind="not_found",
+        business_name=submission.business_name,
+        location=submission.location_hint,
+        content=submission.content,
+        submitter_name=submission.submitter_name,
+        submitter_email=submission.submitter_email,
+    )
     return FeedbackSubmitResponse(
         success=True,
         message="We’ll find the business and make sure your feedback gets where it belongs.",
@@ -594,672 +648,6 @@ def delete_organization(
     db.commit()
 
 
-# ---------------------------------------------------------------------------
-# Organization social connections
-# ---------------------------------------------------------------------------
-
-
-def _validated_social_provider(provider: str) -> str:
-    try:
-        return validate_provider(provider)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Social provider not found",
-        ) from exc
-
-
-def _social_connection_out(
-    provider: str,
-    connection: SocialConnection | None,
-    *,
-    inherited: bool = False,
-) -> SocialConnectionOut:
-    details = PROVIDER_DETAILS[provider]
-    connection_status = connection.status if connection else "not_connected"
-    provider_data = connection.provider_data or {} if connection else {}
-    diagnostic = None
-    if connection and connection.expires_at and connection.expires_at <= datetime.utcnow():
-        connection_status = "reconnect_required"
-        diagnostic = "The saved authorization expired. Reconnect this destination."
-    if (
-        provider == "facebook"
-        and connection
-        and provider_data.get("auth_type") != "facebook_login"
-    ):
-        connection_status = "reconnect_required"
-        diagnostic = (
-            "Reconnect Facebook to choose the Page this organization should publish to."
-        )
-    if provider == "instagram" and not connection:
-        diagnostic = (
-            "Use Instagram Connect to add an account directly. Or use Facebook Connect "
-            "to add a Page and, if one is linked, its professional Instagram account."
-        )
-    return SocialConnectionOut(
-        provider=provider,
-        name=details["name"],
-        description=details["description"],
-        configured=provider_configured(provider, settings),
-        connected=connection is not None,
-        publishing_enabled=bool(details["publishing_enabled"]),
-        status=connection_status,
-        provider_account_id=connection.provider_account_id if connection else None,
-        provider_account_name=connection.provider_account_name if connection else None,
-        scopes=connection.scopes or [] if connection else [],
-        expires_at=connection.expires_at if connection else None,
-        connected_at=connection.created_at if connection else None,
-        connection_method=provider_data.get("auth_type"),
-        linked_page_name=provider_data.get("facebook_page_name"),
-        diagnostic=diagnostic,
-        location_id=connection.location_id if connection else None,
-        inherited=inherited,
-    )
-
-
-def _effective_social_connections(
-    db: Session,
-    organization_id: int,
-    location_id: int | None,
-) -> tuple[dict[str, SocialConnection], set[str]]:
-    query = select(SocialConnection).where(
-        SocialConnection.organization_id == organization_id
-    )
-    if location_id is None:
-        query = query.where(SocialConnection.location_id.is_(None))
-    else:
-        query = query.where(
-            or_(
-                SocialConnection.location_id.is_(None),
-                SocialConnection.location_id == location_id,
-            )
-        )
-    defaults: dict[str, SocialConnection] = {}
-    overrides: dict[str, SocialConnection] = {}
-    for connection in db.scalars(query).all():
-        if connection.location_id is None:
-            defaults[connection.provider] = connection
-        else:
-            overrides[connection.provider] = connection
-    if location_id is None:
-        return defaults, set()
-    return {**defaults, **overrides}, set(defaults).difference(overrides)
-
-
-def _upsert_social_connection(
-    db: Session,
-    *,
-    organization_id: int,
-    location_id: int | None,
-    provider: str,
-    connected_by: int,
-    access_token: str,
-    provider_account_id: str,
-    provider_account_name: str,
-    provider_data: dict | None,
-    scopes: list[str],
-    expires_at: datetime | None = None,
-    refresh_token: str | None = None,
-) -> SocialConnection:
-    connection = db.scalar(
-        select(SocialConnection).where(
-            SocialConnection.organization_id == organization_id,
-            SocialConnection.provider == provider,
-            SocialConnection.location_id.is_(None)
-            if location_id is None
-            else SocialConnection.location_id == location_id,
-        )
-    )
-    if not connection:
-        connection = SocialConnection(
-            organization_id=organization_id,
-            location_id=location_id,
-            provider=provider,
-            access_token_encrypted=encrypt_token(access_token, settings),
-            connected_by=connected_by,
-        )
-        db.add(connection)
-    else:
-        connection.access_token_encrypted = encrypt_token(access_token, settings)
-        connection.connected_by = connected_by
-
-    connection.refresh_token_encrypted = (
-        encrypt_token(refresh_token, settings) if refresh_token else None
-    )
-    connection.status = "connected"
-    connection.provider_account_id = provider_account_id or None
-    connection.provider_account_name = provider_account_name or None
-    connection.provider_data = provider_data or {}
-    connection.scopes = scopes
-    connection.expires_at = expires_at
-    connection.updated_at = datetime.utcnow()
-    return connection
-
-
-@app.get(
-    "/organizations/{org_id}/social-connections",
-    response_model=list[SocialConnectionOut],
-)
-def list_social_connections(
-    org_id: int,
-    location_id: int | None = Query(default=None),
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> list[SocialConnectionOut]:
-    require_org_admin(db, user, org_id)
-    require_module_enabled(db, org_id, "feed")
-    if location_id is not None:
-        require_location_access(db, user, org_id, location_id, manage=True)
-    connections, inherited_providers = _effective_social_connections(
-        db,
-        org_id,
-        location_id,
-    )
-    return [
-        _social_connection_out(
-            provider,
-            connections.get(provider),
-            inherited=provider in inherited_providers,
-        )
-        for provider in SUPPORTED_PROVIDERS
-    ]
-
-
-@app.post(
-    "/organizations/{org_id}/social-connections/{provider}/authorize",
-    response_model=SocialAuthorizationOut,
-)
-def authorize_social_connection(
-    org_id: int,
-    provider: str,
-    location_id: int | None = Query(default=None),
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> SocialAuthorizationOut:
-    provider = _validated_social_provider(provider)
-    require_org_admin(db, user, org_id)
-    require_module_enabled(db, org_id, "feed")
-    if location_id is not None:
-        require_location_access(db, user, org_id, location_id, manage=True)
-    if not provider_configured(provider, settings):
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"{PROVIDER_DETAILS[provider]['name']} app credentials are not configured",
-        )
-
-    raw_state = generate_oauth_state()
-    now = datetime.utcnow()
-    db.add(
-        SocialOAuthState(
-            state_hash=hash_oauth_state(raw_state),
-            organization_id=org_id,
-            location_id=location_id,
-            provider=provider,
-            user_id=user.id,
-            created_at=now,
-            expires_at=now + timedelta(minutes=10),
-        )
-    )
-    db.commit()
-    return SocialAuthorizationOut(
-        authorization_url=build_authorization_url(provider, raw_state, settings)
-    )
-
-
-def _social_callback_redirect(
-    org_id: int,
-    provider: str,
-    result: str,
-    message: str | None = None,
-    location_id: int | None = None,
-    **extra: str,
-) -> RedirectResponse:
-    query = {"social": result, "provider": provider}
-    if message:
-        query["message"] = message
-    if location_id is not None:
-        query["location_id"] = str(location_id)
-    query.update(extra)
-    destination = (
-        f"{settings.frontend_origin.rstrip('/')}/org/{org_id}/social?{urlencode(query)}"
-    )
-    return RedirectResponse(destination, status_code=status.HTTP_303_SEE_OTHER)
-
-
-async def _instagram_signed_request_payload(request: Request) -> dict:
-    form = await request.form()
-    signed_request = form.get("signed_request")
-    if not isinstance(signed_request, str) or not signed_request:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Missing Meta signed request",
-        )
-    try:
-        payload = parse_meta_signed_request(
-            signed_request,
-            settings.instagram_client_secret,
-        )
-    except SocialProviderError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
-        ) from exc
-    provider_user_id = payload.get("user_id") or payload.get("ig_user_id")
-    if provider_user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Meta signed request did not include a user ID",
-        )
-    payload["provider_user_id"] = str(provider_user_id)
-    return payload
-
-
-def _delete_instagram_connection_data(db: Session, provider_user_id: str) -> None:
-    db.execute(
-        delete(SocialConnection).where(
-            SocialConnection.provider == "instagram",
-            SocialConnection.provider_account_id == provider_user_id,
-        )
-    )
-    db.commit()
-
-
-@app.post(
-    "/oauth/social/instagram/deauthorize",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
-async def instagram_deauthorize_callback(
-    request: Request,
-    db: Session = Depends(get_db),
-) -> Response:
-    payload = await _instagram_signed_request_payload(request)
-    _delete_instagram_connection_data(db, payload["provider_user_id"])
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-
-@app.post("/oauth/social/instagram/data-deletion")
-async def instagram_data_deletion_callback(
-    request: Request,
-    db: Session = Depends(get_db),
-) -> dict[str, str]:
-    payload = await _instagram_signed_request_payload(request)
-    _delete_instagram_connection_data(db, payload["provider_user_id"])
-    confirmation_code = secrets.token_hex(12)
-    status_url = (
-        f"{settings.app_base_url.rstrip('/')}/data-deletion"
-        f"?confirmation_code={confirmation_code}"
-    )
-    return {
-        "url": status_url,
-        "confirmation_code": confirmation_code,
-    }
-
-
-@app.get("/oauth/social/{provider}/callback")
-def social_oauth_callback(
-    provider: str,
-    state_value: str | None = Query(default=None, alias="state"),
-    code: str | None = None,
-    granted_scopes: str | None = None,
-    error: str | None = None,
-    error_description: str | None = None,
-    db: Session = Depends(get_db),
-) -> RedirectResponse:
-    provider = _validated_social_provider(provider)
-    if not state_value:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Missing OAuth state",
-        )
-
-    oauth_state = db.scalar(
-        select(SocialOAuthState).where(
-            SocialOAuthState.state_hash == hash_oauth_state(state_value),
-            SocialOAuthState.provider == provider,
-        )
-    )
-    now = datetime.utcnow()
-    if not oauth_state or oauth_state.used_at or oauth_state.expires_at <= now:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired OAuth state",
-        )
-
-    oauth_state.used_at = now
-    db.commit()
-    try:
-        require_module_enabled(db, oauth_state.organization_id, "feed")
-    except HTTPException as exc:
-        return _social_callback_redirect(
-            oauth_state.organization_id,
-            provider,
-            "error",
-            str(exc.detail),
-            location_id=oauth_state.location_id,
-        )
-    if error or not code:
-        return _social_callback_redirect(
-            oauth_state.organization_id,
-            provider,
-            "error",
-            error_description or error or "Authorization was cancelled",
-            location_id=oauth_state.location_id,
-        )
-
-    try:
-        token_data = exchange_social_code(provider, code, settings)
-        if granted_scopes:
-            token_data["scope"] = granted_scopes
-        access_token = token_data.get("access_token")
-        if not access_token:
-            raise SocialProviderError("The provider did not return an access token")
-        if provider == "facebook":
-            setup_token = generate_oauth_state()
-            db.add(
-                SocialConnectionSetup(
-                    token_hash=hash_oauth_state(setup_token),
-                    organization_id=oauth_state.organization_id,
-                    location_id=oauth_state.location_id,
-                    provider=provider,
-                    user_id=oauth_state.user_id,
-                    access_token_encrypted=encrypt_token(access_token, settings),
-                    scopes=requested_scopes(provider, token_data),
-                    created_at=now,
-                    expires_at=now + timedelta(minutes=15),
-                )
-            )
-            db.commit()
-            return _social_callback_redirect(
-                oauth_state.organization_id,
-                provider,
-                "selection_required",
-                location_id=oauth_state.location_id,
-                setup=setup_token,
-            )
-        identity = fetch_social_identity(provider, token_data)
-    except (SocialProviderError, httpx.HTTPError) as exc:
-        return _social_callback_redirect(
-            oauth_state.organization_id,
-            provider,
-            "error",
-            str(exc),
-            location_id=oauth_state.location_id,
-        )
-
-    refresh_token = token_data.get("refresh_token")
-    identity_data = identity.get("data") or {}
-    if provider == "instagram":
-        identity_data.setdefault("auth_type", "instagram_login")
-    _upsert_social_connection(
-        db,
-        organization_id=oauth_state.organization_id,
-        location_id=oauth_state.location_id,
-        provider=provider,
-        connected_by=oauth_state.user_id,
-        access_token=access_token,
-        provider_account_id=identity.get("id") or "",
-        provider_account_name=identity.get("name") or "",
-        provider_data=identity_data,
-        scopes=requested_scopes(provider, token_data),
-        expires_at=token_expiry(token_data),
-        refresh_token=refresh_token,
-    )
-    db.commit()
-
-    return _social_callback_redirect(
-        oauth_state.organization_id,
-        provider,
-        "connected",
-        location_id=oauth_state.location_id,
-    )
-
-
-def _get_social_connection_setup(
-    db: Session,
-    *,
-    organization_id: int,
-    user_id: int,
-    provider: str,
-    setup_token: str,
-) -> SocialConnectionSetup:
-    setup = db.scalar(
-        select(SocialConnectionSetup).where(
-            SocialConnectionSetup.token_hash == hash_oauth_state(setup_token),
-            SocialConnectionSetup.organization_id == organization_id,
-            SocialConnectionSetup.user_id == user_id,
-            SocialConnectionSetup.provider == provider,
-        )
-    )
-    now = datetime.utcnow()
-    if not setup or setup.used_at or setup.expires_at <= now:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This connection setup expired. Start the connection again.",
-        )
-    return setup
-
-
-@app.get(
-    "/organizations/{org_id}/social-connections/facebook/options",
-    response_model=MetaConnectionOptionsOut,
-)
-def list_facebook_page_options(
-    org_id: int,
-    setup: str,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> MetaConnectionOptionsOut:
-    require_org_admin(db, user, org_id)
-    require_module_enabled(db, org_id, "feed")
-    connection_setup = _get_social_connection_setup(
-        db,
-        organization_id=org_id,
-        user_id=user.id,
-        provider="facebook",
-        setup_token=setup,
-    )
-    try:
-        pages = fetch_facebook_pages(
-            decrypt_token(connection_setup.access_token_encrypted, settings)
-        )
-    except (SocialProviderError, httpx.HTTPError) as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=str(exc),
-        ) from exc
-
-    return MetaConnectionOptionsOut(
-        pages=[
-            MetaPageOptionOut(
-                id=page["id"],
-                name=page["name"],
-                tasks=page.get("tasks") or [],
-                instagram=(
-                    MetaInstagramAccountOut(**page["instagram"])
-                    if page.get("instagram")
-                    else None
-                ),
-            )
-            for page in pages
-        ]
-    )
-
-
-@app.post(
-    "/organizations/{org_id}/social-connections/facebook/complete",
-    response_model=list[SocialConnectionOut],
-)
-def complete_facebook_page_connection(
-    org_id: int,
-    payload: MetaConnectionComplete,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> list[SocialConnectionOut]:
-    require_org_admin(db, user, org_id)
-    require_module_enabled(db, org_id, "feed")
-    connection_setup = _get_social_connection_setup(
-        db,
-        organization_id=org_id,
-        user_id=user.id,
-        provider="facebook",
-        setup_token=payload.setup_token,
-    )
-    user_access_token = decrypt_token(
-        connection_setup.access_token_encrypted,
-        settings,
-    )
-    try:
-        pages = fetch_facebook_pages(user_access_token)
-    except (SocialProviderError, httpx.HTTPError) as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=str(exc),
-        ) from exc
-
-    selected_page = next(
-        (page for page in pages if page["id"] == payload.page_id),
-        None,
-    )
-    if not selected_page:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="The selected Facebook Page is no longer available to this account.",
-        )
-
-    granted_scopes = connection_setup.scopes or list(
-        PROVIDER_DETAILS["facebook"]["scopes"]
-    )
-    page_data = {
-        "auth_type": "facebook_login",
-        "page_id": selected_page["id"],
-        "tasks": selected_page.get("tasks") or [],
-        "instagram": selected_page.get("instagram"),
-    }
-    _upsert_social_connection(
-        db,
-        organization_id=org_id,
-        location_id=connection_setup.location_id,
-        provider="facebook",
-        connected_by=user.id,
-        access_token=selected_page["access_token"],
-        refresh_token=user_access_token,
-        provider_account_id=selected_page["id"],
-        provider_account_name=selected_page["name"],
-        provider_data=page_data,
-        scopes=granted_scopes,
-    )
-
-    instagram = selected_page.get("instagram")
-    linked_instagram_connection = db.scalar(
-        select(SocialConnection).where(
-            SocialConnection.organization_id == org_id,
-            SocialConnection.provider == "instagram",
-            SocialConnection.location_id.is_(None)
-            if connection_setup.location_id is None
-            else SocialConnection.location_id == connection_setup.location_id,
-        )
-    )
-    if instagram:
-        _upsert_social_connection(
-            db,
-            organization_id=org_id,
-            location_id=connection_setup.location_id,
-            provider="instagram",
-            connected_by=user.id,
-            access_token=selected_page["access_token"],
-            provider_account_id=instagram["id"],
-            provider_account_name=(
-                instagram.get("username")
-                or instagram.get("name")
-                or "Instagram account"
-            ),
-            provider_data={
-                "auth_type": "facebook_login",
-                "facebook_page_id": selected_page["id"],
-                "facebook_page_name": selected_page["name"],
-                "username": instagram.get("username"),
-                "profile_picture_url": instagram.get("profile_picture_url"),
-            },
-            scopes=granted_scopes,
-        )
-    elif (
-        linked_instagram_connection
-        and (linked_instagram_connection.provider_data or {}).get("auth_type")
-        == "facebook_login"
-    ):
-        db.delete(linked_instagram_connection)
-
-    connection_setup.used_at = datetime.utcnow()
-    db.commit()
-
-    connections, inherited_providers = _effective_social_connections(
-        db,
-        org_id,
-        connection_setup.location_id,
-    )
-    return [
-        _social_connection_out(
-            provider,
-            connections.get(provider),
-            inherited=provider in inherited_providers,
-        )
-        for provider in SUPPORTED_PROVIDERS
-    ]
-
-
-@app.delete(
-    "/organizations/{org_id}/social-connections/{provider}",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
-def disconnect_social_connection(
-    org_id: int,
-    provider: str,
-    location_id: int | None = Query(default=None),
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> None:
-    provider = _validated_social_provider(provider)
-    require_org_admin(db, user, org_id)
-    require_module_enabled(db, org_id, "feed")
-    if location_id is not None:
-        require_location_access(db, user, org_id, location_id, manage=True)
-    connection = db.scalar(
-        select(SocialConnection).where(
-            SocialConnection.organization_id == org_id,
-            SocialConnection.provider == provider,
-            SocialConnection.location_id.is_(None)
-            if location_id is None
-            else SocialConnection.location_id == location_id,
-        )
-    )
-    if not connection:
-        return
-    token_to_revoke = (
-        connection.refresh_token_encrypted
-        if provider == "facebook" and connection.refresh_token_encrypted
-        else connection.access_token_encrypted
-    )
-    revoke_social_token(provider, token_to_revoke, settings)
-    if provider == "facebook":
-        linked_instagram = db.scalar(
-            select(SocialConnection).where(
-                SocialConnection.organization_id == org_id,
-                SocialConnection.provider == "instagram",
-                SocialConnection.location_id.is_(None)
-                if location_id is None
-                else SocialConnection.location_id == location_id,
-            )
-        )
-        if (
-            linked_instagram
-            and (linked_instagram.provider_data or {}).get("auth_type")
-            == "facebook_login"
-        ):
-            db.delete(linked_instagram)
-    db.delete(connection)
-    db.commit()
-
-
 def _social_post_out(post: SocialPost) -> SocialPostOut:
     return SocialPostOut(
         id=post.id,
@@ -1274,18 +662,6 @@ def _social_post_out(post: SocialPost) -> SocialPostOut:
         created_by=post.created_by,
         created_at=post.created_at,
         updated_at=post.updated_at,
-        targets=[
-            SocialPostTargetOut(
-                id=target.id,
-                provider=target.provider,
-                content=target.content,
-                status=target.status,
-                remote_post_id=target.remote_post_id,
-                error=target.error,
-                published_at=target.published_at,
-            )
-            for target in post.targets
-        ],
     )
 
 
@@ -1295,17 +671,11 @@ def _load_social_post(
     organization_id: int,
     post_id: int,
 ) -> SocialPost:
-    post = (
-        db.execute(
-            select(SocialPost)
-            .options(joinedload(SocialPost.targets))
-            .where(
-                SocialPost.id == post_id,
-                SocialPost.organization_id == organization_id,
-            )
+    post = db.scalar(
+        select(SocialPost).where(
+            SocialPost.id == post_id,
+            SocialPost.organization_id == organization_id,
         )
-        .unique()
-        .scalar_one_or_none()
     )
     if not post:
         raise HTTPException(
@@ -1396,35 +766,6 @@ def get_media_asset(media_token: str, db: Session = Depends(get_db)) -> Response
 
 
 @app.post(
-    "/organizations/{org_id}/social-posts/drafts/generate",
-    response_model=SocialDraftContent,
-)
-def generate_social_post_drafts(
-    org_id: int,
-    payload: SocialDraftGenerate,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> SocialDraftContent:
-    require_org_admin(db, user, org_id)
-    require_module_enabled(db, org_id, "feed")
-    if not settings.openai_api_key:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="AI generation is not configured",
-        )
-    try:
-        return generate_social_drafts(
-            api_key=settings.openai_api_key,
-            content=payload.master_caption,
-        )
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"AI generation failed: {exc}",
-        ) from exc
-
-
-@app.post(
     "/organizations/{org_id}/social-posts/wordsmith",
     response_model=WordsmithResponse,
 )
@@ -1456,89 +797,11 @@ def wordsmith_social_post_text(
 
 
 def _publish_social_post(db: Session, post: SocialPost) -> SocialPost:
-    if post.status == "published":
-        return post
-
-    if not post.targets:
+    if post.status != "published":
         post.status = "published"
         post.published_at = datetime.utcnow()
         db.commit()
         db.refresh(post)
-        return post
-
-    connections, _ = _effective_social_connections(
-        db,
-        post.organization_id,
-        post.location_id,
-    )
-    post.status = "publishing"
-    db.commit()
-
-    for target in post.targets:
-        if target.status == "published":
-            continue
-        target.status = "publishing"
-        target.error = None
-        db.commit()
-
-        connection = connections.get(target.provider)
-        try:
-            if not connection:
-                raise SocialProviderError(
-                    f"{PROVIDER_DETAILS[target.provider]['name']} is not connected"
-                )
-            if connection.expires_at and connection.expires_at <= datetime.utcnow():
-                raise SocialProviderError(
-                    f"{PROVIDER_DETAILS[target.provider]['name']} must be reconnected"
-                )
-            if not connection.provider_account_id:
-                raise SocialProviderError(
-                    f"{PROVIDER_DETAILS[target.provider]['name']} has no publishing account selected"
-                )
-            if (
-                target.provider == "facebook"
-                and (connection.provider_data or {}).get("auth_type")
-                != "facebook_login"
-            ):
-                raise SocialProviderError(
-                    "Reconnect Facebook and choose a Page before publishing"
-                )
-
-            remote_id = publish_social_content(
-                target.provider,
-                account_id=connection.provider_account_id,
-                access_token=decrypt_token(
-                    connection.access_token_encrypted,
-                    settings,
-                ),
-                content=target.content,
-                media_urls=post.media_urls or [],
-                provider_data=connection.provider_data or {},
-            )
-        except (SocialProviderError, httpx.HTTPError) as exc:
-            target.status = "failed"
-            target.error = str(exc)
-            target.remote_post_id = None
-            target.published_at = None
-        else:
-            target.status = "published"
-            target.error = None
-            target.remote_post_id = remote_id
-            target.published_at = datetime.utcnow()
-        db.commit()
-
-    target_statuses = {target.status for target in post.targets}
-    now = datetime.utcnow()
-    if target_statuses == {"published"}:
-        post.status = "published"
-    else:
-        # The Five* feed is the primary destination and is independent of the
-        # optional social copies. A provider failure must never hide the Five*
-        # post that the user just published.
-        post.status = "partial_failure"
-    post.published_at = now
-    db.commit()
-    db.refresh(post)
     return post
 
 
@@ -1557,7 +820,7 @@ def list_social_posts(
     require_module_enabled(db, org_id, "feed")
     query = (
         select(SocialPost)
-        .options(joinedload(SocialPost.targets), joinedload(SocialPost.location))
+        .options(joinedload(SocialPost.location))
         .where(SocialPost.organization_id == org_id)
     )
     if location_id is not None:
@@ -1589,25 +852,6 @@ def create_social_post(
     require_module_enabled(db, org_id, "feed")
     if payload.location_id is not None:
         require_location_access(db, user, org_id, payload.location_id, manage=True)
-    providers = [target.provider for target in payload.targets]
-    if len(providers) != len(set(providers)):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Choose each social destination only once",
-        )
-    unsupported = [
-        PROVIDER_DETAILS[provider]["name"]
-        for provider in providers
-        if not PROVIDER_DETAILS[provider]["publishing_enabled"]
-    ]
-    if unsupported:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=(
-                "Publishing is not enabled yet for: "
-                f"{', '.join(unsupported)}"
-            ),
-        )
     if any(
         not media_url.startswith(("https://", "http://"))
         for media_url in payload.media_urls
@@ -1615,23 +859,6 @@ def create_social_post(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Media must use a publicly reachable HTTP or HTTPS URL",
-        )
-    if "instagram" in providers and not payload.media_urls:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Instagram requires an uploaded image before publishing",
-        )
-
-    connections, _ = _effective_social_connections(db, org_id, payload.location_id)
-    unavailable = [
-        PROVIDER_DETAILS[provider]["name"]
-        for provider in providers
-        if provider not in connections
-    ]
-    if unavailable:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Connect these destinations first: {', '.join(unavailable)}",
         )
 
     scheduled_at = None
@@ -1653,14 +880,6 @@ def create_social_post(
         status=post_status,
         scheduled_at=scheduled_at,
         created_by=user.id,
-        targets=[
-            SocialPostTarget(
-                provider=target.provider,
-                content=target.content,
-                status="pending",
-            )
-            for target in payload.targets
-        ],
     )
     db.add(post)
     db.commit()
@@ -1762,15 +981,7 @@ def _publish_due_social_posts_once() -> None:
             ).all()
         )
         for post_id in due_post_ids:
-            post = (
-                db.execute(
-                    select(SocialPost)
-                    .options(joinedload(SocialPost.targets))
-                    .where(SocialPost.id == post_id)
-                )
-                .unique()
-                .scalar_one_or_none()
-            )
+            post = db.get(SocialPost, post_id)
             if post and post.status == "scheduled":
                 _publish_social_post(db, post)
 
@@ -2030,7 +1241,6 @@ def _location_deletion_impact(db: Session, location_id: int) -> LocationDeletion
         roadmap_items=count(Initiative),
         feed_posts=count(SocialPost),
         reports=count(Digest),
-        social_connections=count(SocialConnection),
         team_assignments=count(LocationMembership),
         pending_invites=int(
             db.scalar(
@@ -2618,6 +1828,7 @@ def submit_organization_feedback(
     request: Request,
     organization_token: str,
     payload: FeedbackSubmit,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ) -> FeedbackSubmitResponse:
     """Submit feedback about the organization as a whole."""
@@ -2632,6 +1843,15 @@ def submit_organization_feedback(
     )
     db.add(feedback)
     db.commit()
+    background_tasks.add_task(
+        send_feedback_notification,
+        kind="claimed" if is_claimed(db, organization.id) else "unclaimed",
+        business_name=organization.name,
+        location="All locations",
+        content=feedback.content,
+        submitter_name=feedback.submitter_name,
+        submitter_email=feedback.submitter_email,
+    )
     return FeedbackSubmitResponse(success=True, message="Thank you for your feedback!")
 
 
@@ -2681,7 +1901,13 @@ def get_feedback_form_info(feedback_token: str, db: Session = Depends(get_db)) -
 
 @app.post("/api/feedback/{feedback_token}/submit", response_model=FeedbackSubmitResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit("10/minute")
-def submit_feedback(request: Request, feedback_token: str, payload: FeedbackSubmit, db: Session = Depends(get_db)) -> FeedbackSubmitResponse:
+def submit_feedback(
+    request: Request,
+    feedback_token: str,
+    payload: FeedbackSubmit,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+) -> FeedbackSubmitResponse:
     """Public endpoint - submit anonymous feedback"""
     location = _get_public_location(db, feedback_token)
 
@@ -2697,6 +1923,15 @@ def submit_feedback(request: Request, feedback_token: str, payload: FeedbackSubm
     )
     db.add(feedback)
     db.commit()
+    background_tasks.add_task(
+        send_feedback_notification,
+        kind="claimed" if is_claimed(db, location.organization_id) else "unclaimed",
+        business_name=location.organization.name,
+        location=", ".join(p for p in (location.name, location.address) if p),
+        content=feedback.content,
+        submitter_name=feedback.submitter_name,
+        submitter_email=feedback.submitter_email,
+    )
 
     return FeedbackSubmitResponse(success=True, message="Thank you for your feedback!")
 

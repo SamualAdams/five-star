@@ -28,6 +28,7 @@ import OrganizationFeedbackPage from "./components/OrganizationFeedbackPage";
 import OrgSettingsPage from "./components/OrgSettingsPage";
 import ResetPasswordPage from "./components/ResetPasswordPage";
 import SearchPage from "./components/SearchPage";
+import StaffFeedbackList from "./components/StaffFeedbackList";
 import SubmissionsChart from "./components/SubmissionsChart";
 import TopbarSearch from "./components/TopbarSearch";
 import PublicOrganizationPage, { LegacyRoadmapRedirect } from "./components/PublicOrganizationPage";
@@ -305,7 +306,7 @@ export default function App() {
     <div className={`layout ${hasAppShell ? "layout--app" : "layout--public"}${hasAppShell && !isMenuOpen ? " layout--sidebar-closed" : ""}`}>
       {hasAppShell ? (
         <AppHeader
-          fiveStarStatus={currentLocation?.five_star_status ?? currentOrg?.five_star_status ?? 1}
+          fiveStarStatus={currentLocation?.five_star_status ?? currentOrg?.five_star_status ?? 0}
           scopeLabel={locationScopeLabel}
         />
       ) : !isPublicHubRoute ? (
@@ -423,6 +424,7 @@ export default function App() {
                   currentLocation={currentLocation}
                   locationId={selectedLocationId}
                   canManage={canManageCurrentLocation}
+                  isSuperuser={Boolean(user?.is_superuser)}
                 />
               ) : (
                 <Navigate to="/auth?mode=login" replace />
@@ -439,6 +441,7 @@ export default function App() {
                   currentLocation={currentLocation}
                   locationId={selectedLocationId}
                   canManage={canManageCurrentLocation}
+                  isSuperuser={Boolean(user?.is_superuser)}
                 />
               ) : (
                 <Navigate to="/auth?mode=login" replace />
@@ -546,25 +549,6 @@ export default function App() {
             }
           />
           <Route
-            path="/org/:id/social"
-            element={
-              isAuthenticated ? (
-                currentOrg?.modules?.feed === false ? (
-                  <ModuleLockedPage isSuperuser={Boolean(user?.is_superuser)} moduleName="Feed" orgId={currentOrg.id} />
-                ) : (
-                  <OrgSettingsPage
-                    token={token}
-                    user={user}
-                    section="social"
-                    currentLocation={currentLocation}
-                  />
-                )
-              ) : (
-                <Navigate to="/auth?mode=login" replace />
-              )
-            }
-          />
-          <Route
             path="/invite/:inviteToken"
             element={<InviteAcceptPage token={token} isAuthenticated={isAuthenticated} />}
           />
@@ -664,7 +648,7 @@ function PublicHeader({ isAuthenticated }) {
   );
 }
 
-function AppHeader({ fiveStarStatus = 1, scopeLabel = "All locations" }) {
+function AppHeader({ fiveStarStatus = 0, scopeLabel = "All locations" }) {
   return (
     <header className="topbar topbar--app">
       <div
@@ -749,14 +733,6 @@ function SidebarIcon({ name }) {
     review: (
       <path d="m12 2 3.1 6.3 6.9 1-5 4.8 1.2 6.9-6.2-3.3L5.8 21 7 14.1l-5-4.8 6.9-1L12 2Z" />
     ),
-    social: (
-      <>
-        <circle cx="18" cy="5" r="3" />
-        <circle cx="6" cy="12" r="3" />
-        <circle cx="18" cy="19" r="3" />
-        <path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4" />
-      </>
-    ),
     location: (
       <>
         <path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z" />
@@ -809,7 +785,6 @@ function AppSidebar({
     { to: `${orgBase}/locations`, label: "Locations", icon: "location", disabled: !currentOrg },
     { to: `${orgBase}/users`, label: "Users", icon: "users", disabled: !currentOrg },
     { to: `${orgBase}/reviews`, label: "Public reviews", icon: "review", disabled: !currentOrg },
-    { to: `${orgBase}/social`, label: "Social accounts", icon: "social", disabled: !currentOrg, locked: feedLocked },
   ];
   const locationManagerItems = [
     { to: `${orgBase}/reviews`, label: "Public reviews", icon: "review", disabled: !currentOrg },
@@ -1315,7 +1290,7 @@ function VotingBoardAdminPage({
   );
 }
 
-function FeedbackReportsPage({ token, currentOrg, currentLocation, locationId, canManage }) {
+function FeedbackReportsPage({ token, currentOrg, currentLocation, locationId, canManage, isSuperuser }) {
   if (!currentOrg) return <div className="owner-feature-page"><p>Loading organization…</p></div>;
   return (
     <div className="owner-feature-page">
@@ -1332,6 +1307,9 @@ function FeedbackReportsPage({ token, currentOrg, currentLocation, locationId, c
         isAdmin={canManage}
         timezone={currentLocation?.timezone}
       />
+      {isSuperuser && (
+        <StaffFeedbackList token={token} orgId={currentOrg.id} locationId={locationId} />
+      )}
     </div>
   );
 }
