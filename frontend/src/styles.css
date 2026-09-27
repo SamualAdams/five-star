@@ -1160,6 +1160,7 @@ select {
 
 .marketing-panel--aside {
   background: var(--color-surface-alt);
+  scroll-margin-top: 6rem;
 }
 
 .marketing-side-title {
