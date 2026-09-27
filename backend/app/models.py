@@ -245,6 +245,19 @@ class Feedback(Base):
     location: Mapped["Location | None"] = relationship(back_populates="feedback")
 
 
+class UnlistedBusinessFeedback(Base):
+    __tablename__ = "unlisted_business_feedback"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    business_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    location_hint: Mapped[str] = mapped_column(String(500), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    submitter_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    submitter_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending", server_default="pending")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class Initiative(Base):
     __tablename__ = "initiatives"
 

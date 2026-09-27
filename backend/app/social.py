@@ -1,5 +1,7 @@
 import base64
 import hashlib
+import hmac
+import json
 import secrets
 from datetime import datetime, timedelta
 from typing import Any
@@ -46,6 +48,43 @@ PROVIDER_DETAILS = {
 
 class SocialProviderError(RuntimeError):
     pass
+
+
+def parse_meta_signed_request(signed_request: str, app_secret: str) -> dict[str, Any]:
+    """Verify and decode a Meta HMAC-SHA256 signed request."""
+    if not app_secret:
+        raise SocialProviderError("Instagram app secret is not configured")
+    try:
+        encoded_signature, encoded_payload = signed_request.split(".", 1)
+    except ValueError as exc:
+        raise SocialProviderError("Invalid Meta signed request") from exc
+
+    def decode_urlsafe(value: str) -> bytes:
+        padding = "=" * (-len(value) % 4)
+        try:
+            return base64.urlsafe_b64decode(value + padding)
+        except (ValueError, TypeError) as exc:
+            raise SocialProviderError("Invalid Meta signed request") from exc
+
+    signature = decode_urlsafe(encoded_signature)
+    payload_bytes = decode_urlsafe(encoded_payload)
+    expected_signature = hmac.new(
+        app_secret.encode("utf-8"),
+        payload_bytes,
+        hashlib.sha256,
+    ).digest()
+    if not hmac.compare_digest(signature, expected_signature):
+        raise SocialProviderError("Invalid Meta signed request signature")
+
+    try:
+        payload = json.loads(payload_bytes)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise SocialProviderError("Invalid Meta signed request payload") from exc
+    if not isinstance(payload, dict):
+        raise SocialProviderError("Invalid Meta signed request payload")
+    if str(payload.get("algorithm", "")).upper() != "HMAC-SHA256":
+        raise SocialProviderError("Unsupported Meta signed request algorithm")
+    return payload
 
 
 def validate_provider(provider: str) -> str:

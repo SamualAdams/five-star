@@ -8,6 +8,7 @@ import {
   updatePublicOrganizationInitiativeVote,
   updatePublicSocialPostReaction,
 } from "../api";
+import FilterMenu from "./FilterMenu";
 
 const ASTERISK_SRC = `${import.meta.env.BASE_URL}brand/five-star-asterisk.svg`;
 const LOGO_SRC = `${import.meta.env.BASE_URL}brand/five-star-logo.svg`;
@@ -181,7 +182,6 @@ function PublicFeed({ organizationToken, locations, selectedLocationId, onSelect
 
 function PublicRoadmap({ organizationToken, locations, selectedLocationId, onSelectLocation }) {
   const [board, setBoard] = useState(null);
-  const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [sort, setSort] = useState("top");
   const [loading, setLoading] = useState(true);
@@ -193,7 +193,6 @@ function PublicRoadmap({ organizationToken, locations, selectedLocationId, onSel
     setError("");
     try {
       setBoard(await getPublicOrganizationRoadmap(organizationToken, {
-        query: search,
         status,
         sort,
         locationId: selectedLocationId,
@@ -204,12 +203,11 @@ function PublicRoadmap({ organizationToken, locations, selectedLocationId, onSel
     } finally {
       setLoading(false);
     }
-  }, [organizationToken, search, selectedLocationId, sort, status]);
+  }, [organizationToken, selectedLocationId, sort, status]);
 
   useEffect(() => {
-    const timer = window.setTimeout(loadBoard, search ? 250 : 0);
-    return () => window.clearTimeout(timer);
-  }, [loadBoard, search]);
+    loadBoard();
+  }, [loadBoard]);
 
   async function handleVote(initiative, value) {
     const nextValue = initiative.viewer_vote === value ? null : value;
@@ -236,48 +234,20 @@ function PublicRoadmap({ organizationToken, locations, selectedLocationId, onSel
   }
 
   const initiatives = board?.initiatives || [];
+  const locationOptions = useMemo(() => ([
+    { value: null, label: "All locations" },
+    ...locations.map((location) => ({ value: location.id, label: location.name })),
+  ]), [locations]);
+
   return (
     <>
-      <section className="public-hub-filter-panel" aria-label="Roadmap search and filters">
-        <LocationTabs locations={locations} selectedLocationId={selectedLocationId} onSelect={onSelectLocation} />
+      <section className="public-hub-filter-panel" aria-label="Roadmap filters">
         <div className="board-toolbar">
-          <label className="board-search">
-            <span className="sr-only">Search initiatives</span>
-            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="6" />
-              <path d="m16 16 4 4" />
-            </svg>
-            <input
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search what we’re working on"
-              type="search"
-              value={search}
-            />
-          </label>
-          <div className="board-sort" aria-label="Sort initiatives">
-            {SORT_OPTIONS.map((option) => (
-              <button
-                className={sort === option.value ? "board-sort-button board-sort-button--active" : "board-sort-button"}
-                key={option.value}
-                onClick={() => setSort(option.value)}
-                type="button"
-              >
-                {option.label}
-              </button>
-            ))}
+          <div className="board-toolbar-menus">
+            <FilterMenu label="Location" onChange={onSelectLocation} options={locationOptions} value={selectedLocationId} />
+            <FilterMenu label="Sort" onChange={setSort} options={SORT_OPTIONS} value={sort} />
+            <FilterMenu label="Status" onChange={setStatus} options={STATUS_OPTIONS} value={status} />
           </div>
-        </div>
-        <div className="board-filters" aria-label="Filter by status">
-          {STATUS_OPTIONS.map((option) => (
-            <button
-              className={status === option.value ? "board-filter board-filter--active" : "board-filter"}
-              key={option.value || "all"}
-              onClick={() => setStatus(option.value)}
-              type="button"
-            >
-              {option.label}
-            </button>
-          ))}
         </div>
       </section>
       {error && <p className="message message--error board-request-error">{error}</p>}
@@ -327,8 +297,8 @@ function PublicRoadmap({ organizationToken, locations, selectedLocationId, onSel
         </div>
       ) : (
         <div className="public-hub-empty public-hub-panel">
-          <h2>{search || status ? "No matching initiatives" : "Nothing here just yet"}</h2>
-          <p>{search || status ? "Try another search or status." : "Check back soon to see what this team is working on."}</p>
+          <h2>{status ? "No matching initiatives" : "Nothing here just yet"}</h2>
+          <p>{status ? "Try another status." : "Check back soon to see what this team is working on."}</p>
         </div>
       )}
       <p className="board-vote-note">Votes are anonymous and help this team understand what matters most.</p>
@@ -447,7 +417,7 @@ export default function PublicOrganizationPage() {
     return (
       <div className="public-hub-page public-hub-page--centered">
         <div className="board-state-card">
-          <p className="board-eyebrow">Five Star</p>
+          <p className="board-eyebrow">five*</p>
           <h1>Public page not found</h1>
           <p>{error || "This organization does not have a public landing page enabled."}</p>
         </div>
@@ -460,12 +430,12 @@ export default function PublicOrganizationPage() {
       <header className="public-hub-header">
         <div className="public-hub-header-main">
           <h1>{hub.organization_name}</h1>
-          <div className="public-hub-recognition" aria-describedby="five-star-recognition-help" aria-label={`${hub.five_star_status} Five Star ${hub.five_star_status === 1 ? "mark" : "marks"}`} tabIndex="0">
+          <div className="public-hub-recognition" aria-describedby="five-star-recognition-help" aria-label={`${hub.five_star_status} five* ${hub.five_star_status === 1 ? "mark" : "marks"}`} tabIndex="0">
             {Array.from({ length: hub.five_star_status }, (_, index) => (
               <img className="public-hub-recognition-mark" src={ASTERISK_SRC} alt="" aria-hidden="true" key={index} />
             ))}
             <span className="public-hub-recognition-tooltip" id="five-star-recognition-help" role="tooltip">
-              This organization has earned {hub.five_star_status} Five* {hub.five_star_status === 1 ? "mark" : "marks"} for listening to customers and acting on their feedback.
+              This organization has earned {hub.five_star_status} five* {hub.five_star_status === 1 ? "mark" : "marks"} for listening to customers and acting on their feedback.
             </span>
           </div>
           <button

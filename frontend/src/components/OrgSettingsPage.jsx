@@ -234,7 +234,7 @@ function SocialAccountsManager({ token, orgId, currentLocation, organizationName
           <div>
             <strong>Choose the Facebook Page for this organization</strong>
             <p>
-              Five* will publish to this Page. If it has a professional Instagram account linked,
+              five* will publish to this Page. If it has a professional Instagram account linked,
               that destination will be connected automatically.
             </p>
           </div>
@@ -608,7 +608,7 @@ export default function OrgSettingsPage({
                 <div className="organization-modules-heading">
                   <div>
                     <p className="dashboard-kicker">Platform controls</p>
-                    <h3 className="settings-heading">Five Star status</h3>
+                    <h3 className="settings-heading">five* status</h3>
                     <p className="settings-meta">
                       {currentLocation
                         ? `${currentLocation.name} currently has status ${currentLocation.five_star_status} of 5${currentLocation.five_star_status_override == null ? `, inherited from ${org.name}.` : "."}`
@@ -617,7 +617,7 @@ export default function OrgSettingsPage({
                   </div>
                   <span className="status-pill status-pill--connected">Superuser</span>
                 </div>
-                <div className="five-star-status-picker" role="group" aria-label="Five Star status">
+                <div className="five-star-status-picker" role="group" aria-label="five* status">
                   {[1, 2, 3, 4, 5].map((status) => {
                     const activeStatus = currentLocation?.five_star_status ?? org.five_star_status;
                     return (
@@ -655,7 +655,7 @@ export default function OrgSettingsPage({
                   )}
                 </div>
                 {fiveStarWorking && <p className="settings-meta">Saving status…</p>}
-                {fiveStarSaved && <p className="message message--success">Five Star status saved.</p>}
+                {fiveStarSaved && <p className="message message--success">five* status saved.</p>}
                 {fiveStarError && <p className="message message--error">{fiveStarError}</p>}
               </div>
 
@@ -664,7 +664,7 @@ export default function OrgSettingsPage({
                   <div>
                     <p className="dashboard-kicker">Platform controls</p>
                     <h3 className="settings-heading">Modules</h3>
-                    <p className="settings-meta">Choose which Five* workspace modules this organization can use.</p>
+                    <p className="settings-meta">Choose which five* workspace modules this organization can use.</p>
                   </div>
                   <span className="status-pill status-pill--connected">Superuser</span>
                 </div>

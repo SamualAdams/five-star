@@ -1,3 +1,7 @@
+import base64
+import hashlib
+import hmac
+import json
 from urllib.parse import parse_qs, urlparse
 
 import httpx
@@ -5,7 +9,7 @@ import httpx
 import app.main as main_module
 import app.social as social_module
 from app.config import Settings
-from app.models import Organization, SocialConnection
+from app.models import Organization, SocialConnection, User
 from app.social import (
     PROVIDER_DETAILS,
     build_authorization_url,
@@ -24,6 +28,13 @@ def create_org(client, headers, name="Connected Diner"):
         db.get(Organization, organization["id"]).feed_enabled = True
         db.commit()
     return organization
+
+
+def meta_signed_request(payload, secret):
+    payload_bytes = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    signature = hmac.new(secret.encode("utf-8"), payload_bytes, hashlib.sha256).digest()
+    encode = lambda value: base64.urlsafe_b64encode(value).rstrip(b"=").decode("ascii")
+    return f"{encode(signature)}.{encode(payload_bytes)}"
 
 
 def test_facebook_uses_page_login_and_exchanges_for_a_long_lived_token(monkeypatch):
@@ -296,6 +307,83 @@ def test_instagram_oauth_callback_persists_and_disconnects_direct_connection(
         headers=headers,
     )
     assert listing.json()[1]["connected"] is False
+
+
+def test_instagram_signed_callbacks_remove_connection_data(
+    client,
+    auth_headers,
+    monkeypatch,
+):
+    email = "instagram-callback-owner@example.com"
+    headers = auth_headers(email)
+    org = create_org(client, headers, name="Instagram Callback Diner")
+    secret = "instagram-callback-secret"
+    monkeypatch.setattr(main_module.settings, "instagram_client_secret", secret)
+    monkeypatch.setattr(main_module.settings, "app_base_url", "https://fivestar.fyi")
+
+    def add_connection():
+        with TestingSessionLocal() as db:
+            user = db.query(User).filter_by(email=email).one()
+            db.add(
+                SocialConnection(
+                    organization_id=org["id"],
+                    provider="instagram",
+                    provider_account_id="ig-callback-123",
+                    provider_account_name="instagram_callback_diner",
+                    access_token_encrypted="encrypted-token",
+                    connected_by=user.id,
+                )
+            )
+            db.commit()
+
+    signed_request = meta_signed_request(
+        {"algorithm": "HMAC-SHA256", "user_id": "ig-callback-123"},
+        secret,
+    )
+
+    add_connection()
+    deletion = client.post(
+        "/oauth/social/instagram/data-deletion",
+        data={"signed_request": signed_request},
+    )
+    assert deletion.status_code == 200, deletion.text
+    assert deletion.json()["url"].startswith(
+        "https://fivestar.fyi/data-deletion?confirmation_code="
+    )
+    assert deletion.json()["confirmation_code"].isalnum()
+    with TestingSessionLocal() as db:
+        assert db.query(SocialConnection).filter_by(provider="instagram").count() == 0
+
+    add_connection()
+    deauthorized = client.post(
+        "/oauth/social/instagram/deauthorize",
+        data={"signed_request": signed_request},
+    )
+    assert deauthorized.status_code == 204, deauthorized.text
+    with TestingSessionLocal() as db:
+        assert db.query(SocialConnection).filter_by(provider="instagram").count() == 0
+
+
+def test_instagram_signed_callback_rejects_invalid_signature(
+    client,
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        main_module.settings,
+        "instagram_client_secret",
+        "instagram-callback-secret",
+    )
+    response = client.post(
+        "/oauth/social/instagram/deauthorize",
+        data={
+            "signed_request": meta_signed_request(
+                {"algorithm": "HMAC-SHA256", "user_id": "ig-123"},
+                "wrong-secret",
+            )
+        },
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid Meta signed request signature"
 
 
 def test_social_connections_are_admin_only_and_report_setup_state(

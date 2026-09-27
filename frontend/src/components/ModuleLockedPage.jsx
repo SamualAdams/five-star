@@ -10,7 +10,7 @@ export default function ModuleLockedPage({ isSuperuser, moduleName, orgId }) {
         <p>
           {isSuperuser
             ? `Enable the ${moduleName} module in this organization’s Settings to open it.`
-            : `This organization does not currently include the ${moduleName} module. Contact Five* to enable it.`}
+            : `This organization does not currently include the ${moduleName} module. Contact five* to enable it.`}
         </p>
         {isSuperuser ? (
           <Link className="btn btn--primary" to={`/org/${orgId}/settings#modules`}>

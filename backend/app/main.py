@@ -50,6 +50,7 @@ from .models import (
     SocialPost,
     SocialPostReaction,
     SocialPostTarget,
+    UnlistedBusinessFeedback,
     User,
 )
 from .schemas import (
@@ -120,6 +121,7 @@ from .schemas import (
     UserCreate,
     UserLogin,
     UserOut,
+    UnlistedBusinessFeedbackSubmit,
     WordsmithRequest,
     WordsmithResponse,
 )
@@ -147,6 +149,7 @@ from .social import (
     fetch_social_identity,
     generate_oauth_state,
     hash_oauth_state,
+    parse_meta_signed_request,
     provider_configured,
     publish_social_content,
     requested_scopes,
@@ -154,6 +157,7 @@ from .social import (
     token_expiry,
     validate_provider,
 )
+
 
 settings = get_settings()
 
@@ -437,15 +441,22 @@ def list_organizations(
 @app.get("/organizations/search", response_model=list[OrganizationSearchResult])
 @limiter.limit("30/minute")
 def search_organizations(request: Request, q: str, db: Session = Depends(get_db)) -> list[OrganizationSearchResult]:
-    """Public endpoint - search for organizations by name"""
+    """Public endpoint - search for organizations by business or location details."""
     if not q or len(q.strip()) < 2:
         return []
 
-    # Case-insensitive partial match search
     search_pattern = f"%{q.strip()}%"
     orgs = db.scalars(
         select(Organization)
-        .where(Organization.name.ilike(search_pattern))
+        .outerjoin(Location)
+        .where(
+            or_(
+                Organization.name.ilike(search_pattern),
+                Location.name.ilike(search_pattern),
+                Location.address.ilike(search_pattern),
+            )
+        )
+        .distinct()
         .order_by(Organization.name)
         .limit(20)
     ).all()
@@ -458,6 +469,33 @@ def search_organizations(request: Request, q: str, db: Session = Depends(get_db)
         )
         for org in orgs
     ]
+
+
+@app.post(
+    "/api/feedback/unlisted",
+    response_model=FeedbackSubmitResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+@limiter.limit("5/minute")
+def submit_unlisted_business_feedback(
+    request: Request,
+    payload: UnlistedBusinessFeedbackSubmit,
+    db: Session = Depends(get_db),
+) -> FeedbackSubmitResponse:
+    """Accept feedback even when the sender cannot find the business in the catalog."""
+    submission = UnlistedBusinessFeedback(
+        business_name=payload.business_name.strip(),
+        location_hint=payload.location_hint.strip(),
+        content=payload.content.strip(),
+        submitter_email=payload.submitter_email.lower() if payload.submitter_email else None,
+        submitter_name=payload.submitter_name.strip() if payload.submitter_name else None,
+    )
+    db.add(submission)
+    db.commit()
+    return FeedbackSubmitResponse(
+        success=True,
+        message="We’ll find the business and make sure your feedback gets where it belongs.",
+    )
 
 
 @app.get("/organizations/{org_id}", response_model=OrganizationOut)
@@ -786,6 +824,75 @@ def _social_callback_redirect(
         f"{settings.frontend_origin.rstrip('/')}/org/{org_id}/social?{urlencode(query)}"
     )
     return RedirectResponse(destination, status_code=status.HTTP_303_SEE_OTHER)
+
+
+async def _instagram_signed_request_payload(request: Request) -> dict:
+    form = await request.form()
+    signed_request = form.get("signed_request")
+    if not isinstance(signed_request, str) or not signed_request:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing Meta signed request",
+        )
+    try:
+        payload = parse_meta_signed_request(
+            signed_request,
+            settings.instagram_client_secret,
+        )
+    except SocialProviderError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    provider_user_id = payload.get("user_id") or payload.get("ig_user_id")
+    if provider_user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Meta signed request did not include a user ID",
+        )
+    payload["provider_user_id"] = str(provider_user_id)
+    return payload
+
+
+def _delete_instagram_connection_data(db: Session, provider_user_id: str) -> None:
+    db.execute(
+        delete(SocialConnection).where(
+            SocialConnection.provider == "instagram",
+            SocialConnection.provider_account_id == provider_user_id,
+        )
+    )
+    db.commit()
+
+
+@app.post(
+    "/oauth/social/instagram/deauthorize",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def instagram_deauthorize_callback(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> Response:
+    payload = await _instagram_signed_request_payload(request)
+    _delete_instagram_connection_data(db, payload["provider_user_id"])
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@app.post("/oauth/social/instagram/data-deletion")
+async def instagram_data_deletion_callback(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    payload = await _instagram_signed_request_payload(request)
+    _delete_instagram_connection_data(db, payload["provider_user_id"])
+    confirmation_code = secrets.token_hex(12)
+    status_url = (
+        f"{settings.app_base_url.rstrip('/')}/data-deletion"
+        f"?confirmation_code={confirmation_code}"
+    )
+    return {
+        "url": status_url,
+        "confirmation_code": confirmation_code,
+    }
 
 
 @app.get("/oauth/social/{provider}/callback")

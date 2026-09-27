@@ -18,6 +18,7 @@ import FeedbackPage from "./components/FeedbackPage";
 import FeedPage from "./components/FeedPage";
 import InviteAcceptPage from "./components/InviteAcceptPage";
 import InitiativesManager from "./components/InitiativesManager";
+import LegalPage from "./components/LegalPage";
 import MarketingPage from "./components/MarketingPage";
 import LocationsPage from "./components/LocationsPage";
 import LocationSwitcher from "./components/LocationSwitcher";
@@ -52,7 +53,7 @@ function accessRoleLabel(role) {
 const JOURNEY_MILESTONES = [
   {
     title: "Start your journey",
-    description: "Create an account and log in to Five Star.",
+    description: "Create an account and log in to five*.",
   },
   {
     title: "Collect and report",
@@ -67,8 +68,8 @@ const JOURNEY_MILESTONES = [
     description: "Maintain a 4.8 or higher average across your connected review boards.",
   },
   {
-    title: "Earn a Five Star recognition",
-    description: "Qualify for the annual Five Star recognitions, with opportunities for free advertising and public voting.",
+    title: "Earn five* recognition",
+    description: "Qualify for annual five* recognition, with opportunities for free advertising and public voting.",
   },
 ];
 
@@ -583,6 +584,9 @@ export default function App() {
           <Route path="/five-star/:organizationToken" element={<PublicOrganizationPage />} />
           <Route path="/roadmap/:feedbackToken" element={<LegacyRoadmapRedirect />} />
           <Route path="/board/:feedbackToken" element={<LegacyRoadmapRedirect />} />
+          <Route path="/privacy" element={<LegalPage page="privacy" />} />
+          <Route path="/terms" element={<LegalPage page="terms" />} />
+          <Route path="/data-deletion" element={<LegalPage page="deletion" />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="*" element={<Navigate to={isAuthenticated ? "/dashboard" : "/"} replace />} />
           </Routes>
@@ -607,7 +611,7 @@ function PublicHeader({ isAuthenticated }) {
     <header className="topbar topbar--public">
       <Link className="brand-lockup" to={isAuthenticated ? "/dashboard" : "/"}>
         <img className="topbar-logo" src={LOGO_SRC} alt="five*" />
-        <span className="brand-tag">Built in Baton Rouge, serving businesses across Louisiana</span>
+        <span className="brand-tag">One place to reach any business</span>
       </Link>
 
       {/* Right side — search always visible, nav toggles per breakpoint */}
@@ -621,14 +625,9 @@ function PublicHeader({ isAuthenticated }) {
               Dashboard
             </Link>
           ) : (
-            <>
-              <Link className="btn btn--ghost btn--sm" to="/auth?mode=login">
-                Log in
-              </Link>
-              <Link className="btn btn--primary btn--sm" to="/auth?mode=signup">
-                Get started
-              </Link>
-            </>
+            <Link className="btn btn--ghost btn--sm" to="/auth?mode=login">
+              Business login
+            </Link>
           )}
         </div>
 
@@ -653,14 +652,9 @@ function PublicHeader({ isAuthenticated }) {
                 Dashboard
               </Link>
             ) : (
-              <>
-                <Link className="menu-item" to="/auth?mode=signup" onClick={() => setIsMenuOpen(false)}>
-                  Get started
-                </Link>
-                <Link className="menu-item" to="/auth?mode=login" onClick={() => setIsMenuOpen(false)}>
-                  Log in
-                </Link>
-              </>
+              <Link className="menu-item" to="/auth?mode=login" onClick={() => setIsMenuOpen(false)}>
+                Business login
+              </Link>
             )}
           </div>
         </div>
@@ -676,7 +670,7 @@ function AppHeader({ fiveStarStatus = 1, scopeLabel = "All locations" }) {
       <div
         className="app-journey"
         role="group"
-        aria-label={`Five Star journey status ${fiveStarStatus} of 5 for ${scopeLabel}`}
+        aria-label={`five* journey status ${fiveStarStatus} of 5 for ${scopeLabel}`}
       >
         {JOURNEY_MILESTONES.map((milestone, index) => (
           <span
@@ -1031,7 +1025,7 @@ function DashboardModuleLocked({ isSuperuser, moduleName, orgId }) {
         <p>
           {isSuperuser
             ? "Enable it in Settings to start using this module."
-            : "Contact Five* to add this module."}
+            : "Contact five* to add this module."}
         </p>
       </div>
       {isSuperuser && (
@@ -1235,7 +1229,7 @@ function Dashboard({ currentOrg, isSuperuser, locationId, organizations, onShowC
             <div>
               <p className="dashboard-step">03 · Feed</p>
               <h2 id="dashboard-feed-title">Are my recent feed posts going out?</h2>
-              <p>Publishing activity recorded inside Five*.</p>
+              <p>Publishing activity recorded inside five*.</p>
             </div>
             <Link className="dashboard-section-link" to={`/org/${currentOrg?.id}/feed`}>
               Open feed <span aria-hidden="true">→</span>
@@ -1279,7 +1273,7 @@ function Dashboard({ currentOrg, isSuperuser, locationId, organizations, onShowC
                   ))}
                 </div>
               ) : (
-                <p className="dashboard-empty-state">No feed posts have been created in Five* yet.</p>
+                <p className="dashboard-empty-state">No feed posts have been created in five* yet.</p>
               )}
             </>
           )}

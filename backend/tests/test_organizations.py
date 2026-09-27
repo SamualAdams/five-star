@@ -1,6 +1,6 @@
 from sqlalchemy import select
 
-from app.models import Organization, OrganizationMember, User
+from app.models import Organization, OrganizationMember, UnlistedBusinessFeedback, User
 from conftest import TestingSessionLocal
 
 
@@ -22,6 +22,42 @@ def test_create_and_list_organization(client, auth_headers):
     listing = client.get("/organizations", headers=headers)
     assert listing.status_code == 200
     assert [o["id"] for o in listing.json()] == [org["id"]]
+
+
+def test_public_search_matches_location_address(client, auth_headers):
+    headers = auth_headers()
+    org = create_org(client, headers, "Magnolia Coffee")
+    location = client.post(
+        f"/organizations/{org['id']}/locations",
+        json={"name": "Mid City", "address": "4401 Government Street, Baton Rouge"},
+        headers=headers,
+    )
+    assert location.status_code == 201, location.text
+
+    response = client.get("/organizations/search", params={"q": "Government Street"})
+
+    assert response.status_code == 200
+    assert [result["name"] for result in response.json()] == ["Magnolia Coffee"]
+
+
+def test_feedback_can_be_submitted_for_unlisted_business(client):
+    response = client.post(
+        "/api/feedback/unlisted",
+        json={
+            "business_name": "Corner Market",
+            "location_hint": "Near Perkins Road and Acadian",
+            "content": "The cashier was exceptionally kind, but the entrance was hard to access.",
+        },
+    )
+
+    assert response.status_code == 201, response.text
+    assert response.json()["success"] is True
+    with TestingSessionLocal() as db:
+        submission = db.scalar(select(UnlistedBusinessFeedback))
+        assert submission.business_name == "Corner Market"
+        assert submission.location_hint == "Near Perkins Road and Acadian"
+        assert submission.submitter_email is None
+        assert submission.status == "pending"
 
 
 def test_superuser_sees_every_organization_without_membership_and_manages_modules(

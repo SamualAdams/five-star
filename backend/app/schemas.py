@@ -247,6 +247,14 @@ class FeedbackSubmitResponse(BaseModel):
     message: str
 
 
+class UnlistedBusinessFeedbackSubmit(BaseModel):
+    business_name: str = Field(min_length=2, max_length=255)
+    location_hint: str = Field(min_length=2, max_length=500)
+    content: str = Field(min_length=1, max_length=5000)
+    submitter_email: EmailStr | None = None
+    submitter_name: str | None = Field(None, max_length=255)
+
+
 class InitiativeCreate(BaseModel):
     title: str = Field(min_length=1, max_length=160)
     description: str = Field(min_length=1, max_length=5000)
