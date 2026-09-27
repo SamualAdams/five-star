@@ -798,35 +798,10 @@ select {
 }
 
 .auth-shell {
-  width: min(1140px, calc(100% - 2rem));
+  width: min(480px, calc(100% - 2rem));
   margin: clamp(1.4rem, 4vw, 3rem) auto clamp(2.4rem, 6vw, 4rem);
-  padding: 1.25rem;
-  border: 1px solid color-mix(in srgb, var(--color-ink) 8%, transparent);
-  border-radius: 32px;
-  background: color-mix(in srgb, var(--color-surface) 74%, transparent);
-  box-shadow: var(--shadow-soft);
-  display: grid;
-  grid-template-columns: minmax(0, 1.02fr) minmax(360px, 0.98fr);
-  gap: 1.25rem;
 }
 
-.auth-intro {
-  position: relative;
-  overflow: hidden;
-  display: grid;
-  gap: 2rem;
-  align-content: space-between;
-  padding: clamp(1.75rem, 5vw, 3rem);
-  border-radius: 26px;
-  background: var(--color-ink);
-  color: var(--color-on-dark);
-}
-
-.auth-intro::after {
-  display: none;
-}
-
-.auth-kicker,
 .section-kicker {
   margin: 0 0 0.65rem;
   font-size: 0.83rem;
@@ -836,11 +811,6 @@ select {
   color: var(--color-primary);
 }
 
-.auth-intro .auth-kicker {
-  color: color-mix(in srgb, var(--color-on-dark) 74%, transparent);
-}
-
-.auth-intro-title,
 .marketing-title,
 .section-title {
   margin: 0;
@@ -850,50 +820,12 @@ select {
   color: var(--color-ink);
 }
 
-.auth-intro-title {
-  color: var(--color-on-dark);
-  font-size: clamp(2.5rem, 5vw, 4.2rem);
-}
-
-.auth-intro-copy,
 .marketing-copy,
 .section-copy {
   margin: 0;
   font-size: 1.05rem;
   line-height: 1.75;
   color: var(--color-muted);
-}
-
-.auth-intro-copy {
-  max-width: 32rem;
-  color: color-mix(in srgb, var(--color-on-dark) 84%, transparent);
-}
-
-.auth-highlight-list {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  gap: 0.75rem;
-}
-
-.auth-highlight {
-  padding: 1rem 1.05rem;
-  border-radius: 18px;
-  background: color-mix(in srgb, var(--color-white) 8%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-white) 8%, transparent);
-}
-
-.auth-highlight h2 {
-  margin: 0 0 0.3rem;
-  font-size: 1rem;
-  font-weight: 800;
-  color: var(--color-white);
-}
-
-.auth-highlight p {
-  margin: 0;
-  color: color-mix(in srgb, var(--color-on-dark) 78%, transparent);
-  line-height: 1.55;
 }
 
 .auth-card {
@@ -1908,7 +1840,6 @@ select {
 }
 
 @media (max-width: 960px) {
-  .auth-shell,
   .marketing-hero,
   .silent-majority-layout,
   .problem-layout,
@@ -1971,19 +1902,16 @@ select {
     max-height: min(380px, calc(100vh - 90px));
   }
 
-  .auth-shell,
+  .auth-shell {
+    width: min(480px, calc(100% - 1rem));
+  }
+
   .marketing-page {
     width: min(100%, calc(100% - 1rem));
   }
 
-  .auth-shell {
-    padding: 0.9rem;
-    border-radius: 24px;
-  }
-
   .auth-card-head,
   .auth-card-body,
-  .auth-intro,
   .marketing-panel,
   .section-shell,
   .marketing-cta-band {
@@ -2100,8 +2028,7 @@ select {
   }
 
   .section-title,
-  .marketing-side-title,
-  .auth-intro-title {
+  .marketing-side-title {
     font-size: clamp(2rem, 10vw, 2.8rem);
   }
 }
@@ -3831,7 +3758,7 @@ select {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 112px 1.25rem 3rem;
+  padding: clamp(112px, 15svh, 168px) 1.25rem 3rem;
   text-align: center;
   background: linear-gradient(var(--color-bg) 62%, rgb(253 253 252 / 0%));
   will-change: opacity, transform;
@@ -3918,10 +3845,71 @@ select {
 .search-page--home.search-page--intro .search-hero::before {
   content: "";
   position: absolute;
-  inset: -4rem -2rem;
+  inset: -4rem -2.5rem;
   z-index: -1;
-  background: radial-gradient(closest-side, var(--color-bg) 55%, rgb(253 253 252 / 0%));
+  background: radial-gradient(closest-side, var(--color-bg) 68%, rgb(253 253 252 / 0%));
   pointer-events: none;
+}
+
+/* How it works, under the homepage prompt: numbered like the About page's steps. */
+.search-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.25rem;
+  max-width: 600px;
+  margin: 2rem auto 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.search-step {
+  display: grid;
+  align-content: start;
+  gap: 0.3rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid color-mix(in srgb, var(--color-ink) 14%, transparent);
+}
+
+.search-step-number {
+  color: var(--color-primary);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.45;
+}
+
+.search-step-text {
+  color: var(--color-text);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.search-step-text strong {
+  display: block;
+  margin-bottom: 0.15rem;
+  color: var(--color-ink);
+  font-size: 0.98rem;
+  line-height: 1.35;
+}
+
+@media (max-width: 640px) {
+  .search-steps {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    max-width: 22rem;
+    margin-top: 1.5rem;
+  }
+
+  .search-step {
+    grid-template-columns: 1.6rem minmax(0, 1fr);
+    gap: 0.5rem;
+    padding: 0.7rem 0;
+  }
+
+  .search-step:last-child {
+    border-bottom: 1px solid color-mix(in srgb, var(--color-ink) 14%, transparent);
+  }
 }
 
 .search-page--home.search-page--intro .search-title {

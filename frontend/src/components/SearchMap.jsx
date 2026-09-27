@@ -65,6 +65,37 @@ function MapController({
     map.setView([focus.lat, focus.lon], focus.zoom);
   }, [focus]);
 
+  // Leaflet's own resize tracking (switched off below) re-fits the map on every window
+  // resize - on phones, every time the toolbars slide in or out mid-scroll - and its pan
+  // reads as someone moving the map, which reloads the pins. Re-fit only while the map is
+  // on screen and its box really changed, and quietly.
+  useEffect(() => {
+    const box = map.getContainer();
+    let onScreen = false;
+    let timer = 0;
+    function refit() {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        const size = map.getSize();
+        if (!onScreen || (box.clientWidth === size.x && box.clientHeight === size.y)) return;
+        programmaticMove.current = true;
+        map.invalidateSize();
+        programmaticMove.current = false;
+      }, 150);
+    }
+    const observer = new IntersectionObserver(([entry]) => {
+      onScreen = entry.isIntersecting;
+      refit();
+    });
+    observer.observe(box);
+    window.addEventListener("resize", refit);
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+      window.removeEventListener("resize", refit);
+    };
+  }, [map]);
+
   useMapEvents({
     click() {
       onBackgroundClick?.();
@@ -103,6 +134,7 @@ export default function SearchMap({
       center={[DEFAULT_CENTER.lat, DEFAULT_CENTER.lon]}
       zoom={DEFAULT_ZOOM}
       scrollWheelZoom
+      trackResize={false}
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
