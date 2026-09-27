@@ -366,6 +366,13 @@ export async function searchOrganizations(query) {
   return request(`/organizations/search?q=${encodeURIComponent(query)}`);
 }
 
+export async function submitUnlistedBusinessFeedback(data) {
+  return request("/api/feedback/unlisted", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
 // Feedback (Public)
 
 export async function getFeedbackFormInfo(feedbackToken) {

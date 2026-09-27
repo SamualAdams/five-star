@@ -311,7 +311,7 @@ export default function FeedPage({
       setNotice(
         connectedProviders.size
           ? "AI drafts are ready. Review every version before publishing."
-          : "AI drafts are ready. You can publish to Five* now or connect social destinations later."
+          : "AI drafts are ready. You can publish to five* now or connect social destinations later."
       );
     } catch {
       setDrafts(platformDrafts(message));
@@ -352,8 +352,8 @@ export default function FeedPage({
       setPostActionMessage({
         type: "success",
         text: post.targets.length
-          ? "Five* post updated. Copies already published to social networks were not changed."
-          : "Five* post updated.",
+          ? "five* post updated. Copies already published to social networks were not changed."
+          : "five* post updated.",
       });
     } catch (err) {
       setPostActionMessage({ type: "error", text: err.message });
@@ -377,8 +377,8 @@ export default function FeedPage({
       setPostActionMessage({
         type: "success",
         text: post.targets.length
-          ? "Post removed from Five*. Copies already published to social networks remain there."
-          : "Post removed from Five*.",
+          ? "Post removed from five*. Copies already published to social networks remain there."
+          : "Post removed from five*.",
       });
     } catch (err) {
       setPostActionMessage({ type: "error", text: err.message });
@@ -430,10 +430,10 @@ export default function FeedPage({
           : scheduledAt
             ? "Post scheduled."
           : completed.status === "published"
-            ? "Published to your Five* feed."
+            ? "Published to your five* feed."
             : completed.status === "partial_failure"
-              ? "Published to Five*. One or more social destinations need attention."
-              : "Five* publishing failed. Review the error below."
+              ? "Published to five*. One or more social destinations need attention."
+              : "five* publishing failed. Review the error below."
       );
       setMessage("");
       setCaptionSelection({ start: 0, end: 0 });
@@ -462,7 +462,7 @@ export default function FeedPage({
       <PortalPageHeader
         actionHref={publicPageUrl}
         actionLabel="Open public page"
-        description="Publish directly to your Five* feed, then optionally send adapted versions to connected social accounts."
+        description="Publish directly to your five* feed, then optionally send adapted versions to connected social accounts."
         eyebrow="Workspace"
         title="Feed"
       />
@@ -473,7 +473,7 @@ export default function FeedPage({
             <div>
               <span className="status-pill status-pill--connected">Draft workspace</span>
               <h2>Create a post</h2>
-              <p>The master caption is your Five* post. Social versions are optional.</p>
+              <p>The master caption is your five* post. Social versions are optional.</p>
             </div>
             <span className="feed-org-label">{locationName || `${organizationName} · All locations`}</span>
           </div>
@@ -703,7 +703,7 @@ export default function FeedPage({
                 ? "Working…"
                 : scheduleExpanded && scheduleDate && scheduleTime
                   ? "Schedule post"
-                  : "Publish to Five*"}
+                  : "Publish to five*"}
             </button>
           </div>
 
@@ -731,7 +731,7 @@ export default function FeedPage({
                     <div className="feed-wordsmith-bar">
                       <div>
                         <strong>AI wordsmith</strong>
-                        <span>Adapt the Five* caption for your connected platforms.</span>
+                        <span>Adapt the five* caption for your connected platforms.</span>
                       </div>
                       <button className="btn btn--ghost btn--sm" disabled={!canDraft || wordsmithing} onClick={generatePlatformDrafts} type="button">
                         {wordsmithing ? "Wordsmithing…" : "Wordsmith with AI"}
@@ -769,7 +769,7 @@ export default function FeedPage({
                             onChange={() => toggleChannel(activeChannel)}
                             type="checkbox"
                           />
-                          Include with Five* post
+                          Include with five* post
                         </label>
                       </div>
                       <textarea
@@ -783,7 +783,7 @@ export default function FeedPage({
                       <div className="feed-draft-panel-footer">
                         <span>{activeDraft.length} characters</span>
                         <button className="btn btn--ghost btn--sm" disabled={!message.trim()} onClick={resetActiveDraft} type="button">
-                          Use Five* caption
+                          Use five* caption
                         </button>
                       </div>
                     </div>
@@ -792,7 +792,7 @@ export default function FeedPage({
                   <div className="feed-no-connections">
                     <div>
                       <strong>No social accounts are connected</strong>
-                      <p>You can publish to Five* without connecting anything.</p>
+                      <p>You can publish to five* without connecting anything.</p>
                     </div>
                     <Link className="btn btn--ghost btn--sm" to={`/org/${orgId}/social`}>Connect accounts</Link>
                   </div>
@@ -805,7 +805,7 @@ export default function FeedPage({
         <div className="feed-secondary-grid">
           <section className="portal-card feed-recent-card">
             <div className="portal-card-heading">
-              <h2>Recent Five* posts</h2>
+              <h2>Recent five* posts</h2>
               <span className="portal-count">{publishedPosts.length}</span>
             </div>
             {postActionMessage && (
@@ -823,7 +823,7 @@ export default function FeedPage({
                     {post.media_urls?.[0] && <img alt="" className="feed-post-summary-image" src={post.media_urls[0]} />}
                     {editingPostId === post.id ? (
                       <div className="feed-post-edit-form">
-                        <label className="field-label" htmlFor={`feed-post-edit-${post.id}`}>Edit Five* caption</label>
+                        <label className="field-label" htmlFor={`feed-post-edit-${post.id}`}>Edit five* caption</label>
                         <textarea
                           className="field-textarea"
                           id={`feed-post-edit-${post.id}`}
@@ -860,15 +860,15 @@ export default function FeedPage({
                     <span>
                       {post.targets.length
                         ? `${post.targets.filter((target) => target.status === "published").length} of ${post.targets.length} social destinations published`
-                        : "Five* only"}
+                        : "five* only"}
                     </span>
                     {editingPostId !== post.id && <div className="feed-post-summary-actions">
                       {confirmDeletePostId === post.id ? (
                         <div className="feed-post-delete-confirmation">
                           <span>
                             {post.targets.length
-                              ? "Remove from Five*? Published social copies will remain."
-                              : "Remove this post from Five*?"}
+                              ? "Remove from five*? Published social copies will remain."
+                              : "Remove this post from five*?"}
                           </span>
                           <div>
                             <button
@@ -919,7 +919,7 @@ export default function FeedPage({
               </div>
             ) : (
               <div className="feed-empty-state">
-                <strong>No Five* posts yet</strong>
+                <strong>No five* posts yet</strong>
                 <p>Published posts will appear here immediately.</p>
               </div>
             )}
@@ -992,7 +992,7 @@ export default function FeedPage({
               </div>
             ) : (
               <p className="portal-card-description">
-                This post will still publish to Five*.{" "}
+                This post will still publish to five*.{" "}
                 <Link to={`/org/${orgId}/social`}>Connect social accounts</Link> to publish everywhere at once.
               </p>
             )}

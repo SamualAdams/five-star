@@ -1,0 +1,122 @@
+.legal-page {
+  width: min(880px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: clamp(3rem, 8vw, 6rem) 0 4rem;
+  color: var(--color-ink);
+}
+
+.legal-page-header {
+  padding-bottom: 2rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.legal-eyebrow {
+  margin: 0 0 0.75rem;
+  color: var(--color-primary);
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.legal-page h1 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(2.75rem, 7vw, 5rem);
+  font-weight: 500;
+  line-height: 0.98;
+  letter-spacing: -0.05em;
+}
+
+.legal-effective {
+  margin: 1rem 0 0;
+  color: var(--color-muted);
+}
+
+.legal-page-body {
+  display: grid;
+  gap: 2rem;
+  padding: 2.25rem 0;
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.legal-page-body section {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.legal-page-body h2 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.legal-page-body p,
+.legal-page-body ul,
+.legal-page-body ol {
+  margin: 0;
+}
+
+.legal-page-body ul,
+.legal-page-body ol {
+  display: grid;
+  gap: 0.55rem;
+  padding-left: 1.35rem;
+}
+
+.legal-page-body a,
+.legal-page-footer a,
+.legal-links a {
+  color: var(--color-primary);
+  font-weight: 700;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.18em;
+}
+
+.legal-lede {
+  font-family: var(--font-serif);
+  font-size: clamp(1.2rem, 3vw, 1.55rem);
+  line-height: 1.55;
+}
+
+.legal-page-footer,
+.marketing-legal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.legal-page-footer {
+  padding-top: 1.5rem;
+}
+
+.legal-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.85rem 1.25rem;
+}
+
+.marketing-legal-footer {
+  width: min(1180px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 1.5rem 0 2.25rem;
+  color: var(--color-muted);
+}
+
+.marketing-legal-footer p {
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .legal-page-footer,
+  .marketing-legal-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

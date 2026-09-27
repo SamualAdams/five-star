@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { getPublicBoard, updatePublicInitiativeVote } from "../api";
+import FilterMenu from "./FilterMenu";
 
 const VISITOR_KEY = "five-star-board-visitor-id";
 
@@ -49,7 +50,6 @@ function scoreLabel(score) {
 export default function VotingBoardPage() {
   const { feedbackToken } = useParams();
   const [board, setBoard] = useState(null);
-  const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [sort, setSort] = useState("top");
   const [isLoading, setIsLoading] = useState(true);
@@ -60,19 +60,18 @@ export default function VotingBoardPage() {
     setIsLoading(true);
     setError("");
     try {
-      const data = await getPublicBoard(feedbackToken, { query: search, status, sort, visitorId: visitorId() });
+      const data = await getPublicBoard(feedbackToken, { status, sort, visitorId: visitorId() });
       setBoard(data);
     } catch (err) {
       setError(err.message);
     } finally {
       setIsLoading(false);
     }
-  }, [feedbackToken, search, sort, status]);
+  }, [feedbackToken, sort, status]);
 
   useEffect(() => {
-    const timer = window.setTimeout(loadBoard, search ? 250 : 0);
-    return () => window.clearTimeout(timer);
-  }, [loadBoard, search]);
+    loadBoard();
+  }, [loadBoard]);
 
   async function handleVote(initiative, value) {
     const nextValue = initiative.viewer_vote === value ? null : value;
@@ -99,7 +98,7 @@ export default function VotingBoardPage() {
     return (
       <div className="board-page board-page--centered">
         <div className="board-state-card">
-          <p className="board-eyebrow">Five Star</p>
+          <p className="board-eyebrow">five*</p>
           <h1>Roadmap not found</h1>
           <p>{error}</p>
         </div>
@@ -120,45 +119,10 @@ export default function VotingBoardPage() {
 
       <section className="board-content" aria-label="Organization initiatives">
         <div className="board-toolbar">
-          <label className="board-search">
-            <span className="sr-only">Search initiatives</span>
-            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="6" />
-              <path d="m16 16 4 4" />
-            </svg>
-            <input
-              type="search"
-              placeholder="Search what we&apos;re working on"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          </label>
-
-          <div className="board-sort" aria-label="Sort initiatives">
-            {SORT_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                className={`board-sort-button${sort === option.value ? " board-sort-button--active" : ""}`}
-                onClick={() => setSort(option.value)}
-              >
-                {option.label}
-              </button>
-            ))}
+          <div className="board-toolbar-menus">
+            <FilterMenu label="Sort" onChange={setSort} options={SORT_OPTIONS} value={sort} />
+            <FilterMenu label="Status" onChange={setStatus} options={STATUS_OPTIONS} value={status} />
           </div>
-        </div>
-
-        <div className="board-filters" aria-label="Filter by status">
-          {STATUS_OPTIONS.map((option) => (
-            <button
-              key={option.value || "all"}
-              type="button"
-              className={`board-filter${status === option.value ? " board-filter--active" : ""}`}
-              onClick={() => setStatus(option.value)}
-            >
-              {option.label}
-            </button>
-          ))}
         </div>
 
         {error && <p className="message message--error board-request-error">{error}</p>}
@@ -209,8 +173,8 @@ export default function VotingBoardPage() {
           </div>
         ) : (
           <div className="board-empty-state">
-            <h2>{search || status ? "No matching initiatives" : "Nothing here just yet"}</h2>
-            <p>{search || status ? "Try another search or status." : "Check back soon to see what we're working on."}</p>
+            <h2>{status ? "No matching initiatives" : "Nothing here just yet"}</h2>
+            <p>{status ? "Try another status." : "Check back soon to see what we're working on."}</p>
           </div>
         )}
 
