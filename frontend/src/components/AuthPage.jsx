@@ -60,33 +60,6 @@ export default function AuthPage({ loadOrganizations, onAuthenticated }) {
 
   return (
     <div className="auth-shell">
-      <section className="auth-intro">
-        <div>
-          <h1 className="auth-intro-title">
-            {mode === "signup" ? "Create your account" : "Welcome back"}
-          </h1>
-          <p className="auth-intro-copy">
-            Collect honest customer feedback, review clear summaries, and keep making your
-            business better for just 2 cents per customer submission.
-          </p>
-        </div>
-
-        <div className="auth-highlight-list">
-          <div className="auth-highlight">
-            <h2>Just 2 cents per customer submission</h2>
-            <p>No subscriptions, no hidden fees — just pay for what you use.</p>
-          </div>
-          <div className="auth-highlight">
-            <h2>Simple setup</h2>
-            <p>Create your organization, share a feedback link, and start learning quickly.</p>
-          </div>
-          <div className="auth-highlight">
-            <h2>Actionable insight</h2>
-            <p>Feedback reports help you turn comments into practical next steps.</p>
-          </div>
-        </div>
-      </section>
-
       <section className="auth-card">
         <div className="auth-card-head">
           <img className="auth-brand-logo" src={`${import.meta.env.BASE_URL}brand/five-star-logo.svg`} alt="five*" />

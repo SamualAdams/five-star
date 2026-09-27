@@ -19,6 +19,7 @@ const canCaption = document.querySelector('#can-caption');
 const chatCaption = document.querySelector('#chat-caption');
 const signCaption = document.querySelector('#sign-caption');
 const messages = [...document.querySelectorAll('.message')];
+const messageTimes = messages.map(message => Number(message.dataset.at));
 // Screens of scrolling through the story (#story is this many plus one screens tall).
 // The original timeline plays over 4.4 screens, pausing where a caption needs reading
 // time: once the can shuts, and once the "months later" chat is done. After a beat on
@@ -41,12 +42,29 @@ function played(distance) {
   if (distance < CHAT_PAUSE + CHAT_HOLD) return CHAT_DONE;
   return distance - CAN_HOLD - CHAT_HOLD;
 }
+// Everything the frame loop needs from layout is measured here - on start, when the
+// scene changes size, and once web fonts arrive - never mid-frame, where reading layout
+// right after changing styles makes the browser redo it on every frame of a scroll.
+const layout = { width: 0, height: 0, storyTop: 0, storyLength: 1, canCaption: 0, chatCaption: 0, signCaption: 0, returning: 0, sign: 0 };
+function measure() {
+  layout.width = stage.clientWidth;
+  layout.height = stage.clientHeight;
+  // Measured from where the story sits on the page, so content above it doesn't count.
+  layout.storyTop = story.getBoundingClientRect().top + scrollY;
+  layout.storyLength = Math.max(1, story.offsetHeight - layout.height);
+  layout.canCaption = canCaption.offsetHeight;
+  layout.chatCaption = chatCaption.offsetHeight;
+  layout.signCaption = signCaption.offsetHeight;
+  layout.returning = returning.offsetHeight;
+  layout.sign = sign.offsetHeight;
+  shownDistance = NaN; // redraw the scene with the new measurements
+}
 // A caption and what it's about (the can, the chat, the sign) are stacked as one
 // group, centred in the space left between the nav and the Continue button.
 const NAV_CLEARANCE = 92, CONTINUE_CLEARANCE = 64;
 function stack(firstHeight, secondHeight) {
-  const gap = stage.clientWidth <= 600 ? 32 : 48;
-  const space = stage.clientHeight - NAV_CLEARANCE - CONTINUE_CLEARANCE;
+  const gap = layout.width <= 600 ? 32 : 48;
+  const space = layout.height - NAV_CLEARANCE - CONTINUE_CLEARANCE;
   const top = NAV_CLEARANCE + Math.max(0, (space - firstHeight - gap - secondHeight) / 2);
   return [top, top + firstHeight + gap];
 }
@@ -54,29 +72,38 @@ function stack(firstHeight, secondHeight) {
 const CAN_TOP = 370, CAN_BOTTOM = 776;
 const WIDE_SCREEN = 1100; // matches the side-by-side hero in styles.css
 let compositionScale = 1;
-function showCaption(element, visible) {
-  element.style.opacity = visible;
-  element.style.transform = `translateY(${(1 - visible) * 16}px)`;
-  element.setAttribute('aria-hidden', visible < .02 ? 'true' : 'false');
+// Style and attribute changes go through here and are skipped when the value is the
+// same as last time, so a page that isn't moving costs next to nothing per frame.
+const written = new WeakMap();
+function write(element, property, value) {
+  let last = written.get(element);
+  if (!last) written.set(element, last = {});
+  if (last[property] === value) return;
+  last[property] = value;
+  if (property === 'aria-hidden') element.setAttribute(property, value);
+  else element.style.setProperty(property, value);
 }
-let scrollTarget = 0, scrollProgress = 0;
+const px = value => `${value.toFixed(1)}px`;
+const hide = (element, hidden) => write(element, 'aria-hidden', hidden ? 'true' : 'false');
+function showCaption(element, visible) {
+  write(element, 'opacity', visible.toFixed(3));
+  write(element, 'transform', `translateY(${px((1 - visible) * 16)})`);
+  hide(element, visible < .02);
+}
+let scrollTarget = 0, scrollProgress = 0, shownDistance = NaN;
 const clamp = x => Math.max(0, Math.min(1, x));
 const smooth = x => { x = clamp(x); return x * x * (3 - 2 * x); };
-// Measured from where the story sits on the page, so content above it (the site header) doesn't count.
 function readScroll() {
-  const target = clamp(-story.getBoundingClientRect().top / Math.max(1, story.offsetHeight - document.querySelector('#scene').clientHeight));
+  const target = clamp((scrollY - layout.storyTop) / layout.storyLength);
   // A jump (Give feedback, the logo, dragging the scrollbar) lands straight on the new
   // spot instead of easing through everything in between.
   if (Math.abs(target - scrollTarget) * STORY_SCREENS > 1) scrollProgress = target;
   scrollTarget = target;
 }
 addEventListener('scroll', readScroll, { passive: true });
-readScroll();
 
 function scrollToScreen(screen, behavior) {
-  const start = story.getBoundingClientRect().top + scrollY;
-  const length = story.offsetHeight - stage.clientHeight;
-  scrollTo({ top: start + (screen / STORY_SCREENS) * length, behavior });
+  scrollTo({ top: layout.storyTop + (screen / STORY_SCREENS) * layout.storyLength, behavior });
 }
 // data-story-goto="next" scrolls on to the next checkpoint; "end" jumps straight past the story.
 // ("instant", not "auto": the site sets smooth scrolling in CSS, which "auto" follows.)
@@ -104,27 +131,64 @@ const palette = ['#8f2d1a', '#b23a1c', '#d1491f', '#e8602a', '#f27c2e', '#f79a2e
 const glyphs = ['.', ':', ';', '+', '*', '#', '%', '@'];
 let compact = false;
 
-function resize() {
-  const viewport = document.querySelector('#scene');
-  const availableWidth = viewport.clientWidth;
-  const availableHeight = viewport.clientHeight;
-  compact = availableWidth <= 600;
-  // Fit the artwork itself on phones, rather than shrinking the empty desktop canvas.
-  const framingWidth = compact ? 420 : width;
-  const scale = Math.min((availableWidth - 20) / framingWidth, (availableHeight - 24) / height, 1.2);
-  composition.style.setProperty('--scale', scale);
-  compositionScale = scale;
-  readScroll();
-  const dpr = Math.min(devicePixelRatio, 2);
-  for (const canvas of [back, front]) {
-    canvas.width = width * dpr; canvas.height = height * dpr;
-    const context = canvas.getContext('2d');
-    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+// The fire's characters are drawn from small pre-rendered images: copying thousands of
+// those a frame is far cheaper than having the browser set the same few characters as
+// text, which kept phones busy enough to stutter while scrolling.
+const SPRITE_WIDTH = 16, SPRITE_HEIGHT = 18;
+const sprites = new Map();
+let pixelRatio = 0;
+function sprite(symbol, color) {
+  const key = symbol + color;
+  let image = sprites.get(key);
+  if (!image) {
+    image = window.document.createElement('canvas');
+    image.width = Math.round(SPRITE_WIDTH * pixelRatio);
+    image.height = Math.round(SPRITE_HEIGHT * pixelRatio);
+    const context = image.getContext('2d');
+    context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    context.font = 'bold 13px "Courier New", monospace';
     context.textAlign = 'center';
     context.textBaseline = 'middle';
+    context.fillStyle = color;
+    context.fillText(symbol, SPRITE_WIDTH / 2, SPRITE_HEIGHT / 2);
+    sprites.set(key, image);
   }
+  return image;
+}
+
+let sceneWidth = -1, sceneHeight = -1;
+function resize() {
+  const dpr = Math.min(devicePixelRatio, 2);
+  // Phones fire resize whenever their toolbars slide in or out mid-scroll. The scene is
+  // sized in svh, so those leave it unchanged - and redoing the work below then is what
+  // made scrolling stutter (resizing a canvas also wipes it, flickering the fire).
+  if (stage.clientWidth === sceneWidth && stage.clientHeight === sceneHeight && dpr === pixelRatio) return;
+  sceneWidth = stage.clientWidth;
+  sceneHeight = stage.clientHeight;
+  compact = sceneWidth <= 600;
+  // Fit the artwork itself on phones, rather than shrinking the empty desktop canvas.
+  const framingWidth = compact ? 420 : width;
+  compositionScale = Math.min((sceneWidth - 20) / framingWidth, (sceneHeight - 24) / height, 1.2);
+  composition.style.setProperty('--scale', compositionScale);
+  // The canvases are a fixed size; they only need re-creating for a new pixel density.
+  if (dpr !== pixelRatio) {
+    pixelRatio = dpr;
+    sprites.clear();
+    for (const canvas of [back, front]) {
+      canvas.width = width * dpr; canvas.height = height * dpr;
+      const context = canvas.getContext('2d');
+      context.setTransform(dpr, 0, 0, dpr, 0, 0);
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+    }
+  }
+  measure();
+  readScroll();
 }
 addEventListener('resize', resize); resize();
+let stopped = false;
+// Captions are set in web fonts; measure again once they've loaded.
+window.document.fonts?.ready.then(() => { if (!stopped) measure(); });
 
 function noise(x, y, t) {
   return Math.sin(x * .065 + y * .035 - t * 2.9) * .35
@@ -141,13 +205,14 @@ function plume(x, y, t, offset, tall, wide, phase) {
 }
 
 function drawFire(t) {
-  ctx.font = 'bold 13px "Courier New", monospace';
-  foreground.font = 'bold 13px "Courier New", monospace';
-  const flameWidth = 1.32;
+  // Stretched wider than the flame shapes are drawn, a bit less on phones where it
+  // already nearly fills the screen; the columns reach far enough to hold the edges.
+  const flameWidth = compact ? 1.42 : 1.52;
   const flameHeight = 1.04;
+  const halfColumns = compact ? 31 : 33;
   for (let row = 0; row < (compact ? 58 : 51); row++) {
     const y = row * 9;
-    for (let col = -29; col <= 29; col++) {
+    for (let col = -halfColumns; col <= halfColumns; col++) {
       const x = col * 8;
       const flameX = x / flameWidth, flameY = y / flameHeight;
       const power = Math.max(
@@ -160,18 +225,18 @@ function drawFire(t) {
       if (power < .3 && flicker < -.25) continue;
       const heat = Math.max(0, Math.min(.999, power * .56 + (1 - y / 400) * .25 + flicker * .06));
       const symbol = glyphs[Math.min(7, Math.floor(heat * 8))];
-      const px = center + x, py = base - y;
-      ctx.fillStyle = palette[Math.floor(heat * palette.length)];
+      const py = base - y;
+      const glyph = sprite(symbol, palette[Math.floor(heat * palette.length)]);
+      const left = center + x - SPRITE_WIDTH / 2, top = py - SPRITE_HEIGHT / 2;
       ctx.globalAlpha = Math.min(1, power * 1.3);
-      ctx.fillText(symbol, px, py);
+      ctx.drawImage(glyph, left, top, SPRITE_WIDTH, SPRITE_HEIGHT);
       // Flame tongues lick in front of the cards, using only visible characters.
       const inFront = compact
         ? py > 430 && py < 470 && (Math.abs(x) < 38 || power > 1.05)
         : py > 518 && (Math.abs(x) < 58 || power > .9);
       if (inFront) {
-        foreground.fillStyle = ctx.fillStyle;
         foreground.globalAlpha = Math.min(1, power * 1.2);
-        foreground.fillText(symbol, px, py);
+        foreground.drawImage(glyph, left, top, SPRITE_WIDTH, SPRITE_HEIGHT);
       }
     }
   }
@@ -225,14 +290,9 @@ function drawEmbers(t) {
   foreground.globalAlpha = 1;
 }
 
-let time = 3, previous = 0, lastFrame = 0, frame = 0;
-function animate(now) {
-  frame = requestAnimationFrame(animate);
-  if (window.document.hidden) { previous = now; return; }
-  scrollProgress = motion.matches ? scrollTarget : scrollProgress + (scrollTarget - scrollProgress) * .14;
-  // Compress fire-to-chat into less than one screen of scrolling;
-  // keep the reading time for the conversations and ending unchanged.
-  const distance = scrollProgress * STORY_SCREENS;
+// Positions every part of the story for how far through it the reader is.
+let disposal = 0;
+function showScene(distance) {
   const position = played(distance);
   const timeline = Math.min(1, position <= .95
     ? (position / .95) * .385
@@ -240,80 +300,101 @@ function animate(now) {
   // Each pause moves its subject aside and fades its caption into the space.
   // On wide screens the fire starts right of centre, beside the page's intro text,
   // and slides back to the middle as the story gets going.
-  const fireShift = stage.clientWidth >= WIDE_SCREEN ? stage.clientWidth * .2 * (1 - smooth(distance / .45)) : 0;
+  const fireShift = layout.width >= WIDE_SCREEN ? layout.width * .2 * (1 - smooth(distance / .45)) : 0;
   const canPaused = smooth((distance - (CAN_PAUSE - .07)) / .15);
   let canShift = 0;
   if (canPaused > 0) {
-    const [captionTop, canTop] = stack(canCaption.offsetHeight, (CAN_BOTTOM - CAN_TOP) * compositionScale);
-    const restingCanTop = stage.clientHeight / 2 + (CAN_TOP - height / 2) * compositionScale;
-    canCaption.style.top = `${captionTop}px`;
+    const [captionTop, canTop] = stack(layout.canCaption, (CAN_BOTTOM - CAN_TOP) * compositionScale);
+    const restingCanTop = layout.height / 2 + (CAN_TOP - height / 2) * compositionScale;
+    write(canCaption, 'top', px(captionTop));
     canShift = canPaused * (canTop - restingCanTop);
   }
-  composition.style.translate = `${fireShift}px ${canShift}px`;
+  write(composition, 'translate', `${px(fireShift)} ${px(canShift)}`);
   showCaption(canCaption, canPaused * (1 - smooth((distance - (CAN_PAUSE + CAN_HOLD - .15)) / .15)));
   const chatPaused = smooth((distance - (CHAT_PAUSE - .05)) / .15);
   if (chatPaused > 0) {
-    const [chatTop, captionTop] = stack(returning.offsetHeight, chatCaption.offsetHeight);
-    const restingChatTop = (stage.clientHeight - returning.offsetHeight) / 2;
-    chatCaption.style.top = `${captionTop}px`;
-    returning.style.translate = `0 ${chatPaused * (chatTop - restingChatTop)}px`;
-  } else returning.style.translate = '';
+    const [chatTop, captionTop] = stack(layout.returning, layout.chatCaption);
+    const restingChatTop = (layout.height - layout.returning) / 2;
+    write(chatCaption, 'top', px(captionTop));
+    write(returning, 'translate', `0 ${px(chatPaused * (chatTop - restingChatTop))}`);
+  } else write(returning, 'translate', 'none');
   showCaption(chatCaption, chatPaused * (1 - smooth((distance - (CHAT_PAUSE + CHAT_HOLD - .15)) / .15)));
   showCaption(signCaption, smooth((distance - (TIMELINE_SCREENS - .1)) / .2));
   const exit = smooth((distance - EXIT_START) / (EXIT_END - EXIT_START));
-  stage.style.opacity = 1 - exit;
-  stage.style.visibility = exit > .99 ? 'hidden' : 'visible';
-  const disposal = clamp(timeline / .32);
+  write(stage, 'opacity', (1 - exit).toFixed(3));
+  write(stage, 'visibility', exit > .99 ? 'hidden' : 'visible');
+  disposal = clamp(timeline / .32);
   const gather = smooth(disposal / .28);
   const drop = smooth((disposal - .25) / .44);
   const size = 1 - gather * .52 - drop * .30;
   const descent = -210 * gather + 250 * drop;
-  burning.style.transform = `translateY(${descent}px) scale(${size})`;
-  burning.style.opacity = 1 - smooth((disposal - .64) / .075);
-  burningWindow.style.clipPath = disposal > .18 ? 'inset(0 0 80px 0)' : 'none';
-  burning.setAttribute('aria-hidden', disposal > .715 ? 'true' : 'false');
+  write(burning, 'transform', `translateY(${px(descent)}) scale(${size.toFixed(4)})`);
+  write(burning, 'opacity', (1 - smooth((disposal - .64) / .075)).toFixed(3));
+  write(burningWindow, 'clip-path', disposal > .18 ? 'inset(0 0 80px 0)' : 'none');
+  hide(burning, disposal > .715);
   can.render(disposal);
   const canExit = smooth((timeline - .30) / .07);
-  composition.style.opacity = 1 - canExit;
-  composition.setAttribute('aria-hidden', canExit > .99 ? 'true' : 'false');
+  write(composition, 'opacity', (1 - canExit).toFixed(3));
+  hide(composition, canExit > .99);
 
   const chatExit = smooth((timeline - .845) / .10);
   const chatVisible = smooth((timeline - .365) / .025) * (1 - chatExit);
-  conversation.style.opacity = chatVisible;
-  conversation.setAttribute('aria-hidden', chatVisible < .02 ? 'true' : 'false');
+  write(conversation, 'opacity', chatVisible.toFixed(3));
+  hide(conversation, chatVisible < .02);
   const raveExit = smooth((timeline - .575) / .06);
-  raving.style.opacity = 1 - raveExit;
-  raving.style.transform = `translate(-50%, calc(-50% - ${raveExit * 38}px))`;
-  raving.setAttribute('aria-hidden', timeline < .375 || raveExit > .98 ? 'true' : 'false');
+  write(raving, 'opacity', (1 - raveExit).toFixed(3));
+  write(raving, 'transform', `translate(-50%, calc(-50% - ${px(raveExit * 38)}))`);
+  hide(raving, timeline < .375 || raveExit > .98);
   const returnEnter = smooth((timeline - .635) / .025);
-  returning.style.opacity = returnEnter;
-  returning.setAttribute('aria-hidden', returnEnter < .02 || chatExit > .98 ? 'true' : 'false');
-  messages.forEach(message => {
-    const reveal = smooth((timeline - Number(message.dataset.at)) / .026);
-    message.style.opacity = reveal;
-    message.style.transform = `translateY(${(1 - reveal) * 24}px) scale(${.96 + reveal * .04})`;
-    message.setAttribute('aria-hidden', reveal < .02 ? 'true' : 'false');
+  write(returning, 'opacity', returnEnter.toFixed(3));
+  hide(returning, returnEnter < .02 || chatExit > .98);
+  messages.forEach((message, index) => {
+    const reveal = smooth((timeline - messageTimes[index]) / .026);
+    write(message, 'opacity', reveal.toFixed(3));
+    write(message, 'transform', `translateY(${px((1 - reveal) * 24)}) scale(${(.96 + reveal * .04).toFixed(4)})`);
+    hide(message, reveal < .02);
   });
   const closed = smooth((timeline - .93) / .055);
-  ending.style.opacity = closed;
-  ending.setAttribute('aria-hidden', closed < .02 ? 'true' : 'false');
-  sign.style.transform = motion.matches ? 'none' : `translateY(${(1 - closed) * 36}px)`;
+  write(ending, 'opacity', closed.toFixed(3));
+  hide(ending, closed < .02);
+  write(sign, 'transform', motion.matches ? 'none' : `translateY(${px((1 - closed) * 36)})`);
   if (closed > 0) {
-    const [captionTop, signTop] = stack(signCaption.offsetHeight, sign.offsetHeight);
-    signCaption.style.top = `${captionTop}px`;
-    sign.style.top = `${signTop}px`;
+    const [captionTop, signTop] = stack(layout.signCaption, layout.sign);
+    write(signCaption, 'top', px(captionTop));
+    write(sign, 'top', px(signTop));
   }
+}
+
+let time = 3, previous = 0, lastFrame = 0, frame = 0, fireOnCanvas = false;
+function animate(now) {
+  frame = requestAnimationFrame(animate);
+  if (window.document.hidden) { previous = now; return; }
+  // Ease toward the scroll position, then land on it exactly so a still page stops changing.
+  const gap = scrollTarget - scrollProgress;
+  scrollProgress = motion.matches || Math.abs(gap) < 1e-4 ? scrollTarget : scrollProgress + gap * .14;
+  // Compress fire-to-chat into less than one screen of scrolling;
+  // keep the reading time for the conversations and ending unchanged.
+  const distance = scrollProgress * STORY_SCREENS;
+  if (distance !== shownDistance) {
+    shownDistance = distance;
+    showScene(distance);
+  }
+  // The fire flickers on its own clock, 20 times a second, and only while it's burning.
   if (now - lastFrame < 50) return;
   const delta = previous ? Math.min((now - previous) / 1000, .1) : 0;
   previous = now; lastFrame = now;
   if (!motion.matches) time += delta;
+  const burningNow = disposal < .72;
+  if (!burningNow && !fireOnCanvas) return;
   ctx.clearRect(0, 0, width, height);
   foreground.clearRect(0, 0, width, height);
-  if (disposal < .72) { drawSmoke(time); drawFire(time); drawEmbers(time); }
+  fireOnCanvas = burningNow;
+  if (burningNow) { drawSmoke(time); drawFire(time); drawEmbers(time); }
 }
 frame = requestAnimationFrame(animate);
 
 return () => {
+  stopped = true;
   cancelAnimationFrame(frame);
   removeEventListener('scroll', readScroll);
   removeEventListener('resize', resize);

@@ -30,6 +30,13 @@ function useIsMobile() {
 // Roughly a few blocks around the person on a phone - enough to spot where they are.
 const NEAR_ME_ZOOM = 16;
 
+// Spelled out under the homepage's closing prompt, before anyone starts searching.
+const HOW_IT_WORKS = [
+  { title: "Find the business", description: "Search, or tap Near me." },
+  { title: "Say what\u2019s on your mind", description: "Praise, a problem, or an idea. No account needed." },
+  { title: "We take it to them", description: "Privately, to the people who can act on it." },
+];
+
 function distanceMiles(from, place) {
   if (!from || place.lat == null || place.lon == null) return null;
   const rad = Math.PI / 180;
@@ -420,6 +427,20 @@ export default function SearchPage({ home = false }) {
           </div>
         )}
         </div>
+
+        {isIntro && (
+          <ol className="search-steps" aria-label="How it works">
+            {HOW_IT_WORKS.map((step, index) => (
+              <li className="search-step" key={step.title}>
+                <span className="search-step-number" aria-hidden="true">{`0${index + 1}`}</span>
+                <span className="search-step-text">
+                  <strong>{step.title}</strong>
+                  {step.description}
+                </span>
+              </li>
+            ))}
+          </ol>
+        )}
         </div>
 
         <div
