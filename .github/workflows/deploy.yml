@@ -52,6 +52,19 @@ jobs:
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - run: flyctl deploy --remote-only
+      - name: Deploy to Fly.io
+        id: fly_deploy
+        continue-on-error: true
+        run: flyctl deploy --remote-only
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Capture Fly.io startup logs
+        if: steps.fly_deploy.outcome == 'failure'
+        run: flyctl logs --app five-star --no-tail
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Fail unsuccessful deployment
+        if: steps.fly_deploy.outcome == 'failure'
+        run: exit 1
