@@ -58,7 +58,7 @@ function formatPlaceAddress(place) {
   return [place.street, place.city, place.state].filter(Boolean).join(", ");
 }
 
-export default function SearchPage({ home = false }) {
+export default function SearchPage({ home = false, onStart }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [query, setQuery] = useState("");
@@ -323,6 +323,11 @@ export default function SearchPage({ home = false }) {
   const isActive =
     (home && engaged) || query.trim().length > 0 || hasSearched || Boolean(userLocation) || minStars > 0;
   const isIntro = home && !isActive && !isFormOpen && (!isMobile || mobileView === "map");
+
+  // On the homepage, starting a search leaves the story behind for good (HomePage).
+  useEffect(() => {
+    if (home && isActive) onStart?.();
+  }, [home, isActive]);
 
   // Forms open from partway down the results (or the bottom of the homepage); start at the form.
   useEffect(() => {

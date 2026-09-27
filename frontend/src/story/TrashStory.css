@@ -1,8 +1,10 @@
 /* The review-fire scroll story on the homepage (src/story/TrashStory.jsx). Ported from a standalone
    page, so every rule is scoped to .trash-story to stay out of the app's styles. */
 /* See-through apart from the scene, so whatever is pinned behind the story shows once it fades.
-   Set in the site's fonts and colours; the review cards, texts and sign it depicts keep their own. */
-.trash-story { position: relative; z-index: 1; font-family: var(--font-sans); overflow-x: clip; pointer-events: none; }
+   Set in the site's fonts and colours; the review cards, texts and sign it depicts keep their own.
+   No overflow clipping here (the scene clips itself): a clipping wrapper around the pinned
+   scene makes iPhone Safari move it off the scroll thread, and it shakes while scrolling. */
+.trash-story { position: relative; z-index: 1; font-family: var(--font-sans); pointer-events: none; }
 .trash-story * { box-sizing: border-box; }
 .trash-story #story { height: 790svh; } /* STORY_SCREENS + 1 screen, see animateStory.js */
 .trash-story #scene { background: var(--color-bg, #fdfdfc); position: sticky; top: 0; width: 100%; height: 100svh; pointer-events: auto; display: grid; place-items: center; overflow: hidden; }

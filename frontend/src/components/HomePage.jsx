@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import SearchPage from "./SearchPage";
 
 // Three.js only loads for the homepage story, not the rest of the app.
@@ -11,6 +11,13 @@ const HERO_FADE_DISTANCE = 260;
 
 export default function HomePage() {
   const heroRef = useRef(null);
+  // Once someone starts using the search, the story is gone: the page is just search and
+  // feedback, with nothing to scroll back up into.
+  const [searching, setSearching] = useState(false);
+
+  useLayoutEffect(() => {
+    if (searching) window.scrollTo({ top: 0, behavior: "instant" });
+  }, [searching]);
 
   useEffect(() => {
     let shown = null;
@@ -30,27 +37,29 @@ export default function HomePage() {
   }, []);
 
   return (
-    <div className="home-page">
-      <Suspense fallback={<div className="trash-story home-story-loading" />}>
-        <TrashStory>
-          <div className="home-hero" ref={heroRef}>
-            <h1 className="home-hero-title">
-              Confused?
-              <br />
-              So are they.
-            </h1>
-            <p className="home-hero-copy">
-              Reviews happen once, are often gamed, and are usually too vague to act on. Businesses need
-              your feedback on the first visit, the second, and the tenth. Big or small.
-            </p>
-            {/* Jumps past the story to the map (handled in animateStory.js). */}
-            <button className="btn btn--primary" type="button" data-story-goto="end">
-              Give feedback
-            </button>
-          </div>
-        </TrashStory>
-      </Suspense>
-      <SearchPage home />
+    <div className={`home-page${searching ? " home-page--searching" : ""}`}>
+      {!searching && (
+        <Suspense fallback={<div className="trash-story home-story-loading" />}>
+          <TrashStory>
+            <div className="home-hero" ref={heroRef}>
+              <h1 className="home-hero-title">
+                Confused?
+                <br />
+                So are they.
+              </h1>
+              <p className="home-hero-copy">
+                Reviews happen once, are often gamed, and are usually too vague to act on. Businesses need
+                your feedback on the first visit, the second, and the tenth. Big or small.
+              </p>
+              {/* Jumps past the story to the map (handled in animateStory.js). */}
+              <button className="btn btn--primary" type="button" data-story-goto="end">
+                Give feedback
+              </button>
+            </div>
+          </TrashStory>
+        </Suspense>
+      )}
+      <SearchPage home onStart={() => setSearching(true)} />
     </div>
   );
 }
