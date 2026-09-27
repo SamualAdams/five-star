@@ -44,6 +44,58 @@ FOUND_STATUS = {
 }
 
 
+def send_claim_notification(
+    *,
+    listed: bool = True,
+    business_name: str,
+    business_address: str | None,
+    contact_name: str,
+    contact_role: str | None,
+    contact_email: str,
+    contact_phone: str,
+    message: str | None,
+) -> None:
+    """Tell the team inbox someone wants to claim a directory business.
+
+    Background task after the claim is saved; failures are logged, not raised.
+    """
+    settings = get_settings()
+    if listed:
+        subject = f"[five*] Claim request: {business_name}"
+        intro = "Someone says they run this business and wants to claim it on five*. Reply to reach them."
+    else:
+        subject = f"[five*] Add my business: {business_name}"
+        intro = "Someone runs a business that isn't in five*'s directory and wants it listed. Reply to reach them."
+    if not settings.sendgrid_api_key or not settings.feedback_notify_email:
+        logger.warning("Email not configured — %s | %s <%s> %s", subject, contact_name, contact_email, contact_phone)
+        return
+
+    e = html.escape
+    who = contact_name + (f" ({contact_role})" if contact_role else "")
+    body = f"""
+        <p>{e(intro)}</p>
+        <p><strong>Business:</strong> {e(business_name)}<br>
+        <strong>Address:</strong> {e(business_address or "—")}</p>
+        <p><strong>Contact:</strong> {e(who)}<br>
+        <strong>Email:</strong> {e(contact_email)}<br>
+        <strong>Phone:</strong> {e(contact_phone)}</p>
+        """
+    if message:
+        body += f'<blockquote style="white-space: pre-wrap">{e(message)}</blockquote>'
+    mail = Mail(
+        from_email=settings.sender_email,
+        to_emails=settings.feedback_notify_email,
+        subject=subject,
+        html_content=body,
+    )
+    mail.reply_to = contact_email
+
+    try:
+        SendGridAPIClient(settings.sendgrid_api_key).send(mail)
+    except Exception:
+        logger.exception("Failed to send claim notification for %s", business_name)
+
+
 def send_feedback_notification(
     *,
     kind: str,

@@ -313,12 +313,33 @@ export async function acceptInvite(authToken, inviteToken) {
 
 // Organization Search (Public)
 
-export async function searchOrganizations(query) {
-  return request(`/organizations/search?q=${encodeURIComponent(query)}`);
+export async function searchOrganizations(query, { minStars = 0 } = {}) {
+  const params = new URLSearchParams({ q: query });
+  if (minStars) params.set("min_stars", minStars);
+  return request(`/organizations/search?${params}`);
 }
 
-export async function searchDirectory(query) {
-  return request(`/directory/search?q=${encodeURIComponent(query)}`);
+export async function searchDirectory(query, { center, bbox, minStars = 0 } = {}) {
+  const params = new URLSearchParams({ q: query });
+  if (minStars) params.set("min_stars", minStars);
+  if (center) {
+    params.set("lat", center.lat.toFixed(5));
+    params.set("lon", center.lon.toFixed(5));
+  }
+  if (bbox) params.set("bbox", bbox.map((v) => v.toFixed(5)).join(","));
+  return request(`/directory/search?${params}`);
+}
+
+export async function fetchMapPlaces(bbox) {
+  const params = new URLSearchParams({ bbox: bbox.map((v) => v.toFixed(5)).join(",") });
+  return request(`/directory/map?${params}`);
+}
+
+export async function submitBusinessClaim(data) {
+  return request("/api/business-claims", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
 }
 
 export async function submitUnlistedBusinessFeedback(data) {

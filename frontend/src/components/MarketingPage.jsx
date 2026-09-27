@@ -106,36 +106,8 @@ const QR_DISPLAY_PHOTOS = [
 
 export default function MarketingPage() {
   const [qrPhotoIndex, setQrPhotoIndex] = useState(0);
-  const howItWorksRef = useRef(null);
   const qrSwipeRef = useRef(null);
   const qrSuppressClickRef = useRef(false);
-
-  function handleHowItWorksClick(event) {
-    event.preventDefault();
-
-    const panel = howItWorksRef.current;
-    if (!panel) return;
-
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    panel.scrollIntoView({
-      behavior: reducedMotion ? "auto" : "smooth",
-      block: window.innerWidth > 960 ? "center" : "start",
-    });
-    panel.focus({ preventScroll: true });
-
-    if (!reducedMotion && typeof panel.animate === "function") {
-      panel.animate(
-        [
-          { boxShadow: "0 0 0 0 rgba(9, 139, 143, 0)" },
-          { boxShadow: "0 0 0 6px rgba(9, 139, 143, 0.2)" },
-          { boxShadow: "0 0 0 0 rgba(9, 139, 143, 0)" },
-        ],
-        { duration: 850, easing: "ease-out" }
-      );
-    }
-
-    window.history.replaceState(null, "", "#how-it-works");
-  }
 
   function cycleQrPhoto(direction = 1) {
     setQrPhotoIndex(
@@ -204,12 +176,9 @@ export default function MarketingPage() {
           </p>
 
           <div className="marketing-actions">
-            <Link className="btn btn--primary" to="/search">
+            <Link className="btn btn--primary" to="/">
               Give feedback
             </Link>
-            <a className="btn btn--outline" href="#how-it-works" onClick={handleHowItWorksClick}>
-              See how it works
-            </a>
           </div>
 
         </div>
@@ -217,8 +186,6 @@ export default function MarketingPage() {
         <aside
           className="marketing-panel marketing-panel--aside"
           id="how-it-works"
-          ref={howItWorksRef}
-          tabIndex={-1}
         >
           <p className="section-kicker">Stupid simple by design</p>
           <h2 className="marketing-side-title">You talk to us. We go to them.</h2>
@@ -416,7 +383,7 @@ export default function MarketingPage() {
           </p>
         </div>
 
-        <Link className="btn btn--primary" to="/search">
+        <Link className="btn btn--primary" to="/">
           Give feedback
         </Link>
       </section>

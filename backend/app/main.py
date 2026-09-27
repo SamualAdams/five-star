@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from .ai import generate_digest_content, generate_wordsmith_options, polish_review
 from .config import get_settings
-from .directory_orgs import is_claimed, location_for_place
+from .directory_orgs import claimed_place_ids, is_claimed, location_for_place, place_statuses, rated_at_least
 from .directory_text import split_query
 from .database import Base, engine, get_db
 from .dependencies import (
@@ -30,6 +30,7 @@ from .dependencies import (
 from .models import (
     Digest,
     DigestStatus,
+    BusinessClaim,
     DirectoryPlace,
     Feedback,
     Initiative,
@@ -110,10 +111,11 @@ from .schemas import (
     UserLogin,
     UserOut,
     UnlistedBusinessFeedbackSubmit,
+    BusinessClaimSubmit,
     WordsmithRequest,
     WordsmithResponse,
 )
-from .email import send_feedback_notification, send_password_reset_email
+from .email import send_claim_notification, send_feedback_notification, send_password_reset_email
 from .ratelimit import limiter
 from .security import (
     create_access_token,
@@ -389,7 +391,12 @@ def list_organizations(
 
 @app.get("/organizations/search", response_model=list[OrganizationSearchResult])
 @limiter.limit("30/minute")
-def search_organizations(request: Request, q: str, db: Session = Depends(get_db)) -> list[OrganizationSearchResult]:
+def search_organizations(
+    request: Request,
+    q: str,
+    min_stars: int = Query(0, ge=0, le=5),
+    db: Session = Depends(get_db),
+) -> list[OrganizationSearchResult]:
     """Public endpoint - search for organizations by business or location details."""
     if not q or len(q.strip()) < 2:
         return []
@@ -403,7 +410,8 @@ def search_organizations(request: Request, q: str, db: Session = Depends(get_db)
                 Organization.name.ilike(search_pattern),
                 Location.name.ilike(search_pattern),
                 Location.address.ilike(search_pattern),
-            )
+            ),
+            Organization.five_star_status >= min_stars,
         )
         .distinct()
         .order_by(Organization.name)
@@ -415,18 +423,24 @@ def search_organizations(request: Request, q: str, db: Session = Depends(get_db)
             name=org.name,
             feedback_token=org.feedback_token,
             landing_enabled=org.feed_enabled or org.roadmap_enabled,
+            five_star_status=org.five_star_status,
         )
         for org in orgs
     ]
+
+
+MAP_PIN_LIMIT = 250
 
 
 @app.get("/directory/search", response_model=list[DirectoryPlaceResult])
 @limiter.limit("30/minute")
 def search_directory(
     request: Request,
-    q: str,
+    q: str = "",
     lat: float | None = Query(None, ge=-90, le=90),
     lon: float | None = Query(None, ge=-180, le=180),
+    bbox: str | None = Query(None, description="min_lon,min_lat,max_lon,max_lat"),
+    min_stars: int = Query(0, ge=0, le=5),
     db: Session = Depends(get_db),
 ) -> list[DirectoryPlaceResult]:
     """Public endpoint - search businesses that aren't on five* yet.
@@ -434,15 +448,41 @@ def search_directory(
     Understands "canes on lee" / "chick fil a ben hur": each reading from
     split_query is tried in order (whole query as the name first), every word
     must prefix-match a word of the name or street. Closest first when the
-    caller passes lat/lon. Places that already became organizations stay
+    caller passes lat/lon; only places inside bbox when given (the map's
+    "search this area"). With no query but a lat/lon ("near me"), the
+    closest places. min_stars keeps only places five* has rated at least
+    that high; with no query it lists them (closest first given lat/lon). Places that already became organizations stay
     searchable; feedback for them goes to their location.
     """
     limit = 20
+    area = []
+    if bbox:
+        try:
+            min_lon, min_lat, max_lon, max_lat = (float(v) for v in bbox.split(","))
+        except ValueError:
+            raise HTTPException(status_code=422, detail="bbox must be min_lon,min_lat,max_lon,max_lat")
+        area = [DirectoryPlace.lat.between(min_lat, max_lat), DirectoryPlace.lon.between(min_lon, max_lon)]
+    if min_stars:
+        area.append(rated_at_least(min_stars))
+    if len(q.strip()) < 2:
+        if lat is not None and lon is not None:
+            ordering = (
+                (DirectoryPlace.lat - lat) * (DirectoryPlace.lat - lat)
+                + (DirectoryPlace.lon - lon) * (DirectoryPlace.lon - lon) * 0.75
+            )
+        elif min_stars:
+            ordering = DirectoryPlace.name
+        else:
+            return []
+        nearest = db.scalars(
+            select(DirectoryPlace).where(DirectoryPlace.active.is_(True), *area).order_by(ordering).limit(30)
+        )
+        return _directory_results(db, list(nearest))
     results: dict[int, DirectoryPlace] = {}
     for name, street in split_query(q):
         if len(name) < 2:
             continue
-        conditions = [DirectoryPlace.active.is_(True)]
+        conditions = [DirectoryPlace.active.is_(True), *area]
         conditions += [DirectoryPlace.name_search.like(f"% {w}%") for w in name.split()]
         conditions += [DirectoryPlace.street_search.like(f"% {w}%") for w in street.split()]
         ordering = [case((DirectoryPlace.name_search == f" {name} ", 0), else_=1)]
@@ -458,7 +498,51 @@ def search_directory(
             results.setdefault(place.id, place)
         if len(results) >= limit:
             break
-    return [DirectoryPlaceResult.model_validate(p, from_attributes=True) for p in list(results.values())[:limit]]
+    return _directory_results(db, list(results.values())[:limit])
+
+
+@app.get("/directory/map", response_model=list[DirectoryPlaceResult])
+@limiter.limit("60/minute")
+def directory_map(
+    request: Request,
+    bbox: str = Query(..., description="min_lon,min_lat,max_lon,max_lat"),
+    db: Session = Depends(get_db),
+) -> list[DirectoryPlaceResult]:
+    """Public endpoint - businesses to dot the map with before anyone searches.
+
+    Rated places in view come first, then a fixed spread of the rest (the same
+    places for the same view, so pins don't reshuffle as the map pans).
+    """
+    try:
+        min_lon, min_lat, max_lon, max_lat = (float(v) for v in bbox.split(","))
+    except ValueError:
+        raise HTTPException(status_code=422, detail="bbox must be min_lon,min_lat,max_lon,max_lat")
+    in_view = [
+        DirectoryPlace.active.is_(True),
+        DirectoryPlace.lat.between(min_lat, max_lat),
+        DirectoryPlace.lon.between(min_lon, max_lon),
+    ]
+    rated = list(db.scalars(select(DirectoryPlace).where(*in_view, rated_at_least(1)).limit(100)))
+    if rated:
+        in_view.append(DirectoryPlace.id.not_in([p.id for p in rated]))
+    spread = db.scalars(
+        select(DirectoryPlace)
+        .where(*in_view)
+        .order_by((DirectoryPlace.id * 7919) % 10007)
+        .limit(MAP_PIN_LIMIT - len(rated))
+    )
+    return _directory_results(db, rated + list(spread))
+
+
+def _directory_results(db: Session, places: list[DirectoryPlace]) -> list[DirectoryPlaceResult]:
+    claimed = claimed_place_ids(db, places)
+    statuses = place_statuses(db, places)
+    return [
+        DirectoryPlaceResult.model_validate(p, from_attributes=True).model_copy(
+            update={"claimed": p.id in claimed, "five_star_status": statuses[p.id]}
+        )
+        for p in places
+    ]
 
 
 @app.post(
@@ -529,6 +613,57 @@ def submit_unlisted_business_feedback(
         success=True,
         message="We’ll find the business and make sure your feedback gets where it belongs.",
     )
+
+
+@app.post("/api/business-claims", status_code=status.HTTP_201_CREATED)
+@limiter.limit("5/minute")
+def submit_business_claim(
+    request: Request,
+    payload: BusinessClaimSubmit,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Someone who runs a business asks to claim it, or to have it listed if it
+    isn't in the directory. five* follows up by hand."""
+    if payload.directory_place_id is not None:
+        place = db.scalar(
+            select(DirectoryPlace).where(DirectoryPlace.id == payload.directory_place_id, DirectoryPlace.active)
+        )
+        if place is None:
+            raise HTTPException(status_code=404, detail="Business not found")
+        if claimed_place_ids(db, [place]):
+            raise HTTPException(status_code=409, detail="This business has already been claimed")
+        business_name = place.name
+        address = ", ".join(p for p in (place.street, place.city, place.state, place.zip) if p) or None
+    elif payload.business_name and payload.business_address:
+        business_name = payload.business_name.strip()
+        address = payload.business_address.strip()
+    else:
+        raise HTTPException(status_code=422, detail="Business name and address are required")
+    claim = BusinessClaim(
+        directory_place_id=payload.directory_place_id,
+        business_name=business_name,
+        business_address=address,
+        contact_name=payload.contact_name.strip(),
+        contact_role=(payload.contact_role or "").strip() or None,
+        contact_email=payload.contact_email.lower(),
+        contact_phone=payload.contact_phone.strip(),
+        message=(payload.message or "").strip() or None,
+    )
+    db.add(claim)
+    db.commit()
+    background_tasks.add_task(
+        send_claim_notification,
+        listed=claim.directory_place_id is not None,
+        business_name=claim.business_name,
+        business_address=claim.business_address,
+        contact_name=claim.contact_name,
+        contact_role=claim.contact_role,
+        contact_email=claim.contact_email,
+        contact_phone=claim.contact_phone,
+        message=claim.message,
+    )
+    return {"success": True}
 
 
 @app.get("/organizations/{org_id}", response_model=OrganizationOut)

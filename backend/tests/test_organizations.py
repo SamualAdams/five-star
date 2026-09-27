@@ -353,6 +353,7 @@ def test_search_and_organization_wide_feedback_for_multiple_locations(client, au
         "name": "Multi Location Diner",
         "feedback_token": org["feedback_token"],
         "landing_enabled": False,
+        "five_star_status": 0,
     }]
 
     info = client.get(f"/api/feedback/organization/{org['feedback_token']}")
