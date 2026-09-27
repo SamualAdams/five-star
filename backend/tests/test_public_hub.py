@@ -1,6 +1,4 @@
-import app.main as main_module
-from app.models import Organization, SocialConnection, User
-from app.social import encrypt_token
+from app.models import Organization
 from conftest import TestingSessionLocal
 
 
@@ -114,7 +112,6 @@ def test_five_star_only_feed_posts_and_location_filters(client, auth_headers):
     )
     assert organization_post.status_code == 200
     assert organization_post.json()["status"] == "published"
-    assert organization_post.json()["targets"] == []
 
     location_post = client.post(
         f"/organizations/{org['id']}/social-posts",
@@ -167,104 +164,3 @@ def test_five_star_only_feed_posts_and_location_filters(client, auth_headers):
     assert removed.status_code == 200, removed.text
     assert removed.json()["reaction_count"] == 0
     assert removed.json()["viewer_reacted"] is False
-
-
-def test_location_social_connections_override_organization_defaults(
-    client,
-    auth_headers,
-    monkeypatch,
-):
-    email = "scoped-social-owner@example.com"
-    headers = auth_headers(email)
-    org = create_org(client, headers, "Scoped Social Hub")
-    location = client.post(
-        f"/organizations/{org['id']}/locations",
-        json={"name": "Mid City"},
-        headers=headers,
-    ).json()
-    enable_modules(org["id"], roadmap=False)
-
-    with TestingSessionLocal() as db:
-        user = db.query(User).filter_by(email=email).one()
-        db.add_all([
-            SocialConnection(
-                organization_id=org["id"],
-                location_id=None,
-                provider="facebook",
-                status="connected",
-                provider_account_id="org-page",
-                provider_account_name="Organization Page",
-                access_token_encrypted=encrypt_token("org-token"),
-                scopes=[],
-                provider_data={"auth_type": "facebook_login"},
-                connected_by=user.id,
-            ),
-            SocialConnection(
-                organization_id=org["id"],
-                location_id=location["id"],
-                provider="facebook",
-                status="connected",
-                provider_account_id="local-page",
-                provider_account_name="Mid City Page",
-                access_token_encrypted=encrypt_token("local-token"),
-                scopes=[],
-                provider_data={"auth_type": "facebook_login"},
-                connected_by=user.id,
-            ),
-            SocialConnection(
-                organization_id=org["id"],
-                location_id=None,
-                provider="instagram",
-                status="connected",
-                provider_account_id="org-instagram",
-                provider_account_name="organization_updates",
-                access_token_encrypted=encrypt_token("instagram-token"),
-                scopes=[],
-                provider_data={"auth_type": "instagram_login"},
-                connected_by=user.id,
-            ),
-        ])
-        db.commit()
-
-    organization_accounts = client.get(
-        f"/organizations/{org['id']}/social-connections",
-        headers=headers,
-    ).json()
-    organization_facebook = next(
-        account for account in organization_accounts if account["provider"] == "facebook"
-    )
-    assert organization_facebook["provider_account_name"] == "Organization Page"
-    assert organization_facebook["inherited"] is False
-
-    accounts = client.get(
-        f"/organizations/{org['id']}/social-connections?location_id={location['id']}",
-        headers=headers,
-    ).json()
-    facebook = next(account for account in accounts if account["provider"] == "facebook")
-    assert facebook["provider_account_name"] == "Mid City Page"
-    assert facebook["inherited"] is False
-    instagram = next(account for account in accounts if account["provider"] == "instagram")
-    assert instagram["provider_account_name"] == "organization_updates"
-    assert instagram["inherited"] is True
-
-    calls = []
-    monkeypatch.setattr(
-        main_module,
-        "publish_social_content",
-        lambda provider, **kwargs: calls.append(kwargs["account_id"]) or "remote-id",
-    )
-    post = client.post(
-        f"/organizations/{org['id']}/social-posts",
-        json={
-            "master_caption": "Local social news",
-            "location_id": location["id"],
-            "targets": [{"provider": "facebook", "content": "Local social news"}],
-        },
-        headers=headers,
-    ).json()
-    published = client.post(
-        f"/organizations/{org['id']}/social-posts/{post['id']}/publish",
-        headers=headers,
-    )
-    assert published.status_code == 200, published.text
-    assert calls == ["local-page"]

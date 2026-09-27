@@ -104,9 +104,8 @@ function DeleteLocationDialog({ impact, isDeleting, location, locations, onCance
           </label>
         )}
 
-        {(impact.social_connections > 0 || impact.team_assignments > 0 || impact.pending_invites > 0) && (
+        {(impact.team_assignments > 0 || impact.pending_invites > 0) && (
           <div className="location-delete-side-effects">
-            {impact.social_connections > 0 && <p>{impact.social_connections} location-specific social connection{impact.social_connections === 1 ? "" : "s"} will be disconnected.</p>}
             {impact.team_assignments > 0 && <p>{impact.team_assignments} team assignment{impact.team_assignments === 1 ? "" : "s"} will be removed.</p>}
             {impact.pending_invites > 0 && <p>{impact.pending_invites} pending invite{impact.pending_invites === 1 ? "" : "s"} will be cancelled.</p>}
           </div>

@@ -7,6 +7,15 @@ const ACCESS_ROLE_LABELS = {
   location_viewer: "Location viewer",
 };
 
+// "Raising Cane's" -> "raising canes", so "canes" and "chick fil a" match.
+function normalizeName(value) {
+  return value
+    .toLowerCase()
+    .replace(/['’]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
 export default function OrganizationSwitcher({
   organizations,
   currentOrgId,
@@ -15,7 +24,21 @@ export default function OrganizationSwitcher({
   onOrgChange,
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [filter, setFilter] = useState("");
   if (!organizations.length) return null;
+
+  // Staff see every business on five*, including unclaimed ones created from
+  // the directory, so the list gets long enough to need a filter.
+  const showFilter = isSuperuser || organizations.length > 8;
+  const filterText = normalizeName(filter);
+  const visibleOrganizations = filterText
+    ? organizations.filter((org) => normalizeName(org.name).includes(filterText))
+    : organizations;
+
+  function roleLabel(org) {
+    if (isSuperuser) return org.is_claimed === false ? "Unclaimed · from directory" : "Claimed";
+    return ACCESS_ROLE_LABELS[org.role] || org.role;
+  }
 
   const currentOrg = organizations.find((org) => org.id === currentOrgId);
   const displayLabel = currentOrg
@@ -25,6 +48,7 @@ export default function OrganizationSwitcher({
   function chooseOrganization(orgId) {
     onOrgChange(orgId);
     setIsOpen(false);
+    setFilter("");
   }
 
   return (
@@ -43,21 +67,41 @@ export default function OrganizationSwitcher({
       {isOpen && (
         <>
           <div className="organization-switcher-menu">
-            <p className="organization-switcher-heading">{isSuperuser ? "All organizations" : "Your organizations"}</p>
-            {organizations.map((org) => (
-              <button
-                key={org.id}
-                type="button"
-                className={`organization-switcher-option${org.id === currentOrgId ? " organization-switcher-option--active" : ""}`}
-                onClick={() => chooseOrganization(org.id)}
-              >
-                <span>
-                  <strong>{org.name}</strong>
-                  <small>{isSuperuser ? "Platform superuser" : ACCESS_ROLE_LABELS[org.role] || org.role}</small>
-                </span>
-                {org.id === currentOrgId && <span aria-hidden="true">✓</span>}
-              </button>
-            ))}
+            <p className="organization-switcher-heading">
+              {isSuperuser ? `All businesses (${organizations.length})` : "Your organizations"}
+            </p>
+            {showFilter && (
+              <input
+                type="search"
+                className="organization-switcher-filter"
+                placeholder="Search businesses…"
+                value={filter}
+                onChange={(event) => setFilter(event.target.value)}
+                aria-label="Search businesses"
+                autoFocus
+              />
+            )}
+            <div className="organization-switcher-list">
+              {visibleOrganizations.map((org) => (
+                <button
+                  key={org.id}
+                  type="button"
+                  className={`organization-switcher-option${org.id === currentOrgId ? " organization-switcher-option--active" : ""}`}
+                  onClick={() => chooseOrganization(org.id)}
+                >
+                  <span>
+                    <strong>{org.name}</strong>
+                    <small className={org.is_claimed === false && isSuperuser ? "organization-switcher-unclaimed" : undefined}>
+                      {roleLabel(org)}
+                    </small>
+                  </span>
+                  {org.id === currentOrgId && <span aria-hidden="true">✓</span>}
+                </button>
+              ))}
+              {!visibleOrganizations.length && (
+                <p className="organization-switcher-empty">No businesses match “{filter}”.</p>
+              )}
+            </div>
             <button
               type="button"
               className="organization-switcher-create"

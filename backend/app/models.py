@@ -1,7 +1,7 @@
 import enum
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Enum as SQLEnum, ForeignKey, ForeignKeyConstraint, Index, Integer, JSON, LargeBinary, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Enum as SQLEnum, Float, ForeignKey, ForeignKeyConstraint, Integer, JSON, LargeBinary, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -49,12 +49,14 @@ class Organization(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    # NULL when five* created it from the directory (an unclaimed business)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     feedback_token: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
     review_links: Mapped[list | None] = mapped_column(JSON, nullable=True, default=None)
     roadmap_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     feed_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
-    five_star_status: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    # 0 = not verified (the default); five* staff raise it as a business engages
+    five_star_status: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
 
     members: Mapped[list["OrganizationMember"]] = relationship(back_populates="organization", cascade="all, delete-orphan")
     invites: Mapped[list["Invite"]] = relationship(back_populates="organization", cascade="all, delete-orphan")
@@ -62,18 +64,6 @@ class Organization(Base):
     digests: Mapped[list["Digest"]] = relationship(back_populates="organization", cascade="all, delete-orphan")
     initiatives: Mapped[list["Initiative"]] = relationship(back_populates="organization", cascade="all, delete-orphan")
     locations: Mapped[list["Location"]] = relationship(back_populates="organization", cascade="all, delete-orphan")
-    social_connections: Mapped[list["SocialConnection"]] = relationship(
-        back_populates="organization",
-        cascade="all, delete-orphan",
-    )
-    social_oauth_states: Mapped[list["SocialOAuthState"]] = relationship(
-        back_populates="organization",
-        cascade="all, delete-orphan",
-    )
-    social_connection_setups: Mapped[list["SocialConnectionSetup"]] = relationship(
-        back_populates="organization",
-        cascade="all, delete-orphan",
-    )
     social_posts: Mapped[list["SocialPost"]] = relationship(
         back_populates="organization",
         cascade="all, delete-orphan",
@@ -85,7 +75,7 @@ class Organization(Base):
     creator: Mapped["User"] = relationship(foreign_keys=[created_by])
 
     __table_args__ = (
-        CheckConstraint("five_star_status BETWEEN 1 AND 5", name="ck_organizations_five_star_status"),
+        CheckConstraint("five_star_status BETWEEN 0 AND 5", name="ck_organizations_five_star_status"),
     )
 
 
@@ -131,7 +121,8 @@ class Location(Base):
     review_links: Mapped[list | None] = mapped_column(JSON, nullable=True, default=None)
     five_star_status_override: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    # NULL when five* created it from the directory (an unclaimed business)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
 
     organization: Mapped["Organization"] = relationship(back_populates="locations")
     creator: Mapped["User"] = relationship(foreign_keys=[created_by])
@@ -147,7 +138,7 @@ class Location(Base):
     __table_args__ = (
         UniqueConstraint("id", "organization_id", name="uq_location_id_organization"),
         CheckConstraint(
-            "five_star_status_override IS NULL OR five_star_status_override BETWEEN 1 AND 5",
+            "five_star_status_override IS NULL OR five_star_status_override BETWEEN 0 AND 5",
             name="ck_locations_five_star_status_override",
         ),
     )
@@ -258,6 +249,42 @@ class UnlistedBusinessFeedback(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class DirectoryPlace(Base):
+    """A business we know exists but that hasn't joined five*.
+
+    Seeded from open data (Overture Places). `id` is five*'s own identifier; the
+    provider's id lives in source/source_id so provider refreshes never change it.
+    `location_id` is set when the place first gets feedback: five* creates an
+    unclaimed Organization + Location for it (see directory_orgs.py), which the
+    business takes over when it joins.
+    """
+
+    __tablename__ = "directory_places"
+    __table_args__ = (UniqueConstraint("source", "source_id", name="uq_directory_places_source"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source: Mapped[str] = mapped_column(String(32), nullable=False)
+    source_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_release: Mapped[str] = mapped_column(String(32), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    street: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    city: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    state: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    zip: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    lon: Mapped[float | None] = mapped_column(Float, nullable=True)
+    category: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    brand: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # " raising canes " / " lee " - normalized and space-padded so LIKE '% word%'
+    # is a word-prefix match (see directory_text.py)
+    name_search: Mapped[str] = mapped_column(String(300), nullable=False)
+    street_search: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    location_id: Mapped[int | None] = mapped_column(ForeignKey("locations.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class Initiative(Base):
     __tablename__ = "initiatives"
 
@@ -342,114 +369,6 @@ class PasswordResetToken(Base):
     user: Mapped["User"] = relationship()
 
 
-class SocialConnection(Base):
-    __tablename__ = "social_connections"
-
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    organization_id: Mapped[int] = mapped_column(
-        ForeignKey("organizations.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    location_id: Mapped[int | None] = mapped_column(
-        ForeignKey("locations.id", ondelete="CASCADE"),
-        nullable=True,
-        index=True,
-    )
-    provider: Mapped[str] = mapped_column(String(32), nullable=False)
-    status: Mapped[str] = mapped_column(String(32), nullable=False, default="connected")
-    provider_account_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    provider_account_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    access_token_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
-    refresh_token_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
-    scopes: Mapped[list | None] = mapped_column(JSON, nullable=True)
-    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    provider_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    connected_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
-        nullable=False,
-    )
-
-    organization: Mapped["Organization"] = relationship(back_populates="social_connections")
-    location: Mapped["Location | None"] = relationship()
-    connected_user: Mapped["User"] = relationship(foreign_keys=[connected_by])
-
-    __table_args__ = (
-        Index(
-            "uq_social_connection_org_provider_default",
-            "organization_id",
-            "provider",
-            unique=True,
-            postgresql_where=location_id.is_(None),
-            sqlite_where=location_id.is_(None),
-        ),
-        UniqueConstraint(
-            "organization_id",
-            "location_id",
-            "provider",
-            name="uq_social_connection_org_location_provider",
-        ),
-    )
-
-
-class SocialOAuthState(Base):
-    __tablename__ = "social_oauth_states"
-
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    state_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
-    organization_id: Mapped[int] = mapped_column(
-        ForeignKey("organizations.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    location_id: Mapped[int | None] = mapped_column(
-        ForeignKey("locations.id", ondelete="CASCADE"),
-        nullable=True,
-        index=True,
-    )
-    provider: Mapped[str] = mapped_column(String(32), nullable=False)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-
-    organization: Mapped["Organization"] = relationship(back_populates="social_oauth_states")
-    user: Mapped["User"] = relationship(foreign_keys=[user_id])
-
-
-class SocialConnectionSetup(Base):
-    __tablename__ = "social_connection_setups"
-
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
-    organization_id: Mapped[int] = mapped_column(
-        ForeignKey("organizations.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    location_id: Mapped[int | None] = mapped_column(
-        ForeignKey("locations.id", ondelete="CASCADE"),
-        nullable=True,
-        index=True,
-    )
-    provider: Mapped[str] = mapped_column(String(32), nullable=False)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    access_token_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
-    scopes: Mapped[list | None] = mapped_column(JSON, nullable=True)
-    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-    used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-
-    organization: Mapped["Organization"] = relationship(
-        back_populates="social_connection_setups",
-    )
-    user: Mapped["User"] = relationship(foreign_keys=[user_id])
-
-
 class SocialPost(Base):
     __tablename__ = "social_posts"
 
@@ -481,11 +400,6 @@ class SocialPost(Base):
     organization: Mapped["Organization"] = relationship(back_populates="social_posts")
     location: Mapped["Location | None"] = relationship()
     creator: Mapped["User"] = relationship(foreign_keys=[created_by])
-    targets: Mapped[list["SocialPostTarget"]] = relationship(
-        back_populates="post",
-        cascade="all, delete-orphan",
-        order_by="SocialPostTarget.id",
-    )
     reactions: Mapped[list["SocialPostReaction"]] = relationship(
         back_populates="post",
         cascade="all, delete-orphan",
@@ -530,33 +444,3 @@ class MediaAsset(Base):
 
     organization: Mapped["Organization"] = relationship(back_populates="media_assets")
     uploader: Mapped["User"] = relationship(foreign_keys=[uploaded_by])
-
-
-class SocialPostTarget(Base):
-    __tablename__ = "social_post_targets"
-
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    post_id: Mapped[int] = mapped_column(
-        ForeignKey("social_posts.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    provider: Mapped[str] = mapped_column(String(32), nullable=False)
-    content: Mapped[str] = mapped_column(Text, nullable=False)
-    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
-    remote_post_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    error: Mapped[str | None] = mapped_column(Text, nullable=True)
-    published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
-        nullable=False,
-    )
-
-    post: Mapped["SocialPost"] = relationship(back_populates="targets")
-
-    __table_args__ = (
-        UniqueConstraint("post_id", "provider", name="uq_social_post_target_provider"),
-    )

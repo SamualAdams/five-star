@@ -65,6 +65,7 @@ function LocationAccessEditor({ locations, member, onSave }) {
 
 export default function MemberList({ token, orgId, currentUserId, isAdmin, locations = [] }) {
   const [members, setMembers] = useState([]);
+  const [membersLoaded, setMembersLoaded] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -77,6 +78,8 @@ export default function MemberList({ token, orgId, currentUserId, isAdmin, locat
       setMembers(data);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setMembersLoaded(true);
     }
   }
 
@@ -125,66 +128,72 @@ export default function MemberList({ token, orgId, currentUserId, isAdmin, locat
       <h3 className="settings-heading">Users</h3>
       {error && <p className="message message--error">{error}</p>}
 
-      <div className="settings-table-scroll">
-        <table className="members-table">
-          <thead>
-            <tr>
-              <th>Email</th>
-              <th>Role</th>
-              <th>Locations</th>
-              <th>Joined</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {members.map((m) => (
-              <tr key={m.user_id} className={m.user_id === currentUserId ? "members-row--self" : ""}>
-                <td>{m.email}</td>
-                <td>
-                  {isAdmin ? (
-                    <select
-                      className="role-select"
-                      value={m.role}
-                      onChange={(e) => handleRoleChange(m.user_id, e.target.value)}
-                    >
-                      {Object.entries(ACCESS_ROLE_LABELS).map(([value, label]) => (
-                        <option key={value} value={value}>{label}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    ACCESS_ROLE_LABELS[m.role] || m.role
-                  )}
-                </td>
-                <td>
-                  {m.role.startsWith("organization_") ? (
-                    <span className="member-all-locations">All locations</span>
-                  ) : isAdmin ? (
-                    <LocationAccessEditor
-                      locations={locations}
-                      member={m}
-                      onSave={(assignments) => handleAssignments(m.user_id, assignments)}
-                    />
-                  ) : (
-                    `${(m.location_assignments || []).length} assigned`
-                  )}
-                </td>
-                <td>{new Date(m.joined_at).toLocaleDateString()}</td>
-                <td>
-                  {(isAdmin || m.user_id === currentUserId) && (
-                    <button
-                      type="button"
-                      className="btn btn--danger btn--sm"
-                      onClick={() => handleRemove(m.user_id)}
-                    >
-                      {m.user_id === currentUserId ? "Leave" : "Remove"}
-                    </button>
-                  )}
-                </td>
+      {membersLoaded && !error && members.length === 0 ? (
+        <p className="settings-meta">
+          No one has joined yet. Invite someone below to give them access.
+        </p>
+      ) : (
+        <div className="settings-table-scroll">
+          <table className="members-table">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Locations</th>
+                <th>Joined</th>
+                <th></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {members.map((m) => (
+                <tr key={m.user_id} className={m.user_id === currentUserId ? "members-row--self" : ""}>
+                  <td>{m.email}</td>
+                  <td>
+                    {isAdmin ? (
+                      <select
+                        className="role-select"
+                        value={m.role}
+                        onChange={(e) => handleRoleChange(m.user_id, e.target.value)}
+                      >
+                        {Object.entries(ACCESS_ROLE_LABELS).map(([value, label]) => (
+                          <option key={value} value={value}>{label}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      ACCESS_ROLE_LABELS[m.role] || m.role
+                    )}
+                  </td>
+                  <td>
+                    {m.role.startsWith("organization_") ? (
+                      <span className="member-all-locations">All locations</span>
+                    ) : isAdmin ? (
+                      <LocationAccessEditor
+                        locations={locations}
+                        member={m}
+                        onSave={(assignments) => handleAssignments(m.user_id, assignments)}
+                      />
+                    ) : (
+                      `${(m.location_assignments || []).length} assigned`
+                    )}
+                  </td>
+                  <td>{new Date(m.joined_at).toLocaleDateString()}</td>
+                  <td>
+                    {(isAdmin || m.user_id === currentUserId) && (
+                      <button
+                        type="button"
+                        className="btn btn--danger btn--sm"
+                        onClick={() => handleRemove(m.user_id)}
+                      >
+                        {m.user_id === currentUserId ? "Leave" : "Remove"}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

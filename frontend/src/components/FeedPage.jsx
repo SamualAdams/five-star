@@ -1,32 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
 import PortalPageHeader from "./PortalPageHeader";
 import {
   createSocialPost,
   deleteSocialPost,
-  generateSocialDrafts,
   generateWordsmithOptions,
-  listSocialConnections,
   listSocialPosts,
   publishSocialPost,
   updateSocialPost,
   uploadOrganizationMedia,
 } from "../api";
-
-const CHANNELS = [
-  { id: "facebook", label: "Facebook", prompt: "Write a friendly community update." },
-  { id: "instagram", label: "Instagram", prompt: "Write a visual-first caption with a few relevant hashtags." },
-  { id: "tiktok", label: "TikTok", prompt: "Write a short, energetic hook and call to action." },
-];
-
-function platformDrafts(source) {
-  const text = source.trim();
-  return {
-    facebook: text,
-    instagram: `${text}\n\n#FiveStar #CustomerFeedback`,
-    tiktok: `${text}\n\nTell us what you think 👇`,
-  };
-}
 
 function starterWordsmithOptions(source, style) {
   const normalized = source.trim().replace(/\s+/g, " ");
@@ -55,17 +37,6 @@ function starterWordsmithOptions(source, style) {
   ];
 }
 
-function postStatusLabel(status) {
-  return {
-    draft: "Draft",
-    scheduled: "Scheduled",
-    publishing: "Publishing",
-    published: "Published",
-    partial_failure: "Partially published",
-    failed: "Failed",
-  }[status] || status;
-}
-
 export default function FeedPage({
   token,
   orgId,
@@ -80,21 +51,14 @@ export default function FeedPage({
   const [wordsmithOptions, setWordsmithOptions] = useState([]);
   const [wordsmithTarget, setWordsmithTarget] = useState(null);
   const [selectionMenu, setSelectionMenu] = useState({ visible: false, x: 0, y: 0 });
-  const [drafts, setDrafts] = useState({});
-  const [activeChannel, setActiveChannel] = useState(CHANNELS[0].id);
-  const [socialExpanded, setSocialExpanded] = useState(false);
   const [imageExpanded, setImageExpanded] = useState(false);
   const [scheduleExpanded, setScheduleExpanded] = useState(false);
-  const [channels, setChannels] = useState([]);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState("");
   const [uploadedImage, setUploadedImage] = useState(null);
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("");
-  const [connections, setConnections] = useState([]);
   const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [wordsmithing, setWordsmithing] = useState(false);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -109,73 +73,28 @@ export default function FeedPage({
   const messageWrapRef = useRef(null);
   const selectionMenuRef = useRef(null);
 
-  const activePlatform = CHANNELS.find((channel) => channel.id === activeChannel) || CHANNELS[0];
-  const activeDraft = drafts[activeChannel] || "";
-  const connectedProviders = useMemo(
-    () => new Set(
-      connections
-        .filter((connection) => (
-          connection.connected
-          && connection.status === "connected"
-          && connection.publishing_enabled
-        ))
-        .map((connection) => connection.provider)
-    ),
-    [connections]
-  );
-  const connectedChannels = useMemo(
-    () => CHANNELS.filter((channel) => connectedProviders.has(channel.id)),
-    [connectedProviders]
-  );
   const selectedCaptionText = message.slice(captionSelection.start, captionSelection.end);
   const hasCaptionSelection = Boolean(selectedCaptionText.trim());
-  const canDraft = Boolean(message.trim());
   const scheduledPosts = posts.filter((post) => post.status === "scheduled");
   const savedDrafts = posts.filter((post) => post.status === "draft");
-  const publishedPosts = posts.filter((post) => ["published", "partial_failure"].includes(post.status));
-  const selectedInstagramWithoutMedia = channels.includes("instagram") && !imageFile;
-  const canSaveDraft = (
-    Boolean(message.trim())
-    && channels.every((channel) => drafts[channel]?.trim())
-    && !selectedInstagramWithoutMedia
-  );
-  const canPublish = (
-    Boolean(message.trim())
-    && channels.every((channel) => drafts[channel]?.trim())
-    && !selectedInstagramWithoutMedia
-  );
-  const canSubmit = canPublish && (
+  const publishedPosts = posts.filter((post) => post.status === "published");
+  const canSaveDraft = Boolean(message.trim());
+  const canSubmit = canSaveDraft && (
     !scheduleExpanded || (scheduleDate && scheduleTime)
   );
 
-  async function loadPublishingData() {
+  async function loadPosts() {
     if (!token || !orgId) return;
-    setLoading(true);
     setError("");
     try {
-      const [connectionData, postData] = await Promise.all([
-        listSocialConnections(token, orgId, locationId),
-        listSocialPosts(token, orgId, 25, locationId),
-      ]);
-      setConnections(connectionData);
-      setPosts(postData);
-      const availableProviders = new Set(
-        connectionData
-          .filter((connection) => connection.connected && connection.status === "connected" && connection.publishing_enabled)
-          .map((connection) => connection.provider)
-      );
-      const firstConnected = CHANNELS.find((channel) => availableProviders.has(channel.id));
-      if (firstConnected) setActiveChannel(firstConnected.id);
-      setChannels((current) => current.filter((provider) => availableProviders.has(provider)));
+      setPosts(await listSocialPosts(token, orgId, 25, locationId));
     } catch (err) {
       setError(err.message);
-    } finally {
-      setLoading(false);
     }
   }
 
   useEffect(() => {
-    loadPublishingData();
+    loadPosts();
   }, [token, orgId, locationId]);
 
   useEffect(() => {
@@ -199,19 +118,6 @@ export default function FeedPage({
     document.addEventListener("mousedown", closeSelectionMenu);
     return () => document.removeEventListener("mousedown", closeSelectionMenu);
   }, []);
-
-  function toggleChannel(channel) {
-    if (!connectedProviders.has(channel)) {
-      setNotice(`Connect ${CHANNELS.find((item) => item.id === channel)?.label} before selecting it.`);
-      return;
-    }
-    setNotice("");
-    setChannels((current) => (
-      current.includes(channel)
-        ? current.filter((item) => item !== channel)
-        : [...current, channel]
-    ));
-  }
 
   function captureCaptionSelection(event) {
     const nextSelection = {
@@ -300,36 +206,6 @@ export default function FeedPage({
     }, 0);
   }
 
-  async function generatePlatformDrafts() {
-    if (!canDraft) return;
-    setWordsmithing(true);
-    setError("");
-    setNotice("");
-    try {
-      const generated = await generateSocialDrafts(token, orgId, message.trim());
-      setDrafts(generated);
-      setNotice(
-        connectedProviders.size
-          ? "AI drafts are ready. Review every version before publishing."
-          : "AI drafts are ready. You can publish to five* now or connect social destinations later."
-      );
-    } catch {
-      setDrafts(platformDrafts(message));
-      setNotice("AI drafting was unavailable, so starter versions were created instead.");
-    } finally {
-      setChannels(CHANNELS.filter((channel) => connectedProviders.has(channel.id)).map((channel) => channel.id));
-      setWordsmithing(false);
-    }
-  }
-
-  function updateActiveDraft(value) {
-    setDrafts((current) => ({ ...current, [activeChannel]: value }));
-  }
-
-  function resetActiveDraft() {
-    setDrafts((current) => ({ ...current, [activeChannel]: message }));
-  }
-
   function beginEditingPost(post) {
     setEditingPostId(post.id);
     setEditingPostCaption(post.master_caption);
@@ -349,12 +225,7 @@ export default function FeedPage({
       setPosts((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       setEditingPostId(null);
       setEditingPostCaption("");
-      setPostActionMessage({
-        type: "success",
-        text: post.targets.length
-          ? "five* post updated. Copies already published to social networks were not changed."
-          : "five* post updated.",
-      });
+      setPostActionMessage({ type: "success", text: "five* post updated." });
     } catch (err) {
       setPostActionMessage({ type: "error", text: err.message });
     } finally {
@@ -374,12 +245,7 @@ export default function FeedPage({
         setEditingPostId(null);
         setEditingPostCaption("");
       }
-      setPostActionMessage({
-        type: "success",
-        text: post.targets.length
-          ? "Post removed from five*. Copies already published to social networks remain there."
-          : "Post removed from five*.",
-      });
+      setPostActionMessage({ type: "success", text: "Post removed from five*." });
     } catch (err) {
       setPostActionMessage({ type: "error", text: err.message });
     } finally {
@@ -412,10 +278,6 @@ export default function FeedPage({
       }
       const created = await createSocialPost(token, orgId, {
         master_caption: message.trim(),
-        targets: channels.map((provider) => ({
-          provider,
-          content: drafts[provider].trim(),
-        })),
         media_urls: uploadedMediaUrl ? [uploadedMediaUrl] : [],
         scheduled_at: scheduledAt,
         location_id: locationId,
@@ -429,25 +291,18 @@ export default function FeedPage({
           ? "Draft saved."
           : scheduledAt
             ? "Post scheduled."
-          : completed.status === "published"
-            ? "Published to your five* feed."
-            : completed.status === "partial_failure"
-              ? "Published to five*. One or more social destinations need attention."
-              : "five* publishing failed. Review the error below."
+          : "Published to your five* feed."
       );
       setMessage("");
       setCaptionSelection({ start: 0, end: 0 });
       setWordsmithOptions([]);
       setWordsmithTarget(null);
       setSelectionMenu((current) => ({ ...current, visible: false }));
-      setDrafts({});
-      setChannels([]);
       setImageFile(null);
       setUploadedImage(null);
       setScheduleDate("");
       setScheduleTime("");
       setScheduleExpanded(false);
-      setSocialExpanded(false);
       setImageExpanded(false);
     } catch (err) {
       setError(err.message);
@@ -462,7 +317,7 @@ export default function FeedPage({
       <PortalPageHeader
         actionHref={publicPageUrl}
         actionLabel="Open public page"
-        description="Publish directly to your five* feed, then optionally send adapted versions to connected social accounts."
+        description="Publish updates to your five* feed."
         eyebrow="Workspace"
         title="Feed"
       />
@@ -473,13 +328,13 @@ export default function FeedPage({
             <div>
               <span className="status-pill status-pill--connected">Draft workspace</span>
               <h2>Create a post</h2>
-              <p>The master caption is your five* post. Social versions are optional.</p>
+              <p>Write the update your customers will see on your five* page.</p>
             </div>
             <span className="feed-org-label">{locationName || `${organizationName} · All locations`}</span>
           </div>
 
           <div className="feed-master-section">
-            <label className="field-label" htmlFor="feed-message">Master caption</label>
+            <label className="field-label" htmlFor="feed-message">Caption</label>
             <div className="feed-message-wrap" ref={messageWrapRef}>
               <textarea
                 className="field-textarea feed-message"
@@ -497,7 +352,7 @@ export default function FeedPage({
                 onKeyUp={(event) => showSelectionMenu(event)}
                 onMouseUp={(event) => showSelectionMenu(event, true)}
                 onSelect={captureCaptionSelection}
-                placeholder="Share the idea, announcement, or update you want to turn into platform posts…"
+                placeholder="Share an idea, announcement, or update…"
                 ref={messageInputRef}
                 rows="4"
                 value={message}
@@ -639,15 +494,11 @@ export default function FeedPage({
                       />
                     </label>
                   )}
-                  {channels.includes("instagram") && <small className="feed-image-note">Instagram requires an image.</small>}
                 </div>
               )}
             </div>
           </div>
 
-          {selectedInstagramWithoutMedia && (
-            <p className="message message--error">Add an image link to include Instagram.</p>
-          )}
           {error && <p className="message message--error" role="alert">{error}</p>}
           {notice && <p className="message message--success" role="status">{notice}</p>}
 
@@ -707,99 +558,6 @@ export default function FeedPage({
             </button>
           </div>
 
-          <section className={`feed-drafts-section${socialExpanded ? " feed-drafts-section--expanded" : ""}`} aria-labelledby="feed-drafts-heading">
-            <button
-              aria-expanded={socialExpanded}
-              className="feed-drafts-toggle"
-              onClick={() => setSocialExpanded((current) => !current)}
-              type="button"
-            >
-              <span>
-                <strong id="feed-drafts-heading">Social publishing</strong>
-                <small>Optional versions for connected accounts</small>
-              </span>
-              <span className="feed-drafts-toggle-status">
-                {connectedChannels.length ? `${connectedChannels.length} connected` : "No accounts connected"}
-                <span aria-hidden="true">{socialExpanded ? "−" : "+"}</span>
-              </span>
-            </button>
-
-            {socialExpanded && (
-              <div className="feed-drafts-content">
-                {connectedChannels.length ? (
-                  <>
-                    <div className="feed-wordsmith-bar">
-                      <div>
-                        <strong>AI wordsmith</strong>
-                        <span>Adapt the five* caption for your connected platforms.</span>
-                      </div>
-                      <button className="btn btn--ghost btn--sm" disabled={!canDraft || wordsmithing} onClick={generatePlatformDrafts} type="button">
-                        {wordsmithing ? "Wordsmithing…" : "Wordsmith with AI"}
-                      </button>
-                    </div>
-
-                    <div className="feed-draft-tabs" role="tablist" aria-label="Connected platform drafts">
-                      {connectedChannels.map((channel) => (
-                        <button
-                          aria-selected={activeChannel === channel.id}
-                          className={`feed-draft-tab${activeChannel === channel.id ? " feed-draft-tab--active" : ""}`}
-                          key={channel.id}
-                          onClick={() => setActiveChannel(channel.id)}
-                          role="tab"
-                          type="button"
-                        >
-                          <span className="feed-draft-tab-mark" aria-hidden="true">{channel.label.slice(0, 1)}</span>
-                          <span>{channel.label}</span>
-                          <span className={`feed-draft-tab-check${channels.includes(channel.id) ? " feed-draft-tab-check--selected" : ""}`} aria-hidden="true">
-                            {channels.includes(channel.id) ? "✓" : "+"}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="feed-draft-panel" role="tabpanel">
-                      <div className="feed-draft-panel-heading">
-                        <div>
-                          <h4>{activePlatform.label} version</h4>
-                          <p>{activePlatform.prompt}</p>
-                        </div>
-                        <label className="feed-draft-include">
-                          <input
-                            checked={channels.includes(activeChannel)}
-                            onChange={() => toggleChannel(activeChannel)}
-                            type="checkbox"
-                          />
-                          Include with five* post
-                        </label>
-                      </div>
-                      <textarea
-                        aria-label={`${activePlatform.label} version`}
-                        className="field-textarea feed-platform-draft"
-                        onChange={(event) => updateActiveDraft(event.target.value)}
-                        placeholder={`Write a ${activePlatform.label} version…`}
-                        rows="5"
-                        value={activeDraft}
-                      />
-                      <div className="feed-draft-panel-footer">
-                        <span>{activeDraft.length} characters</span>
-                        <button className="btn btn--ghost btn--sm" disabled={!message.trim()} onClick={resetActiveDraft} type="button">
-                          Use five* caption
-                        </button>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <div className="feed-no-connections">
-                    <div>
-                      <strong>No social accounts are connected</strong>
-                      <p>You can publish to five* without connecting anything.</p>
-                    </div>
-                    <Link className="btn btn--ghost btn--sm" to={`/org/${orgId}/social`}>Connect accounts</Link>
-                  </div>
-                )}
-              </div>
-            )}
-          </section>
         </section>
 
         <div className="feed-secondary-grid">
@@ -857,19 +615,10 @@ export default function FeedPage({
                       <strong>{post.master_caption}</strong>
                     )}
                     <small>Published {new Date(post.published_at).toLocaleString()}</small>
-                    <span>
-                      {post.targets.length
-                        ? `${post.targets.filter((target) => target.status === "published").length} of ${post.targets.length} social destinations published`
-                        : "five* only"}
-                    </span>
                     {editingPostId !== post.id && <div className="feed-post-summary-actions">
                       {confirmDeletePostId === post.id ? (
                         <div className="feed-post-delete-confirmation">
-                          <span>
-                            {post.targets.length
-                              ? "Remove from five*? Published social copies will remain."
-                              : "Remove this post from five*?"}
-                          </span>
+                          <span>Remove this post from five*?</span>
                           <div>
                             <button
                               className="btn btn--ghost btn--sm"
@@ -936,7 +685,6 @@ export default function FeedPage({
                   <article className="feed-post-summary" key={post.id}>
                     <strong>{post.master_caption}</strong>
                     <small>{new Date(post.created_at).toLocaleString()}</small>
-                    <span>{post.targets.map((target) => target.provider).join(", ")}</span>
                   </article>
                 ))}
               </div>
@@ -959,7 +707,6 @@ export default function FeedPage({
                   <article className="feed-post-summary" key={post.id}>
                     <strong>{post.master_caption}</strong>
                     <small>{new Date(post.scheduled_at).toLocaleString()}</small>
-                    <span>{post.targets.map((target) => target.provider).join(", ")}</span>
                   </article>
                 ))}
               </div>
@@ -970,51 +717,6 @@ export default function FeedPage({
               </div>
             )}
           </section>
-
-          <section className="portal-card">
-            <div className="portal-card-heading">
-              <h2>Connected accounts</h2>
-              <span className="portal-count">{connectedProviders.size}</span>
-            </div>
-            {loading ? (
-              <p className="portal-card-description">Loading destinations…</p>
-            ) : connectedProviders.size ? (
-              <div className="feed-connected-list">
-                {connections.filter((connection) => connectedProviders.has(connection.provider)).map((connection) => (
-                  <div key={connection.provider}>
-                    <strong>{connection.name}</strong>
-                    <span>
-                      {connection.provider_account_name}
-                      {connection.inherited ? " · organization account" : ""}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="portal-card-description">
-                This post will still publish to five*.{" "}
-                <Link to={`/org/${orgId}/social`}>Connect social accounts</Link> to publish everywhere at once.
-              </p>
-            )}
-          </section>
-
-          {posts.some((post) => ["failed", "partial_failure"].includes(post.status)) && (
-            <section className="portal-card feed-failures-card">
-              <div className="portal-card-heading">
-                <h2>Needs attention</h2>
-              </div>
-              <div className="feed-post-list">
-                {posts.filter((post) => ["failed", "partial_failure"].includes(post.status)).map((post) => (
-                  <article className="feed-post-summary" key={post.id}>
-                    <strong>{postStatusLabel(post.status)}</strong>
-                    {post.targets.filter((target) => target.error).map((target) => (
-                      <small key={target.id}>{target.provider}: {target.error}</small>
-                    ))}
-                  </article>
-                ))}
-              </div>
-            </section>
-          )}
         </div>
       </div>
     </div>

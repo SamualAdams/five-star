@@ -18,17 +18,12 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     sendgrid_api_key: str = ""
     sender_email: str = "noreply@fivestar.fyi"
+    # Every feedback submission is copied here (and feedback for businesses that
+    # aren't on five* yet is hand-delivered from here). Empty disables it.
+    feedback_notify_email: str = "jon@fivestar.fyi"
     app_base_url: str = "http://localhost:5173"
-    api_base_url: str = "http://localhost:8000"
     rate_limit_enabled: bool = True
     sentry_dsn: str = ""
-    oauth_token_encryption_key: str = ""
-    meta_client_id: str = ""
-    meta_client_secret: str = ""
-    instagram_client_id: str = ""
-    instagram_client_secret: str = ""
-    tiktok_client_key: str = ""
-    tiktok_client_secret: str = ""
     social_scheduler_enabled: bool = True
     social_scheduler_interval_seconds: int = 30
 

@@ -430,14 +430,16 @@ export default function PublicOrganizationPage() {
       <header className="public-hub-header">
         <div className="public-hub-header-main">
           <h1>{hub.organization_name}</h1>
-          <div className="public-hub-recognition" aria-describedby="five-star-recognition-help" aria-label={`${hub.five_star_status} five* ${hub.five_star_status === 1 ? "mark" : "marks"}`} tabIndex="0">
-            {Array.from({ length: hub.five_star_status }, (_, index) => (
-              <img className="public-hub-recognition-mark" src={ASTERISK_SRC} alt="" aria-hidden="true" key={index} />
-            ))}
-            <span className="public-hub-recognition-tooltip" id="five-star-recognition-help" role="tooltip">
-              This organization has earned {hub.five_star_status} five* {hub.five_star_status === 1 ? "mark" : "marks"} for listening to customers and acting on their feedback.
-            </span>
-          </div>
+          {hub.five_star_status > 0 && (
+            <div className="public-hub-recognition" aria-describedby="five-star-recognition-help" aria-label={`${hub.five_star_status} five* ${hub.five_star_status === 1 ? "mark" : "marks"}`} tabIndex="0">
+              {Array.from({ length: hub.five_star_status }, (_, index) => (
+                <img className="public-hub-recognition-mark" src={ASTERISK_SRC} alt="" aria-hidden="true" key={index} />
+              ))}
+              <span className="public-hub-recognition-tooltip" id="five-star-recognition-help" role="tooltip">
+                This organization has earned {hub.five_star_status} five* {hub.five_star_status === 1 ? "mark" : "marks"} for listening to customers and acting on their feedback.
+              </span>
+            </div>
+          )}
           <button
             aria-expanded={menuOpen}
             aria-label={menuOpen ? "Close organization menu" : "Open organization menu"}
