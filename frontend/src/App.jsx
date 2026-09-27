@@ -10,6 +10,7 @@ import {
   me,
 } from "./api";
 import AuthPage from "./components/AuthPage";
+import { FIVE_STAR_LEVELS } from "./fiveStarLevels";
 import BrandName from "./components/BrandName";
 import CreateOrgModal from "./components/CreateOrgModal";
 import DigestManager from "./components/DigestManager";
@@ -19,6 +20,7 @@ import FeedPage from "./components/FeedPage";
 import InviteAcceptPage from "./components/InviteAcceptPage";
 import InitiativesManager from "./components/InitiativesManager";
 import LegalPage from "./components/LegalPage";
+import HomePage from "./components/HomePage";
 import MarketingPage from "./components/MarketingPage";
 import LocationsPage from "./components/LocationsPage";
 import LocationSwitcher from "./components/LocationSwitcher";
@@ -30,7 +32,6 @@ import ResetPasswordPage from "./components/ResetPasswordPage";
 import SearchPage from "./components/SearchPage";
 import StaffFeedbackList from "./components/StaffFeedbackList";
 import SubmissionsChart from "./components/SubmissionsChart";
-import TopbarSearch from "./components/TopbarSearch";
 import PublicOrganizationPage, { LegacyRoadmapRedirect } from "./components/PublicOrganizationPage";
 import PortalPageHeader from "./components/PortalPageHeader";
 
@@ -51,28 +52,8 @@ function accessRoleLabel(role) {
   return ACCESS_ROLE_LABELS[role] || role || "Member";
 }
 
-const JOURNEY_MILESTONES = [
-  {
-    title: "Start your journey",
-    description: "Create an account and log in to five*.",
-  },
-  {
-    title: "Collect and report",
-    description: "Collect 10 feedback submissions and publish a feedback report.",
-  },
-  {
-    title: "Share your roadmap",
-    description: "Publish initiatives and use the roadmap to show what you’re working on.",
-  },
-  {
-    title: "Earn a 4.8+ reputation",
-    description: "Maintain a 4.8 or higher average across your connected review boards.",
-  },
-  {
-    title: "Earn five* recognition",
-    description: "Qualify for annual five* recognition, with opportunities for free advertising and public voting.",
-  },
-];
+// Stars 1-5 in the dashboard header; same meanings customers see on search.
+const JOURNEY_MILESTONES = FIVE_STAR_LEVELS.slice(1);
 
 export default function App() {
   const location = useLocation();
@@ -340,7 +321,7 @@ export default function App() {
           <Routes>
           <Route
             path="/"
-            element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <MarketingPage />}
+            element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <HomePage />}
           />
           <Route
             path="/auth"
@@ -563,6 +544,7 @@ export default function App() {
             }
           />
           <Route path="/search" element={<SearchPage />} />
+          <Route path="/about" element={<MarketingPage />} />
           <Route path="/feedback/organization/:organizationToken" element={<OrganizationFeedbackPage />} />
           <Route path="/feedback/:feedbackToken" element={<FeedbackPage />} />
           <Route path="/five-star/:organizationToken" element={<PublicOrganizationPage />} />
@@ -590,17 +572,41 @@ export default function App() {
 
 function PublicHeader({ isAuthenticated }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { pathname } = useLocation();
+  const isHome = pathname === "/";
+
+  // On the homepage, feedback starts on the map at the end of the story: jump straight there.
+  // ("instant", not "auto": the site sets smooth scrolling in CSS, which "auto" follows.)
+  function goToHomeFeedback() {
+    window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" });
+  }
+
+  // The logo always lands on the top of the homepage: jumping back up when already there,
+  // otherwise opening it from the top rather than wherever this page was scrolled.
+  function goHome(event) {
+    if (isHome) event.preventDefault();
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }
 
   return (
-    <header className="topbar topbar--public">
-      <Link className="brand-lockup" to={isAuthenticated ? "/dashboard" : "/"}>
+    // On the homepage the header sits over the story, without a background of its own.
+    <header className={`topbar topbar--public${isHome ? " topbar--overlay" : ""}`}>
+      <Link className="brand-lockup" to={isAuthenticated ? "/dashboard" : "/"} onClick={goHome}>
         <img className="topbar-logo" src={LOGO_SRC} alt="five*" />
         <span className="brand-tag">One place to reach any business</span>
       </Link>
 
       {/* Right side — search always visible, nav toggles per breakpoint */}
       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-        <TopbarSearch />
+        {isHome ? (
+          <button className="topbar-feedback-trigger" type="button" onClick={goToHomeFeedback}>
+            Give feedback
+          </button>
+        ) : (
+          <Link className="topbar-feedback-trigger" to="/search">
+            Give feedback
+          </Link>
+        )}
 
         {/* Desktop nav */}
         <div className="public-nav">

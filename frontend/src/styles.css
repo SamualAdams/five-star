@@ -692,6 +692,7 @@ select {
   font-size: 0.84rem;
   font-weight: 750;
   white-space: nowrap;
+  text-decoration: none;
   transition: border-color 140ms ease, background-color 140ms ease;
 }
 
@@ -704,12 +705,6 @@ select {
 .topbar-feedback-trigger:focus-visible {
   outline: 3px solid color-mix(in srgb, var(--color-primary) 24%, transparent);
   outline-offset: 2px;
-}
-
-.topbar-feedback-icon {
-  width: 1.05rem;
-  height: 1.05rem;
-  flex: 0 0 auto;
 }
 
 .hamburger:focus-visible {
@@ -2777,8 +2772,336 @@ select {
 }
 
 .search-container {
-  max-width: 700px;
+  max-width: 1180px;
   width: 100%;
+}
+
+.search-container > .search-hero,
+.search-container > .search-missing-form-card {
+  max-width: 700px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.search-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.search-layout--hidden {
+  display: none;
+}
+
+.search-layout-map {
+  position: sticky;
+  top: 96px;
+}
+
+.search-map {
+  height: min(620px, calc(100vh - 140px));
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  box-shadow: 0 18px 45px color-mix(in srgb, var(--color-ink) 7%, transparent);
+  z-index: 0;
+}
+
+/* A tap on a pin shouldn't select page text or flash a focus/tap highlight. */
+.search-map {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.search-map .leaflet-interactive:focus {
+  outline: none;
+}
+
+.search-page--active {
+  padding-top: 1.25rem;
+}
+
+.search-page--active .search-title,
+.search-page--active .search-subtitle {
+  display: none;
+}
+
+.search-page--active .search-controls {
+  margin-bottom: 1.25rem;
+}
+
+.search-map .leaflet-tooltip {
+  font-family: inherit;
+  font-size: 0.8rem;
+  color: var(--color-ink);
+}
+
+.search-map-area-button {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 500;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-white);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 650;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--color-ink) 14%, transparent);
+  cursor: pointer;
+}
+
+.search-map-area-button:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary-hover);
+}
+
+.search-result-card--active {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary-soft) 82%, transparent);
+}
+
+/* Mobile: floating buttons centred at the bottom (List/Map, plus "Can't find it?" on the map). */
+.search-mobile-actions {
+  position: fixed;
+  left: 50%;
+  bottom: calc(1.25rem + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.search-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 96px;
+  height: 44px;
+  padding: 0 1.25rem;
+  justify-content: center;
+  border: 0;
+  border-radius: 12px;
+  background: var(--color-white);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 650;
+  box-shadow: 0 6px 24px color-mix(in srgb, var(--color-ink) 22%, transparent);
+  cursor: pointer;
+}
+
+.search-map-cant-find {
+  height: 44px;
+  padding: 0 1rem;
+  border: 0;
+  border-radius: 12px;
+  background: var(--color-white);
+  color: var(--color-primary-hover);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  box-shadow: 0 6px 24px color-mix(in srgb, var(--color-ink) 22%, transparent);
+  cursor: pointer;
+}
+
+.search-map-preview {
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: calc(5rem + env(safe-area-inset-bottom));
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  border-radius: 14px;
+  background: var(--color-white);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--color-ink) 20%, transparent);
+}
+
+/* The map card sits at the bottom of the screen, so its explanation opens upward. */
+.search-map-preview .five-star-rating-popover {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
+.search-map-preview .search-result-name {
+  font-size: 1rem;
+}
+
+/* Homepage intro: the map is the page, with the pitch and search floating
+   in a card over its middle until someone starts looking. */
+.search-page--intro {
+  padding: 1.25rem 1rem 1.5rem;
+}
+
+.search-page--intro .search-container {
+  position: relative;
+}
+
+.search-page--intro .search-hero {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 10;
+  width: min(760px, calc(100% - 3rem));
+  max-width: none;
+  margin: 0;
+  padding: 2rem 2rem 1.75rem;
+  transform: translate(-50%, -50%);
+  background: var(--color-surface);
+  border-radius: 24px;
+  box-shadow: 0 24px 60px color-mix(in srgb, var(--color-ink) 18%, transparent);
+}
+
+.search-page--intro .search-title {
+  font-size: 2.25rem;
+  line-height: 1.1;
+}
+
+.search-page--intro .search-subtitle {
+  margin-bottom: 1.5rem;
+  font-size: 1.05rem;
+}
+
+.search-page--intro .search-controls {
+  margin-bottom: 0;
+}
+
+.search-page--intro .search-layout-list,
+.search-page--intro .search-mobile-actions {
+  display: none;
+}
+
+/* The map only takes touches once the search starts, so the page scrolls over it until then. */
+.search-page--intro .search-layout-map {
+  pointer-events: none;
+}
+
+.search-page--intro .search-box {
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+@media (min-width: 901px) {
+  .search-page--intro .search-layout {
+    display: block;
+  }
+
+  .search-page--intro .search-layout-map {
+    position: relative;
+    top: 0;
+  }
+
+  .search-page--intro .search-map {
+    height: max(540px, calc(100dvh - 84px - 2.75rem));
+  }
+}
+
+@media (max-width: 900px) {
+  .search-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* List view: results only. Map view: the map fills the screen under the search bar. */
+  .search-layout-map {
+    display: none;
+    position: relative;
+    top: 0;
+  }
+
+  .search-layout-list {
+    padding-bottom: 5rem;
+  }
+
+  .search-page--map-view {
+    min-height: 0;
+    height: calc(100dvh - 72px);
+    padding: 0.75rem 0 0;
+    overflow: hidden;
+  }
+
+  .search-page--map-view .search-container {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .search-page--map-view .search-title,
+  .search-page--map-view .search-subtitle {
+    display: none;
+  }
+
+  .search-page--map-view .search-controls {
+    margin: 0 1rem 0.75rem;
+  }
+
+  /* Homepage intro on a phone: the map fills the screen, the card floats on it. */
+  .search-page--intro.search-page--map-view {
+    padding: 0;
+  }
+
+  .search-page--intro .search-hero {
+    width: calc(100% - 2rem);
+    padding: 1.25rem 1rem 1rem;
+    border-radius: 20px;
+  }
+
+  .search-page--intro .search-hero .search-title,
+  .search-page--intro .search-hero .search-subtitle {
+    display: block;
+  }
+
+  .search-page--intro .search-hero .search-title {
+    font-size: 1.6rem;
+    line-height: 1.15;
+  }
+
+  .search-page--intro .search-hero .search-subtitle {
+    margin-bottom: 1rem;
+    font-size: 0.92rem;
+    line-height: 1.45;
+  }
+
+  .search-page--intro .search-hero .search-controls {
+    margin: 0;
+  }
+
+  .search-page--intro .search-layout--map-view .search-map {
+    border-top: 0;
+  }
+
+  .search-layout--map-view {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: stretch;
+  }
+
+  .search-layout--map-view .search-layout-list {
+    display: none;
+  }
+
+  .search-layout--map-view .search-layout-map {
+    display: block;
+    flex: 1;
+  }
+
+  .search-layout--map-view .search-map {
+    height: 100%;
+    border: 0;
+    border-top: 1px solid var(--color-border);
+    border-radius: 0;
+    box-shadow: none;
+  }
 }
 
 .search-title {
@@ -2795,9 +3118,26 @@ select {
   font-size: 1.125rem;
 }
 
+/* Search box, location message and (when open) rating filter; owns the
+   spacing above the results/map so opening the filter doesn't shift it. */
+.search-controls {
+  max-width: 700px;
+  margin: 0 auto 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
 .search-box {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.search-input-wrap {
   position: relative;
-  margin-bottom: 2rem;
+  flex: 1;
+  min-width: 0;
 }
 
 .search-input {
@@ -2823,6 +3163,96 @@ select {
   transform: translateY(-50%);
   color: var(--color-muted);
   font-size: 0.875rem;
+}
+
+/* Spotlight-style: a rounded search pill with round buttons of the same height beside it. */
+.search-input--pill {
+  height: 52px;
+  padding: 0 1.25rem 0 3rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-white);
+  font-size: 1.05rem;
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--color-ink) 8%, transparent);
+}
+
+.search-input--pill:focus {
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--color-primary) 12%, transparent),
+    0 4px 16px color-mix(in srgb, var(--color-ink) 8%, transparent);
+}
+
+.search-input-icon {
+  position: absolute;
+  left: 1.1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-muted);
+  pointer-events: none;
+}
+
+.search-circle-button {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--color-white);
+  color: var(--color-ink);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--color-ink) 8%, transparent);
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.search-circle-button:hover,
+.search-circle-button--on {
+  border-color: var(--color-primary);
+  color: var(--color-primary-hover);
+  background: var(--color-primary-soft);
+}
+
+.search-circle-button:disabled {
+  cursor: progress;
+}
+
+.search-circle-badge {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  min-width: 22px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: var(--color-white);
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 18px;
+  text-align: center;
+}
+
+.search-near-me-spin {
+  animation: search-near-me-spin 900ms linear infinite;
+}
+
+@keyframes search-near-me-spin {
+  to { transform: rotate(360deg); }
+}
+
+.search-location-error {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+@media (max-width: 560px) {
+  .search-spinner {
+    display: none;
+  }
 }
 
 .search-results-count {
@@ -2970,8 +3400,50 @@ select {
   line-height: 1.6;
 }
 
+.search-missing-card p {
+  max-width: 34rem;
+  margin-left: auto;
+  margin-right: auto;
+  text-wrap: balance;
+}
+
 .search-missing-card .btn {
   margin-top: 0.75rem;
+}
+
+.search-owner-link {
+  display: block;
+  margin: 1rem auto 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-muted);
+  font: inherit;
+  font-size: 0.875rem;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
+.search-owner-link:hover {
+  color: var(--color-primary-hover);
+}
+
+.search-owner-link--inline {
+  display: inline;
+  margin: 0;
+  color: var(--color-primary-hover);
+  font-weight: 700;
+}
+
+.search-claim-contact-grid {
+  margin-bottom: 0.5rem;
+}
+
+.search-missing-owner {
+  margin: -0.25rem 0 1.25rem;
+  color: var(--color-muted);
+  font-size: 0.875rem;
 }
 
 .search-missing-link {
@@ -2986,6 +3458,240 @@ select {
   text-decoration: underline;
   text-underline-offset: 0.2em;
   cursor: pointer;
+}
+
+/* Directory results: claim link under the address, button on the right;
+   on phones everything stacks with the claim link last. */
+.search-result-card--place {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "text actions"
+    "claim actions";
+  column-gap: 1rem;
+  align-items: center;
+}
+
+.search-result-card--place .search-result-text {
+  grid-area: text;
+}
+
+.search-result-card--place .search-result-actions {
+  grid-area: actions;
+}
+
+.search-result-card--place .search-claim-link {
+  grid-area: claim;
+}
+
+@media (max-width: 560px) {
+  .search-result-card--place {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "text"
+      "actions"
+      "claim";
+    row-gap: 0.85rem;
+    align-items: start;
+  }
+}
+
+.search-claim-link {
+  justify-self: start;
+  margin-top: 0.2rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-muted);
+  font: inherit;
+  font-size: 0.8rem;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
+.search-claim-link:hover {
+  color: var(--color-primary-hover);
+}
+
+/* five* rating on search results: marks + a popover explaining every level. */
+.five-star-rating {
+  position: relative;
+  display: inline-flex;
+  justify-self: start;
+}
+
+.five-star-rating-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.1rem 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-muted);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 650;
+  cursor: help;
+}
+
+.five-star-rating-marks {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.five-star-rating-mark {
+  width: 13px;
+  height: 13px;
+  opacity: 0.18;
+  filter: grayscale(1);
+}
+
+.five-star-rating-mark--earned {
+  opacity: 1;
+  filter: none;
+}
+
+.five-star-rating-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 60;
+  display: none;
+  width: min(300px, calc(100vw - 3rem));
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-white);
+  color: var(--color-ink);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--color-ink) 16%, transparent);
+  text-align: left;
+}
+
+.five-star-rating--open .five-star-rating-popover,
+.five-star-rating:focus-within .five-star-rating-popover {
+  display: block;
+}
+
+@media (hover: hover) {
+  .five-star-rating:hover .five-star-rating-popover {
+    display: block;
+  }
+}
+
+.five-star-rating-popover-title {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.five-star-rating-levels {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.five-star-rating-level {
+  display: grid;
+  grid-template-columns: 1.4rem 1fr;
+  gap: 0.4rem;
+  padding: 0.3rem 0.4rem;
+  border-radius: 8px;
+  color: var(--color-muted);
+}
+
+.five-star-rating-level strong {
+  color: var(--color-ink);
+}
+
+.five-star-rating-level em {
+  color: var(--color-primary-hover);
+  font-style: normal;
+  font-weight: 700;
+}
+
+.five-star-rating-level--current {
+  background: var(--color-primary-soft);
+}
+
+.five-star-rating-level-number {
+  font-weight: 800;
+  color: var(--color-primary-hover);
+}
+
+/* Rating filter under the search box. */
+.search-star-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.search-star-filter::-webkit-scrollbar {
+  display: none;
+}
+
+.search-star-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  flex: 0 0 auto;
+  height: 32px;
+  padding: 0 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-white);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.search-star-chip img {
+  width: 11px;
+  height: 11px;
+}
+
+.search-star-chip:hover {
+  border-color: var(--color-primary);
+}
+
+/* Phones: the six chips share the search bar's width evenly. */
+@media (max-width: 560px) {
+  .search-star-chip {
+    flex: 1 1 0;
+    justify-content: center;
+    padding: 0 0.4rem;
+  }
+}
+
+.search-star-chip--active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-hover);
+}
+
+.search-results-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.search-results-header .search-results-count {
+  margin: 0;
+}
+
+.search-missing-link--top {
+  margin: 0;
+  padding: 0;
+  font-size: 0.875rem;
+  text-align: left;
 }
 
 .search-missing-form-card {
@@ -3064,6 +3770,200 @@ select {
   background: color-mix(in srgb, var(--color-surface) 92%, transparent);
   border-radius: 12px;
   margin-top: 2rem;
+}
+
+.search-hint-steps {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+  text-align: left;
+  color: var(--color-ink);
+}
+
+.search-hint-steps strong {
+  color: var(--color-ink);
+}
+
+.search-hint-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--color-muted);
+  font-size: 0.9rem;
+}
+
+.search-hint-dot {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid var(--color-white);
+  box-shadow: 0 0 0 1px var(--color-border);
+}
+
+.search-hint-dot--rated {
+  background: var(--color-ink);
+}
+
+/* ── Homepage: the review-fire story, then the map to act before it's too late ── */
+
+/* The standard nav, laid over the story without a background of its own. */
+.topbar--overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  border-bottom-color: transparent;
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* Over the top of the fire, fading as the story starts (HomePage.jsx). */
+.home-hero {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 112px 1.25rem 3rem;
+  text-align: center;
+  background: linear-gradient(var(--color-bg) 62%, rgb(253 253 252 / 0%));
+  will-change: opacity, transform;
+}
+
+.home-hero-title {
+  margin: 0;
+  color: var(--color-ink);
+  font-family: var(--font-serif);
+  font-size: clamp(2.6rem, 6.5vw, 4.2rem);
+  font-weight: 700;
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+}
+
+.home-hero-copy {
+  max-width: 34rem;
+  margin: 1rem 0 1.75rem;
+  color: var(--color-muted);
+  font-size: clamp(1rem, 2.2vw, 1.12rem);
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+
+/* Wide screens: the intro sits beside the fire (which animateStory.js starts right of
+   centre) instead of on top of it. */
+@media (min-width: 1100px) {
+  .home-hero {
+    top: 50%;
+    right: auto;
+    left: max(2.5rem, calc(50% - 560px));
+    width: min(34rem, 42%);
+    align-items: flex-start;
+    padding: 0;
+    text-align: left;
+    background: none;
+    translate: 0 -50%;
+  }
+
+  .home-hero-copy {
+    max-width: none;
+  }
+}
+
+.home-story-loading {
+  height: 100svh;
+}
+
+/* The map sits pinned behind the last screen of the story, which fades away to
+   reveal it (animateStory.js). 150svh = the story's final screen plus half a
+   screen of fading; the spacer gives the pinned map that half screen to stay put
+   (sticky elements only move within their parent's content, not its padding). */
+.home-page::after {
+  content: "";
+  display: block;
+  height: 50svh;
+}
+
+.home-page > .search-page--home {
+  position: sticky;
+  top: 0;
+  z-index: 0;
+  margin-top: -150svh;
+}
+
+.search-page:not(.search-page--home) .search-container {
+  scroll-margin-top: 96px;
+}
+
+/* Room at the top for the nav (84px, 72px on phones), which has no background here. */
+.search-page--home,
+.search-page--home.search-page--intro {
+  padding-top: calc(84px + 1rem);
+}
+
+/* Until someone starts, the prompt sits straight on the faded map, with no card -
+   just a soft glow of the page colour behind it so it reads over the streets. */
+.search-page--home.search-page--intro .search-hero {
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.search-page--home.search-page--intro .search-hero::before {
+  content: "";
+  position: absolute;
+  inset: -4rem -2rem;
+  z-index: -1;
+  background: radial-gradient(closest-side, var(--color-bg) 55%, rgb(253 253 252 / 0%));
+  pointer-events: none;
+}
+
+.search-page--home.search-page--intro .search-title {
+  margin-bottom: 1.5rem;
+  font-family: var(--font-serif);
+  font-size: clamp(1.9rem, 4.4vw, 2.8rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+  text-shadow: 0 0 18px var(--color-bg), 0 0 6px var(--color-bg);
+}
+
+.search-page--home .search-layout-map {
+  transition: opacity 400ms ease;
+}
+
+.search-page--home.search-page--intro .search-layout-map {
+  opacity: 0.45;
+}
+
+@media (min-width: 901px) {
+  .search-page--home.search-page--intro .search-map {
+    height: max(540px, calc(100dvh - 84px - 1rem - 1.5rem));
+  }
+}
+
+@media (max-width: 900px) {
+  .search-page--home.search-page--map-view {
+    box-sizing: border-box;
+    height: 100dvh;
+    padding-top: calc(72px + 0.75rem);
+  }
+}
+
+.search-hint-link {
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.search-hint-link:hover {
+  text-decoration: underline;
 }
 
 /* Responsive horizon selector */

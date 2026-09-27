@@ -257,6 +257,19 @@ class UnlistedBusinessFeedbackSubmit(BaseModel):
     directory_place_id: int | None = None
 
 
+class BusinessClaimSubmit(BaseModel):
+    """Claim a directory place, or (no directory_place_id) ask to list a business."""
+
+    directory_place_id: int | None = None
+    business_name: str | None = Field(None, min_length=2, max_length=255)
+    business_address: str | None = Field(None, min_length=2, max_length=500)
+    contact_name: str = Field(min_length=2, max_length=255)
+    contact_role: str | None = Field(None, max_length=255)
+    contact_email: EmailStr
+    contact_phone: str = Field(min_length=7, max_length=40)
+    message: str | None = Field(None, max_length=5000)
+
+
 class DirectoryPlaceResult(BaseModel):
     id: int
     name: str
@@ -265,6 +278,10 @@ class DirectoryPlaceResult(BaseModel):
     state: str | None
     zip: str | None
     category: str | None
+    lat: float | None
+    lon: float | None
+    claimed: bool = False
+    five_star_status: int = 0
 
 
 class InitiativeCreate(BaseModel):
@@ -413,6 +430,7 @@ class OrganizationSearchResult(BaseModel):
     name: str
     feedback_token: str
     landing_enabled: bool
+    five_star_status: int = 0
 
 
 # Feedback Stats

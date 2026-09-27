@@ -249,6 +249,29 @@ class UnlistedBusinessFeedback(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class BusinessClaim(Base):
+    """Someone who says they run a directory business and wants to claim it.
+
+    five* follows up by hand; nothing is granted automatically.
+    """
+
+    __tablename__ = "business_claims"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    directory_place_id: Mapped[int | None] = mapped_column(
+        ForeignKey("directory_places.id", ondelete="SET NULL"), nullable=True
+    )
+    business_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    business_address: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    contact_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    contact_role: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    contact_email: Mapped[str] = mapped_column(String(255), nullable=False)
+    contact_phone: Mapped[str] = mapped_column(String(40), nullable=False)
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending", server_default="pending")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class DirectoryPlace(Base):
     """A business we know exists but that hasn't joined five*.
 

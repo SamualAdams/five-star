@@ -1,5 +1,5 @@
 from app.directory_text import norm_name, split_query, street_core
-from app.models import DirectoryPlace
+from app.models import BusinessClaim, DirectoryPlace, Location, OrganizationMember, Role
 
 from conftest import TestingSessionLocal
 
@@ -215,3 +215,175 @@ def test_directory_businesses_start_unverified(client):
 
     assert db.query(Organization).one().five_star_status == 0
     db.close()
+
+
+def test_claim_request_is_saved_and_emailed(client, monkeypatch):
+    sent = []
+    monkeypatch.setattr("app.main.send_claim_notification", lambda **kw: sent.append(kw))
+    (place_id,) = _seed(_place(1, "Coffee Call", "3132 College Dr"))
+    claim = {
+        "directory_place_id": place_id,
+        "contact_name": "Pat Owner",
+        "contact_role": "Owner",
+        "contact_email": "Pat@Example.com",
+        "contact_phone": "225-555-0100",
+        "message": "Our hours are wrong",
+    }
+
+    response = client.post("/api/business-claims", json=claim)
+
+    assert response.status_code == 201, response.text
+    assert sent == [
+        {
+            "listed": True,
+            "business_name": "Coffee Call",
+            "business_address": "3132 College Dr, Baton Rouge, LA",
+            "contact_name": "Pat Owner",
+            "contact_role": "Owner",
+            "contact_email": "pat@example.com",
+            "contact_phone": "225-555-0100",
+            "message": "Our hours are wrong",
+        }
+    ]
+    db = TestingSessionLocal()
+    assert db.query(BusinessClaim).count() == 1
+    db.close()
+
+
+def test_claim_request_requires_contact_info(client, monkeypatch):
+    monkeypatch.setattr("app.main.send_claim_notification", lambda **kw: None)
+    (place_id,) = _seed(_place(1, "Coffee Call", "3132 College Dr"))
+
+    missing_phone = client.post(
+        "/api/business-claims",
+        json={"directory_place_id": place_id, "contact_name": "Pat", "contact_email": "pat@example.com"},
+    )
+    unknown_place = client.post(
+        "/api/business-claims",
+        json={
+            "directory_place_id": place_id + 999,
+            "contact_name": "Pat",
+            "contact_email": "pat@example.com",
+            "contact_phone": "225-555-0100",
+        },
+    )
+
+    assert missing_phone.status_code == 422
+    assert unknown_place.status_code == 404
+
+
+def test_businesses_five_star_is_in_touch_with_cannot_be_claimed(client, auth_headers, monkeypatch):
+    monkeypatch.setattr("app.main.send_feedback_notification", lambda **kw: None)
+    monkeypatch.setattr("app.main.send_claim_notification", lambda **kw: None)
+    lee, perkins, cafe, deli = _seed(
+        _place(1, "Raising Cane's", "202 W Lee Dr", brand="Raising Cane's"),
+        _place(2, "Raising Cane's", "7575 Perkins Rd", brand="Raising Cane's"),
+        _place(3, "Coffee Call", "3132 College Dr"),
+        _place(4, "Tony's Deli", "100 Main St"),
+    )
+    # Feedback turns places into unclaimed organizations (0 stars, no members).
+    for place_id in (lee, cafe, deli):
+        client.post(
+            "/api/feedback/unlisted",
+            json={"business_name": "xx", "location_hint": "xx", "content": "Hi", "directory_place_id": place_id},
+        )
+    db = TestingSessionLocal()
+    org_of = lambda place_id: db.get(Location, db.get(DirectoryPlace, place_id).location_id).organization
+    org_of(lee).five_star_status = 1  # five* staff are in touch with the chain
+    deli_org_id = org_of(deli).id
+    db.commit()
+    db.close()
+    headers = auth_headers()
+    user_id = client.get("/auth/me", headers=headers).json()["id"]
+    db = TestingSessionLocal()
+    db.add(OrganizationMember(organization_id=deli_org_id, user_id=user_id, role=Role.ADMIN))
+    db.commit()
+    db.close()
+
+    def claimed(q):
+        return {r["id"]: r["claimed"] for r in client.get("/directory/search", params={"q": q}).json()}
+
+    contact = {"contact_name": "Pat", "contact_email": "pat@example.com", "contact_phone": "225-555-0100"}
+
+    assert claimed("canes") == {lee: True, perkins: True}  # 1 star covers the whole chain
+    assert claimed("coffee call") == {cafe: False}  # has feedback, still 0 stars
+    assert claimed("tonys deli") == {deli: True}  # someone already runs it on five*
+    assert client.post("/api/business-claims", json={"directory_place_id": perkins, **contact}).status_code == 409
+    assert client.post("/api/business-claims", json={"directory_place_id": cafe, **contact}).status_code == 201
+
+
+def test_owner_can_ask_to_list_a_business_that_is_not_in_the_directory(client, monkeypatch):
+    sent = []
+    monkeypatch.setattr("app.main.send_claim_notification", lambda **kw: sent.append(kw))
+    contact = {"contact_name": "Sam Roaster", "contact_email": "sam@example.com", "contact_phone": "225-555-0199"}
+
+    no_address = client.post("/api/business-claims", json={"business_name": "Cherry Bomb Coffee", **contact})
+    response = client.post(
+        "/api/business-claims",
+        json={"business_name": "Cherry Bomb Coffee", "business_address": "4200 Government St", **contact},
+    )
+
+    assert no_address.status_code == 422
+    assert response.status_code == 201, response.text
+    assert [(e["listed"], e["business_name"], e["business_address"]) for e in sent] == [
+        (False, "Cherry Bomb Coffee", "4200 Government St")
+    ]
+
+
+def test_search_shows_five_star_status_and_filters_by_it(client, monkeypatch):
+    monkeypatch.setattr("app.main.send_feedback_notification", lambda **kw: None)
+    lee, perkins, cafe = _seed(
+        _place(1, "Raising Cane's", "202 W Lee Dr", brand="Raising Cane's"),
+        _place(2, "Raising Cane's", "7575 Perkins Rd", brand="Raising Cane's"),
+        _place(3, "Cane Syrup Cafe", "3132 College Dr"),
+    )
+    client.post(
+        "/api/feedback/unlisted",
+        json={"business_name": "xx", "location_hint": "xx", "content": "Hi", "directory_place_id": lee},
+    )
+    db = TestingSessionLocal()
+    location = db.get(Location, db.get(DirectoryPlace, lee).location_id)
+    location.organization.five_star_status = 2
+    db.commit()
+    db.close()
+
+    def stars(**params):
+        return {r["id"]: r["five_star_status"] for r in client.get("/directory/search", params=params).json()}
+
+    assert stars(q="cane") == {lee: 2, perkins: 2, cafe: 0}
+    assert stars(q="cane", min_stars=2) == {lee: 2, perkins: 2}
+    assert stars(q="cane", min_stars=3) == {}
+    assert set(stars(min_stars=1)) == {lee, perkins}  # no query: every rated business
+    orgs = client.get("/organizations/search", params={"q": "cane", "min_stars": 2}).json()
+    assert [(o["name"], o["five_star_status"]) for o in orgs] == [("Raising Cane's", 2)]
+
+
+def test_map_dots_businesses_in_view_rated_first(client, monkeypatch):
+    monkeypatch.setattr("app.main.send_feedback_notification", lambda **kw: None)
+    monkeypatch.setattr("app.main.MAP_PIN_LIMIT", 2)
+    cafe, rated, bakery, far = _seed(
+        _place(1, "Coffee Call", "3132 College Dr"),
+        _place(2, "Raising Cane's", "202 W Lee Dr"),
+        _place(3, "Ambrosia Bakery", "8546 Siegen Ln"),
+        _place(4, "Far Away Diner", "1 Main St", lat=31.5, lon=-92.5),
+    )
+    client.post(
+        "/api/feedback/unlisted",
+        json={"business_name": "xx", "location_hint": "xx", "content": "Hi", "directory_place_id": rated},
+    )
+    db = TestingSessionLocal()
+    db.get(Location, db.get(DirectoryPlace, rated).location_id).organization.five_star_status = 3
+    db.commit()
+    db.close()
+
+    def pins(bbox):
+        response = client.get("/directory/map", params={"bbox": bbox})
+        assert response.status_code == 200, response.text
+        return [(r["id"], r["five_star_status"]) for r in response.json()]
+
+    in_view = pins("-91.2,30.3,-91.0,30.5")
+    assert len(in_view) == 2 and in_view[0] == (rated, 3)
+    assert {i for i, _ in in_view} <= {cafe, rated, bakery}
+    assert pins("-91.2,30.3,-91.0,30.5") == in_view  # same view, same pins
+    assert pins("-92.6,31.4,-92.4,31.6") == [(far, 0)]
+    assert client.get("/directory/map", params={"bbox": "nope"}).status_code == 422

@@ -1,0 +1,117 @@
+/* The review-fire scroll story on the homepage (src/story/TrashStory.jsx). Ported from a standalone
+   page, so every rule is scoped to .trash-story to stay out of the app's styles. */
+/* See-through apart from the scene, so whatever is pinned behind the story shows once it fades.
+   Set in the site's fonts and colours; the review cards, texts and sign it depicts keep their own. */
+.trash-story { position: relative; z-index: 1; font-family: var(--font-sans); overflow-x: clip; pointer-events: none; }
+.trash-story * { box-sizing: border-box; }
+.trash-story #story { height: 790svh; } /* STORY_SCREENS + 1 screen, see animateStory.js */
+.trash-story #scene { background: var(--color-bg, #fdfdfc); position: sticky; top: 0; width: 100%; height: 100svh; pointer-events: auto; display: grid; place-items: center; overflow: hidden; }
+.trash-story #composition { position: absolute; left: 50%; top: 50%; flex: none; width: 840px; height: 780px; transform: translate(-50%, -50%) scale(var(--scale, 1)); transform-origin: center; }
+.trash-story canvas { display: block; position: absolute; inset: 0; width: 840px; height: 780px; pointer-events: none; }
+.trash-story #fire { z-index: 1; }
+.trash-story .reviews { position: absolute; inset: 0; z-index: 2; perspective: 1100px; }
+.trash-story #embers { z-index: 3; }
+.trash-story .review { position: absolute; width: 260px; min-height: 149px; background: #eee9df; color: #282522; border: 1px solid #bb9b76; border-radius: 7px; padding: 15px 17px; box-shadow: inset 0 -8px 15px #a9501226, 0 10px 24px #3b2a1a2e; transform-style: preserve-3d; font-family: Arial, sans-serif; }
+.trash-story .card-a { left: 183px; top: 536px; transform: rotateX(27deg) rotateZ(-23deg); }
+.trash-story .card-b { left: 394px; top: 521px; transform: rotateX(30deg) rotateZ(21deg); }
+.trash-story .card-c { left: 226px; top: 586px; transform: rotateX(35deg) rotateZ(12deg); }
+.trash-story .card-d { left: 399px; top: 582px; transform: rotateX(32deg) rotateZ(-16deg); }
+.trash-story .review-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.trash-story .avatar { display: grid; place-items: center; width: 27px; height: 27px; border-radius: 50%; background: #7e8875; color: #fff; font-size: 13px; }
+.trash-story .yelp-card .avatar { background: #a27265; border-radius: 5px; }
+.trash-story .name { font-size: 11px; font-weight: 600; }
+.trash-story .name small { display: block; margin-top: 3px; font-size: 8px; color: #81796e; font-weight: 400; }
+.trash-story .google-logo { margin-left: auto; font-size: 26px; font-weight: 700; background: conic-gradient(#4285f4 0 25%,#34a853 25% 45%,#fbbc05 45% 65%,#ea4335 65% 82%,#4285f4 82%); background-clip: text; -webkit-background-clip: text; color: transparent; }
+.trash-story .yelp-logo { margin-left: auto; display: flex; align-items: center; font-size: 18px; font-weight: 700; letter-spacing: -1px; color: #31302e; }
+.trash-story .yelp-logo span { color: #d32323; font-size: 31px; margin: 4px 0 0 1px; line-height: 18px; }
+.trash-story .stars { height: 19px; margin-bottom: 9px; font-size: 16px; letter-spacing: 1px; }
+.trash-story .google-stars { color: #c88b20; }.trash-story .google-stars span { color: #b6b0a5; }
+.trash-story .yelp-stars { display: flex; gap: 3px; }
+.trash-story .yelp-stars b { color: #fff; background: #d34535; width: 17px; height: 17px; display: grid; place-items: center; border-radius: 3px; font-size: 12px; font-weight: 400; letter-spacing: 0; }
+.trash-story .yelp-stars .empty { background: #bcb6ad; }
+.trash-story .review strong { display: block; font-size: 13px; font-weight: 600; }
+.trash-story .review p { font-size: 10px; margin: 6px 0 1px; color: #665d51; }
+
+/* Phone layout: two readable reviews, tightly framed around the ASCII fire. */
+@media (max-width: 600px) {
+  .trash-story .review { width: 262px; min-height: 174px; padding: 16px 18px; border-radius: 8px; }
+  .trash-story .card-a { left: 235px; top: 430px; transform: rotateZ(-9deg); z-index: 2; }
+  .trash-story .card-b { left: 345px; top: 600px; transform: rotateZ(7deg); z-index: 3; }
+  .trash-story .card-c, .trash-story .card-d { display: none; }
+  .trash-story .review-header { gap: 9px; margin-bottom: 12px; }
+  .trash-story .avatar { width: 34px; height: 34px; flex-shrink: 0; font-size: 16px; }
+  .trash-story .name { font-size: 16px; }
+  .trash-story .name small { font-size: 12px; line-height: 1.2; }
+  .trash-story .google-logo { font-size: 31px; }
+  .trash-story .yelp-logo { font-size: 24px; }
+  .trash-story .yelp-logo span { font-size: 38px; }
+  .trash-story .stars { height: 25px; font-size: 23px; margin-bottom: 10px; }
+  .trash-story .yelp-stars { gap: 4px; }
+  .trash-story .yelp-stars b { width: 24px; height: 24px; font-size: 17px; }
+  .trash-story .review strong { font-size: 19px; line-height: 1.2; }
+  .trash-story .review p { font-size: 15px; line-height: 1.4; margin-top: 6px; }
+}
+
+.trash-story #can-back, .trash-story #can-front, .trash-story #burning-window, .trash-story #burning { position: absolute; inset: 0; pointer-events: none; }
+.trash-story #can-back { z-index: 0; }
+.trash-story #burning-window { z-index: 1; }
+.trash-story #burning { transform-origin: 420px 636px; will-change: transform, opacity; }
+.trash-story #can-front { z-index: 2; }
+
+/* Chat is sized in viewport pixels, keeping the story readable on phones. */
+.trash-story #conversation, .trash-story #ending { position: absolute; inset: 0; pointer-events: none; opacity: 0; }
+.trash-story #conversation { z-index: 4; }
+.trash-story .chat-chapter { position: absolute; top: 50%; left: 50%; width: min(520px, calc(100% - 40px)); display: flex; flex-direction: column; gap: 20px; transform: translate(-50%, -50%); opacity: 0; font-family: Arial, sans-serif; }
+.trash-story .message { width: fit-content; max-width: 86%; opacity: 0; will-change: transform, opacity; }
+.trash-story .message .speaker { display: block; font-size: 13px; color: #666970; margin: 0 0 7px 14px; }
+.trash-story .message p { margin: 0; padding: 17px 20px; background: #e0e2e6; color: #22252a; border-radius: 22px 22px 22px 5px; font-size: clamp(17px, 2.3vw, 21px); line-height: 1.45; letter-spacing: -.2px; }
+.trash-story .message.outgoing { align-self: flex-end; }
+.trash-story .message.outgoing .speaker { text-align: right; margin: 0 14px 7px 0; }
+.trash-story .message.outgoing p { background: #2869df; color: #fff; border-radius: 22px 22px 5px 22px; }
+.trash-story .time-passed { text-align: center; color: #7b7d82; font-size: 13px; margin-bottom: 7px; }
+.trash-story #ending { z-index: 5; }
+
+/* A realtor's sign on two wooden posts: corrugated plastic board, red header, bolts
+   where it's fixed to the posts. The padding makes room for the post tops above the
+   board and the legs below it, so the whole sign can be measured and placed under its
+   caption (animateStory.js). */
+.trash-story .lease-sign { position: absolute; top: 50%; left: 0; right: 0; width: min(340px, calc(100vw - 64px)); margin: 0 auto; padding: 18px 0 72px; font-family: Arial, sans-serif; }
+.trash-story .lease-sign::after { content: ""; position: absolute; left: 8%; right: 8%; bottom: 0; height: 14px; border-radius: 50%; background: radial-gradient(closest-side, #3b2a1a38, transparent); }
+.trash-story .lease-sign-posts { position: absolute; inset: 0 0 6px; }
+.trash-story .lease-sign-posts::before, .trash-story .lease-sign-posts::after { content: ""; position: absolute; top: 0; bottom: 0; width: 16px; border-radius: 2px 2px 1px 1px; background: linear-gradient(90deg, #5a3f28, #8a6442 35%, #97704b 55%, #5f432b); box-shadow: 0 2px 6px #3b2a1a33; }
+.trash-story .lease-sign-posts::before { left: 17%; }
+.trash-story .lease-sign-posts::after { right: 17%; }
+.trash-story .lease-sign-board { position: relative; overflow: hidden; border-radius: 3px; background: repeating-linear-gradient(90deg, #0000000a 0 1px, transparent 1px 7px), linear-gradient(#fdfcf9, #ebe7df); box-shadow: inset 0 1px 0 #fff, 0 1px 2px #3b2a1a40, 0 14px 30px #3b2a1a26; }
+.trash-story .lease-sign-board::before { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background:
+    radial-gradient(circle at calc(17% + 8px) 10px, #e4e4e1 0 2.5px, #75756f 3px, transparent 4px),
+    radial-gradient(circle at calc(83% - 8px) 10px, #e4e4e1 0 2.5px, #75756f 3px, transparent 4px),
+    radial-gradient(circle at calc(17% + 8px) calc(100% - 10px), #e4e4e1 0 2.5px, #75756f 3px, transparent 4px),
+    radial-gradient(circle at calc(83% - 8px) calc(100% - 10px), #e4e4e1 0 2.5px, #75756f 3px, transparent 4px),
+    linear-gradient(115deg, transparent 38%, #ffffff40 50%, transparent 62%); }
+.trash-story .lease-sign-header { padding: 11px 10px 9px; background: linear-gradient(#cf3a31, #a8261f); color: #fff; text-align: center; font-family: 'Arial Black', Arial, sans-serif; font-size: clamp(28px, 7.6vw, 38px); font-weight: 900; line-height: 1; letter-spacing: .05em; white-space: nowrap; text-shadow: 0 1px 0 #7d1a15; }
+.trash-story .lease-sign-body { display: grid; gap: 3px; padding: 9px 14px 13px; text-align: center; color: #1b2735; }
+.trash-story .lease-sign-phone { font-family: 'Arial Black', Arial, sans-serif; font-size: clamp(24px, 6.6vw, 30px); font-weight: 900; line-height: 1.1; letter-spacing: .02em; }
+.trash-story .lease-sign-space { color: #5b6573; font-size: clamp(11px, 3vw, 13px); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+
+/* Copy shown while the story pauses on the can, the chat and the sign; animateStory.js
+   places each one. Styled like the site's section headings and copy. */
+.trash-story .story-caption { position: absolute; top: 0; left: 0; right: 0; z-index: 6; display: flex; flex-direction: column; align-items: center; padding: 0 1.25rem; text-align: center; opacity: 0; pointer-events: none; }
+.trash-story .story-caption-title { max-width: 20ch; margin: 0; color: var(--color-ink); font-family: var(--font-serif); font-size: clamp(1.75rem, 4vw, 2.6rem); font-weight: 700; line-height: 1.05; letter-spacing: -.03em; text-wrap: balance; }
+.trash-story .story-caption-copy { max-width: 32rem; margin: .75rem 0 0; color: var(--color-muted); font-size: clamp(1rem, 1.9vw, 1.1rem); line-height: 1.6; text-wrap: pretty; }
+
+/* Small step-forward button for anyone who'd rather tap than scroll. */
+.trash-story .story-continue { position: absolute; left: 50%; bottom: max(18px, env(safe-area-inset-bottom)); z-index: 7; display: inline-flex; align-items: center; gap: .3rem; min-height: 38px; padding: 0 .8rem 0 1rem; border: 1px solid var(--color-border); border-radius: 999px; background: var(--color-surface); color: var(--color-ink); font: 750 .84rem/1 var(--font-sans); cursor: pointer; transform: translateX(-50%); box-shadow: 0 8px 20px color-mix(in srgb, var(--color-ink) 10%, transparent); }
+.trash-story .story-continue:hover { border-color: color-mix(in srgb, var(--color-primary) 34%, transparent); background: var(--color-primary-soft); }
+.trash-story .story-continue:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+@media (max-width: 600px) {
+  .trash-story .chat-chapter { gap: 17px; width: calc(100% - 36px); }
+  .trash-story .message { max-width: 91%; }
+  .trash-story .message p { padding: 14px 17px; }
+}
+@media (max-height: 540px) {
+  .trash-story .chat-chapter { gap: 9px; width: min(560px, calc(100% - 36px)); }
+  .trash-story .message p { padding: 10px 14px; font-size: 16px; line-height: 1.35; }
+  .trash-story .message .speaker { margin-bottom: 4px; font-size: 12px; }
+  .trash-story .time-passed { margin-bottom: 0; font-size: 12px; }
+}
