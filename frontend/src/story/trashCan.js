@@ -7,7 +7,9 @@ export function createTrashCan(backHost, frontHost) {
   camera.position.set(0, 5.4, 9);
   camera.lookAt(0, 1.4, 0);
   const renderers = [backHost, frontHost].map(host => {
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    // No multisampling on 2x+ screens: it quadruples these large buffers (~190 MB for
+    // the pair on a phone) to smooth edges the pixel density already hides.
+    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: devicePixelRatio < 2 });
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     renderer.setSize(840, 780);
     renderer.setClearColor(0, 0);

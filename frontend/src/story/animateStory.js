@@ -85,15 +85,19 @@ function write(element, property, value) {
 }
 const px = value => `${value.toFixed(1)}px`;
 const hide = (element, hidden) => write(element, 'aria-hidden', hidden ? 'true' : 'false');
+// Fully faded layers are hidden outright: at opacity 0 a browser still draws them.
+const showIf = (element, visible) => write(element, 'visibility', visible ? 'visible' : 'hidden');
 function showCaption(element, visible) {
   write(element, 'opacity', visible.toFixed(3));
   write(element, 'transform', `translateY(${px((1 - visible) * 16)})`);
   hide(element, visible < .02);
+  showIf(element, visible > .001);
 }
-let scrollTarget = 0, scrollProgress = 0, shownDistance = NaN;
+let scrollTarget = 0, scrollProgress = 0, shownDistance = NaN, lastScrollAt = 0;
 const clamp = x => Math.max(0, Math.min(1, x));
 const smooth = x => { x = clamp(x); return x * x * (3 - 2 * x); };
 function readScroll() {
+  lastScrollAt = performance.now();
   const target = clamp((scrollY - layout.storyTop) / layout.storyLength);
   // A jump (Give feedback, the logo, dragging the scrollbar) lands straight on the new
   // spot instead of easing through everything in between.
@@ -336,11 +340,13 @@ function showScene(distance) {
   const canExit = smooth((timeline - .30) / .07);
   write(composition, 'opacity', (1 - canExit).toFixed(3));
   hide(composition, canExit > .99);
+  showIf(composition, canExit < .999);
 
   const chatExit = smooth((timeline - .845) / .10);
   const chatVisible = smooth((timeline - .365) / .025) * (1 - chatExit);
   write(conversation, 'opacity', chatVisible.toFixed(3));
   hide(conversation, chatVisible < .02);
+  showIf(conversation, chatVisible > .001);
   const raveExit = smooth((timeline - .575) / .06);
   write(raving, 'opacity', (1 - raveExit).toFixed(3));
   write(raving, 'transform', `translate(-50%, calc(-50% - ${px(raveExit * 38)}))`);
@@ -357,6 +363,7 @@ function showScene(distance) {
   const closed = smooth((timeline - .93) / .055);
   write(ending, 'opacity', closed.toFixed(3));
   hide(ending, closed < .02);
+  showIf(ending, closed > .001);
   write(sign, 'transform', motion.matches ? 'none' : `translateY(${px((1 - closed) * 36)})`);
   if (closed > 0) {
     const [captionTop, signTop] = stack(layout.signCaption, layout.sign);
@@ -386,6 +393,10 @@ function animate(now) {
   if (!motion.matches) time += delta;
   const burningNow = disposal < .72;
   if (!burningNow && !fireOnCanvas) return;
+  // Hold the flicker still while the page is being scrolled: redrawing these big
+  // canvases is the heaviest thing on the page, and phones stutter doing it mid-scroll.
+  // (The fire still moves with the scroll; only its flicker waits.)
+  if (burningNow && fireOnCanvas && now - lastScrollAt < 150) return;
   ctx.clearRect(0, 0, width, height);
   foreground.clearRect(0, 0, width, height);
   fireOnCanvas = burningNow;

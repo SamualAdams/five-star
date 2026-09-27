@@ -3810,11 +3810,15 @@ select {
 /* The map sits pinned behind the last screen of the story, which fades away to
    reveal it (animateStory.js). 150svh = the story's final screen plus half a
    screen of fading; the spacer gives the pinned map that half screen to stay put
-   (sticky elements only move within their parent's content, not its padding). */
+   (sticky elements only move within their parent's content, not its padding).
+   The map section is 100dvh tall, which grows and shrinks as a phone's toolbars
+   slide away and back; the spacer gives back exactly that much, so the page's total
+   height never changes mid-scroll (iPhone Safari judders when it does). */
 .home-page::after {
   content: "";
   display: block;
   height: 50svh;
+  height: calc(150svh - 100dvh);
 }
 
 .home-page > .search-page--home {
