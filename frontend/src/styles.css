@@ -6497,13 +6497,6 @@ html {
   background: currentColor;
 }
 
-.feed-schedule-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
 .feed-publish-toggle {
   padding: 3px;
   border-radius: 10px;
@@ -6526,18 +6519,6 @@ html {
   background: var(--color-surface);
   color: var(--color-ink);
   box-shadow: 0 2px 8px color-mix(in srgb, var(--color-shadow) 8%, transparent);
-}
-
-.feed-date-fields {
-  display: flex;
-  gap: 0.45rem;
-}
-
-.feed-date-fields .field-input {
-  width: auto;
-  margin: 0;
-  padding: 0.55rem 0.65rem;
-  font-size: 0.76rem;
 }
 
 .feed-composer-actions {
@@ -6899,16 +6880,6 @@ html {
 
   .feed-page {
     padding: 2rem 1rem;
-  }
-
-  .feed-schedule-row,
-  .feed-date-fields {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .feed-date-fields .field-input {
-    width: 100%;
   }
 
   .feed-composer-actions .btn {

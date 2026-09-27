@@ -338,7 +338,6 @@ class WordsmithResponse(BaseModel):
 class SocialPostCreate(BaseModel):
     master_caption: str = Field(min_length=1, max_length=10000)
     media_urls: list[str] = Field(default_factory=list, max_length=10)
-    scheduled_at: datetime | None = None
     location_id: int | None = None
 
 

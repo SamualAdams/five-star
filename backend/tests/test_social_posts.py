@@ -1,7 +1,6 @@
-from datetime import datetime, timedelta, timezone
 
 import app.main as main_module
-from app.models import Organization, SocialPost
+from app.models import Organization
 from app.schemas import WordsmithOption, WordsmithResponse
 from conftest import TestingSessionLocal
 
@@ -153,44 +152,6 @@ def test_published_five_star_posts_can_be_edited_and_deleted(client, auth_header
     ).json() == []
 
 
-def test_scheduled_posts_pause_while_feed_is_disabled_and_resume_when_enabled(
-    client,
-    auth_headers,
-    monkeypatch,
-):
-    headers = auth_headers("paused-publisher@example.com")
-    org = create_org(client, headers, "Paused Feed Diner")
-    scheduled = client.post(
-        f"/organizations/{org['id']}/social-posts",
-        json={
-            "master_caption": "Publish after re-enabling",
-            "media_urls": [],
-            "scheduled_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
-        },
-        headers=headers,
-    )
-    assert scheduled.status_code == 201, scheduled.text
-
-    with TestingSessionLocal() as db:
-        organization = db.get(Organization, org["id"])
-        organization.feed_enabled = False
-        post = db.get(SocialPost, scheduled.json()["id"])
-        post.scheduled_at = datetime.utcnow() - timedelta(minutes=1)
-        db.commit()
-
-    monkeypatch.setattr(main_module, "SessionLocal", TestingSessionLocal)
-    main_module._publish_due_social_posts_once()
-    with TestingSessionLocal() as db:
-        assert db.get(SocialPost, scheduled.json()["id"]).status == "scheduled"
-
-    with TestingSessionLocal() as db:
-        db.get(Organization, org["id"]).feed_enabled = True
-        db.commit()
-    main_module._publish_due_social_posts_once()
-    with TestingSessionLocal() as db:
-        assert db.get(SocialPost, scheduled.json()["id"]).status == "published"
-
-
 def test_disabled_feed_blocks_post_apis(client, auth_headers):
     headers = auth_headers("locked-feed-owner@example.com")
     org = create_org(client, headers, "Locked Feed Diner")
@@ -216,3 +177,17 @@ def test_social_account_endpoints_are_gone(client, auth_headers):
     headers = auth_headers("no-social-owner@example.com")
     org = create_org(client, headers, "No Social Diner")
     assert client.get(f"/organizations/{org['id']}/social-connections", headers=headers).status_code == 404
+
+
+def test_feed_posts_cannot_be_scheduled(client, auth_headers):
+    """The Feed scheduler was removed; a scheduled_at in the request is ignored."""
+    headers = auth_headers("no-scheduler@example.com")
+    org = create_org(client, headers, "No Scheduler Diner")
+    created = client.post(
+        f"/organizations/{org['id']}/social-posts",
+        json={"master_caption": "Now", "scheduled_at": "2099-01-01T12:00:00Z"},
+        headers=headers,
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["status"] == "draft"
+    assert created.json()["scheduled_at"] is None

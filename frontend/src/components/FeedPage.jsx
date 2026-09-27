@@ -52,12 +52,9 @@ export default function FeedPage({
   const [wordsmithTarget, setWordsmithTarget] = useState(null);
   const [selectionMenu, setSelectionMenu] = useState({ visible: false, x: 0, y: 0 });
   const [imageExpanded, setImageExpanded] = useState(false);
-  const [scheduleExpanded, setScheduleExpanded] = useState(false);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState("");
   const [uploadedImage, setUploadedImage] = useState(null);
-  const [scheduleDate, setScheduleDate] = useState("");
-  const [scheduleTime, setScheduleTime] = useState("");
   const [posts, setPosts] = useState([]);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
@@ -75,13 +72,9 @@ export default function FeedPage({
 
   const selectedCaptionText = message.slice(captionSelection.start, captionSelection.end);
   const hasCaptionSelection = Boolean(selectedCaptionText.trim());
-  const scheduledPosts = posts.filter((post) => post.status === "scheduled");
   const savedDrafts = posts.filter((post) => post.status === "draft");
   const publishedPosts = posts.filter((post) => post.status === "published");
-  const canSaveDraft = Boolean(message.trim());
-  const canSubmit = canSaveDraft && (
-    !scheduleExpanded || (scheduleDate && scheduleTime)
-  );
+  const canSubmit = Boolean(message.trim());
 
   async function loadPosts() {
     if (!token || !orgId) return;
@@ -254,17 +247,12 @@ export default function FeedPage({
   }
 
   async function submitPost(submitMode = "now") {
-    const validForMode = submitMode === "draft" ? canSaveDraft : canSubmit;
-    if (!validForMode || working || submitLock.current) return;
+    if (!canSubmit || working || submitLock.current) return;
     submitLock.current = true;
     setWorking(true);
     setError("");
     setNotice("");
     try {
-      let scheduledAt = null;
-      if (scheduleExpanded && scheduleDate && scheduleTime) {
-        scheduledAt = new Date(`${scheduleDate}T${scheduleTime}`).toISOString();
-      }
       let uploadedMediaUrl = "";
       if (imageFile) {
         if (uploadedImage?.file === imageFile) {
@@ -279,19 +267,14 @@ export default function FeedPage({
       const created = await createSocialPost(token, orgId, {
         master_caption: message.trim(),
         media_urls: uploadedMediaUrl ? [uploadedMediaUrl] : [],
-        scheduled_at: scheduledAt,
         location_id: locationId,
       });
-      const completed = !scheduledAt
-        ? await publishSocialPost(token, orgId, created.id)
-        : created;
+      const completed = submitMode === "draft"
+        ? created
+        : await publishSocialPost(token, orgId, created.id);
       setPosts((current) => [completed, ...current.filter((post) => post.id !== completed.id)]);
       setNotice(
-        submitMode === "draft"
-          ? "Draft saved."
-          : scheduledAt
-            ? "Post scheduled."
-          : "Published to your five* feed."
+        submitMode === "draft" ? "Draft saved." : "Published to your five* feed."
       );
       setMessage("");
       setCaptionSelection({ start: 0, end: 0 });
@@ -300,9 +283,6 @@ export default function FeedPage({
       setSelectionMenu((current) => ({ ...current, visible: false }));
       setImageFile(null);
       setUploadedImage(null);
-      setScheduleDate("");
-      setScheduleTime("");
-      setScheduleExpanded(false);
       setImageExpanded(false);
     } catch (err) {
       setError(err.message);
@@ -502,44 +482,11 @@ export default function FeedPage({
           {error && <p className="message message--error" role="alert">{error}</p>}
           {notice && <p className="message message--success" role="status">{notice}</p>}
 
-          <section className="feed-schedule-section" aria-labelledby="feed-schedule-heading">
-            <button
-              aria-expanded={scheduleExpanded}
-              className="feed-image-toggle"
-              onClick={() => setScheduleExpanded((current) => !current)}
-              type="button"
-              id="feed-schedule-heading"
-            >
-              <span aria-hidden="true">{scheduleExpanded ? "−" : "+"}</span>
-              Schedule post
-              <small>Optional</small>
-            </button>
-
-            {scheduleExpanded && (
-              <div className="feed-date-fields">
-                <input
-                  className="field-input"
-                  aria-label="Schedule date"
-                  onChange={(event) => setScheduleDate(event.target.value)}
-                  type="date"
-                  value={scheduleDate}
-                />
-                <input
-                  className="field-input"
-                  aria-label="Schedule time"
-                  onChange={(event) => setScheduleTime(event.target.value)}
-                  type="time"
-                  value={scheduleTime}
-                />
-              </div>
-            )}
-          </section>
-
           <div className="feed-composer-actions">
             <button
               className="btn btn--ghost"
               type="button"
-              disabled={!canSaveDraft || working}
+              disabled={!canSubmit || working}
               onClick={() => submitPost("draft")}
             >
               Save draft
@@ -550,11 +497,7 @@ export default function FeedPage({
               disabled={!canSubmit || working}
               onClick={() => submitPost("now")}
             >
-              {working
-                ? "Working…"
-                : scheduleExpanded && scheduleDate && scheduleTime
-                  ? "Schedule post"
-                  : "Publish to five*"}
+              {working ? "Working…" : "Publish to five*"}
             </button>
           </div>
 
@@ -692,28 +635,6 @@ export default function FeedPage({
               <div className="feed-empty-state">
                 <strong>No saved drafts</strong>
                 <p>Save a prepared post to finish it later.</p>
-              </div>
-            )}
-          </section>
-
-          <section className="portal-card">
-            <div className="portal-card-heading">
-              <h2>Upcoming posts</h2>
-              <span className="portal-count">{scheduledPosts.length}</span>
-            </div>
-            {scheduledPosts.length ? (
-              <div className="feed-post-list">
-                {scheduledPosts.map((post) => (
-                  <article className="feed-post-summary" key={post.id}>
-                    <strong>{post.master_caption}</strong>
-                    <small>{new Date(post.scheduled_at).toLocaleString()}</small>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <div className="feed-empty-state">
-                <strong>No posts scheduled</strong>
-                <p>Your scheduled content will appear here.</p>
               </div>
             )}
           </section>

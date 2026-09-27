@@ -1,4 +1,3 @@
-import asyncio
 import json
 import secrets
 from datetime import date, datetime, time, timedelta, timezone
@@ -18,7 +17,7 @@ from .ai import generate_digest_content, generate_wordsmith_options, polish_revi
 from .config import get_settings
 from .directory_orgs import is_claimed, location_for_place
 from .directory_text import split_query
-from .database import Base, SessionLocal, engine, get_db
+from .database import Base, engine, get_db
 from .dependencies import (
     get_accessible_locations,
     get_current_user,
@@ -178,26 +177,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.on_event("startup")
-async def on_startup() -> None:
-    # Schema is managed by Alembic migrations (run before app starts).
-    if settings.social_scheduler_enabled:
-        app.state.social_scheduler_task = asyncio.create_task(
-            _social_scheduler_loop()
-        )
-
-
-@app.on_event("shutdown")
-async def on_shutdown() -> None:
-    task = getattr(app.state, "social_scheduler_task", None)
-    if task:
-        task.cancel()
-        try:
-            await task
-        except asyncio.CancelledError:
-            pass
 
 
 # ---------------------------------------------------------------------------
@@ -861,24 +840,12 @@ def create_social_post(
             detail="Media must use a publicly reachable HTTP or HTTPS URL",
         )
 
-    scheduled_at = None
-    post_status = "draft"
-    if payload.scheduled_at:
-        scheduled_at = _as_utc(payload.scheduled_at).replace(tzinfo=None)
-        if scheduled_at <= datetime.utcnow():
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Scheduled time must be in the future",
-            )
-        post_status = "scheduled"
-
     post = SocialPost(
         organization_id=org_id,
         location_id=payload.location_id,
         master_caption=payload.master_caption,
         media_urls=payload.media_urls or None,
-        status=post_status,
-        scheduled_at=scheduled_at,
+        status="draft",
         created_by=user.id,
     )
     db.add(post)
@@ -964,39 +931,6 @@ def publish_social_post_now(
             detail="This post is already publishing",
         )
     return _social_post_out(_publish_social_post(db, post))
-
-
-def _publish_due_social_posts_once() -> None:
-    with SessionLocal() as db:
-        due_post_ids = list(
-            db.scalars(
-                select(SocialPost.id).where(
-                    SocialPost.status == "scheduled",
-                    SocialPost.scheduled_at.is_not(None),
-                    SocialPost.scheduled_at <= datetime.utcnow(),
-                    SocialPost.organization_id.in_(
-                        select(Organization.id).where(Organization.feed_enabled.is_(True))
-                    ),
-                )
-            ).all()
-        )
-        for post_id in due_post_ids:
-            post = db.get(SocialPost, post_id)
-            if post and post.status == "scheduled":
-                _publish_social_post(db, post)
-
-
-async def _social_scheduler_loop() -> None:
-    interval = max(10, settings.social_scheduler_interval_seconds)
-    while True:
-        try:
-            await asyncio.to_thread(_publish_due_social_posts_once)
-        except Exception as exc:  # pragma: no cover - production resilience
-            if settings.sentry_dsn:
-                import sentry_sdk
-
-                sentry_sdk.capture_exception(exc)
-        await asyncio.sleep(interval)
 
 
 # ---------------------------------------------------------------------------
