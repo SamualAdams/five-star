@@ -59,12 +59,38 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
+      - name: Start Fly.io machines
+        id: fly_start
+        if: steps.fly_deploy.outcome == 'success'
+        continue-on-error: true
+        run: |
+          flyctl machine list --app five-star --json \
+            | jq -r '.[] | select(.state != "started") | .id' \
+            | while read -r machine_id; do
+                flyctl machine start "$machine_id" --app five-star
+              done
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Verify production health
+        id: fly_health
+        if: steps.fly_deploy.outcome == 'success' && steps.fly_start.outcome == 'success'
+        continue-on-error: true
+        run: |
+          for attempt in {1..12}; do
+            if curl --fail --silent --show-error --max-time 10 https://five-star.fly.dev/health; then
+              exit 0
+            fi
+            sleep 5
+          done
+          exit 1
+
       - name: Capture Fly.io startup logs
-        if: steps.fly_deploy.outcome == 'failure'
+        if: steps.fly_deploy.outcome == 'failure' || steps.fly_start.outcome == 'failure' || steps.fly_health.outcome == 'failure'
         run: flyctl logs --app five-star --no-tail
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
       - name: Fail unsuccessful deployment
-        if: steps.fly_deploy.outcome == 'failure'
+        if: steps.fly_deploy.outcome == 'failure' || steps.fly_start.outcome == 'failure' || steps.fly_health.outcome == 'failure'
         run: exit 1
