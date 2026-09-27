@@ -3828,6 +3828,16 @@ select {
   margin-top: -150svh;
 }
 
+/* Once someone starts searching, the story is gone and the search is the whole page. */
+.home-page--searching::after {
+  display: none;
+}
+
+.home-page--searching > .search-page--home {
+  position: static;
+  margin-top: 0;
+}
+
 .search-page:not(.search-page--home) .search-container {
   scroll-margin-top: 96px;
 }
