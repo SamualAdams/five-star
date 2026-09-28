@@ -77,6 +77,11 @@ export default function SearchPage({ home = false, onStart }) {
   // Bumped when new results should be framed on the map (not for "search this area").
   const [fitKey, setFitKey] = useState(0);
   const [mapFocus, setMapFocus] = useState(null);
+  // Bumped when the map's box changes, so it re-measures itself.
+  const [mapResizeKey, setMapResizeKey] = useState(0);
+  // Whether the person has moved the map since it was last framed for them; if so,
+  // switching views or coming back from a form keeps their view instead of re-framing.
+  const userMovedMap = useRef(false);
   const [mapMoved, setMapMoved] = useState(false);
   const [searchedArea, setSearchedArea] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
@@ -160,7 +165,10 @@ export default function SearchPage({ home = false, onStart }) {
     setIsSearching(false);
     setMapMoved(false);
     setSearchedArea(inArea);
-    if (fit) setFitKey((key) => key + 1);
+    if (fit) {
+      userMovedMap.current = false;
+      setFitKey((key) => key + 1);
+    }
   }
 
   function changeMinStars(stars) {
@@ -188,6 +196,7 @@ export default function SearchPage({ home = false, onStart }) {
   }
 
   function handleMapMove() {
+    userMovedMap.current = true;
     if (query.trim().length >= 2 || userLocation || minStars) setMapMoved(true);
     clearTimeout(browseTimer.current);
     browseTimer.current = setTimeout(loadBrowsePlaces, 350);
@@ -199,10 +208,12 @@ export default function SearchPage({ home = false, onStart }) {
     if (pins) setBrowsePlaces(pins);
   }
 
-  // Leaflet measures its container once; tell it when the mobile map is shown.
+  // Leaflet measures its container once; tell it when the mobile map is shown. Frame the
+  // person's location or results then - unless they've moved the map themselves.
   useEffect(() => {
     if (!showingMap || !mapRef.current) return;
-    mapRef.current.invalidateSize();
+    setMapResizeKey((key) => key + 1);
+    if (userMovedMap.current) return;
     if (userLocation && query.trim().length < 2) {
       setMapFocus({ ...userLocation, zoom: NEAR_ME_ZOOM });
     } else if (places.length > 0) {
@@ -236,6 +247,7 @@ export default function SearchPage({ home = false, onStart }) {
         // "Where am I?" - zoom in around them and show the map, rather than fit
         // every result. With a name typed, frame the closest matches instead.
         if (!hasText) {
+          userMovedMap.current = false;
           setMapFocus({ ...near, zoom: NEAR_ME_ZOOM });
           setMobileView("map");
         }
@@ -337,7 +349,7 @@ export default function SearchPage({ home = false, onStart }) {
   // Leaving the intro resizes the map (sidebar on desktop, search bar on phones).
   useEffect(() => {
     if (!mapRef.current) return;
-    mapRef.current.invalidateSize();
+    setMapResizeKey((key) => key + 1);
     loadBrowsePlaces();
   }, [isIntro]);
 
@@ -586,6 +598,7 @@ export default function SearchPage({ home = false, onStart }) {
             activeId={activePlaceId}
             fitKey={fitKey}
             focus={mapFocus}
+            resizeKey={mapResizeKey}
             onHover={setActivePlaceId}
             onSelect={handlePinSelect}
             showTooltips={!isMobile}
