@@ -3870,9 +3870,29 @@ body:has(.home-page--searching) .topbar--overlay {
   padding-top: 1.25rem;
 }
 
+/* Map view on phones is pinned to the screen under the nav, leaving nothing to scroll:
+   the page's min-height is measured with Safari's toolbars hidden, so it could otherwise
+   scroll a little and slide the search bar out of view. */
+:root {
+  --topbar-height: 84px;
+}
+
+@media (max-width: 760px) {
+  :root {
+    --topbar-height: 72px;
+  }
+}
+
 @media (max-width: 900px) {
+  .search-page--map-view:not(.search-page--home),
   .home-page--searching > .search-page--home.search-page--map-view {
-    height: calc(100dvh - 72px);
+    position: fixed;
+    top: var(--topbar-height);
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: auto;
+    min-height: 0;
     padding-top: 0.75rem;
   }
 }

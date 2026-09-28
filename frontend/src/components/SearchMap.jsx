@@ -30,6 +30,7 @@ function MapController({
   userLocation,
   fitKey,
   focus,
+  resizeKey,
   onReady,
   onUserMove,
   onBackgroundClick,
@@ -41,11 +42,24 @@ function MapController({
     onReady(map);
   }, [map]);
 
+  // Re-measure the map after its box changes, without the resulting pan counting as
+  // someone moving the map.
+  function measureQuietly() {
+    programmaticMove.current = true;
+    map.invalidateSize();
+    programmaticMove.current = false;
+  }
+
+  // The page changed the map's box (a view switch, leaving the intro).
+  useEffect(() => {
+    if (resizeKey) measureQuietly();
+  }, [resizeKey]);
+
   // Frame a fresh set of results; an area search keeps the map where the user put it.
   useEffect(() => {
     if (!fitKey) return;
     // The mobile map may have just been un-hidden; Leaflet needs its real size first.
-    map.invalidateSize();
+    measureQuietly();
     const points = places.filter((p) => p.lat != null && p.lon != null).map((p) => [p.lat, p.lon]);
     if (userLocation) points.push([userLocation.lat, userLocation.lon]);
     if (points.length === 0) return;
@@ -60,7 +74,7 @@ function MapController({
   // Zoom to a spot (e.g. "near me") without fitting it to the results.
   useEffect(() => {
     if (!focus) return;
-    map.invalidateSize();
+    measureQuietly();
     programmaticMove.current = true;
     map.setView([focus.lat, focus.lon], focus.zoom);
   }, [focus]);
@@ -78,9 +92,7 @@ function MapController({
       timer = setTimeout(() => {
         const size = map.getSize();
         if (!onScreen || (box.clientWidth === size.x && box.clientHeight === size.y)) return;
-        programmaticMove.current = true;
-        map.invalidateSize();
-        programmaticMove.current = false;
+        measureQuietly();
       }, 150);
     }
     const observer = new IntersectionObserver(([entry]) => {
@@ -118,6 +130,7 @@ export default function SearchMap({
   activeId,
   fitKey,
   focus,
+  resizeKey,
   showTooltips = true,
   compact = false,
   onHover,
@@ -146,6 +159,7 @@ export default function SearchMap({
         userLocation={userLocation}
         fitKey={fitKey}
         focus={focus}
+        resizeKey={resizeKey}
         onReady={onReady}
         onUserMove={onUserMove}
         onBackgroundClick={onBackgroundClick}
