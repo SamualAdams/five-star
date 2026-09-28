@@ -387,3 +387,26 @@ def test_map_dots_businesses_in_view_rated_first(client, monkeypatch):
     assert pins("-91.2,30.3,-91.0,30.5") == in_view  # same view, same pins
     assert pins("-92.6,31.4,-92.4,31.6") == [(far, 0)]
     assert client.get("/directory/map", params={"bbox": "nope"}).status_code == 422
+
+
+def test_search_this_area_covers_the_whole_map(client):
+    # 35 places bunched downtown, 3 out at the edges of a zoomed-out map.
+    downtown = [_place(i, f"Diner {i}", f"{i} Main St", lat=30.45 + i * 1e-4, lon=-91.15) for i in range(35)]
+    edges = [
+        _place(100, "North Diner", "1 North Rd", lat=30.70, lon=-91.15),
+        _place(101, "South Diner", "1 South Rd", lat=30.20, lon=-91.15),
+        _place(102, "East Diner", "1 East Rd", lat=30.45, lon=-90.80),
+    ]
+    _seed(*downtown, *edges)
+    zoomed_out = {"bbox": "-91.5,30.1,-90.7,30.8", "lat": 30.45, "lon": -91.15}
+
+    near_me = client.get("/directory/search", params={"lat": 30.45, "lon": -91.15}).json()
+    assert len(near_me) == 30 and "North Diner" not in {r["name"] for r in near_me}
+
+    area = client.get("/directory/search", params=zoomed_out).json()
+    names = [r["name"] for r in area]
+    assert len(area) == 38 and {"North Diner", "South Diner", "East Diner"} <= set(names)
+    assert names.index("East Diner") > names.index("Diner 0")  # still nearest first
+
+    named = client.get("/directory/search", params={**zoomed_out, "q": "diner"}).json()
+    assert len(named) == 38  # a name search in an area isn't capped at 20 either

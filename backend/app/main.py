@@ -430,6 +430,15 @@ def search_organizations(
 
 
 MAP_PIN_LIMIT = 250
+# "Search this area" covers whatever the map shows, so it returns more than a plain search.
+AREA_RESULT_LIMIT = 60
+
+
+def _closeness(lat: float, lon: float):
+    return (
+        (DirectoryPlace.lat - lat) * (DirectoryPlace.lat - lat)
+        + (DirectoryPlace.lon - lon) * (DirectoryPlace.lon - lon) * 0.75
+    )
 
 
 @app.get("/directory/search", response_model=list[DirectoryPlaceResult])
@@ -450,11 +459,14 @@ def search_directory(
     must prefix-match a word of the name or street. Closest first when the
     caller passes lat/lon; only places inside bbox when given (the map's
     "search this area"). With no query but a lat/lon ("near me"), the
-    closest places. min_stars keeps only places five* has rated at least
-    that high; with no query it lists them (closest first given lat/lon). Places that already became organizations stay
-    searchable; feedback for them goes to their location.
+    closest places - or, for an area, places spread across all of it (the
+    closest 30 would stay bunched in the middle however far out the map is
+    zoomed). min_stars keeps only places five* has rated at least that high;
+    with no query it lists them (closest first given lat/lon). Places that
+    already became organizations stay searchable; feedback for them goes to
+    their location.
     """
-    limit = 20
+    limit = AREA_RESULT_LIMIT if bbox else 20
     area = []
     if bbox:
         try:
@@ -465,11 +477,18 @@ def search_directory(
     if min_stars:
         area.append(rated_at_least(min_stars))
     if len(q.strip()) < 2:
+        if bbox and (lat is not None or min_stars):
+            spread = list(db.scalars(
+                select(DirectoryPlace)
+                .where(DirectoryPlace.active.is_(True), *area)
+                .order_by((DirectoryPlace.id * 7919) % 10007)
+                .limit(limit)
+            ))
+            if lat is not None and lon is not None:
+                spread.sort(key=lambda p: (p.lat - lat) ** 2 + (p.lon - lon) ** 2 * 0.75)
+            return _directory_results(db, spread)
         if lat is not None and lon is not None:
-            ordering = (
-                (DirectoryPlace.lat - lat) * (DirectoryPlace.lat - lat)
-                + (DirectoryPlace.lon - lon) * (DirectoryPlace.lon - lon) * 0.75
-            )
+            ordering = _closeness(lat, lon)
         elif min_stars:
             ordering = DirectoryPlace.name
         else:
@@ -487,10 +506,7 @@ def search_directory(
         conditions += [DirectoryPlace.street_search.like(f"% {w}%") for w in street.split()]
         ordering = [case((DirectoryPlace.name_search == f" {name} ", 0), else_=1)]
         if lat is not None and lon is not None:
-            ordering.append(
-                (DirectoryPlace.lat - lat) * (DirectoryPlace.lat - lat)
-                + (DirectoryPlace.lon - lon) * (DirectoryPlace.lon - lon) * 0.75
-            )
+            ordering.append(_closeness(lat, lon))
         ordering += [func.length(DirectoryPlace.name), DirectoryPlace.id]
         for place in db.scalars(
             select(DirectoryPlace).where(*conditions).order_by(*ordering).limit(limit)

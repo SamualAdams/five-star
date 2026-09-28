@@ -321,7 +321,7 @@ export default function App() {
           <Routes>
           <Route
             path="/"
-            element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <HomePage />}
+            element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <HomePage key={location.key} />}
           />
           <Route
             path="/auth"
@@ -581,10 +581,10 @@ function PublicHeader({ isAuthenticated }) {
     window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" });
   }
 
-  // The logo always lands on the top of the homepage: jumping back up when already there,
-  // otherwise opening it from the top rather than wherever this page was scrolled.
-  function goHome(event) {
-    if (isHome) event.preventDefault();
+  // The logo always lands on the top of the homepage, from the hero - even from its search
+  // mode, since each visit to "/" starts the homepage afresh (HomePage is keyed by location).
+  // ("instant", not "auto": the site sets smooth scrolling in CSS, which "auto" follows.)
+  function goHome() {
     window.scrollTo({ top: 0, behavior: "instant" });
   }
 
