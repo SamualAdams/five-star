@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
+import BrandName from "./BrandName";
 import SearchPage from "./SearchPage";
 
 // Three.js only loads for the homepage story, not the rest of the app.
@@ -42,14 +43,10 @@ export default function HomePage() {
         <Suspense fallback={<div className="trash-story home-story-loading" />}>
           <TrashStory>
             <div className="home-hero" ref={heroRef}>
-              <h1 className="home-hero-title">
-                Confused?
-                <br />
-                So are they.
-              </h1>
+              <h1 className="home-hero-title">Tell businesses what you really think.</h1>
               <p className="home-hero-copy">
-                Reviews happen once, are often gamed, and are usually too vague to act on. Businesses need
-                your feedback on the first visit, the second, and the tenth. Big or small.
+                <BrandName /> privately delivers your praise, problems, and ideas to the people who run
+                the place, so they can act on them. No account needed.
               </p>
               {/* Jumps past the story to the map (handled in animateStory.js). */}
               <button className="btn btn--primary" type="button" data-story-goto="end">

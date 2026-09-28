@@ -3768,9 +3768,10 @@ select {
   margin: 0;
   color: var(--color-ink);
   font-family: var(--font-serif);
-  font-size: clamp(2.6rem, 6.5vw, 4.2rem);
+  font-size: clamp(2.2rem, 6.5vw, 4.2rem);
   font-weight: 700;
   line-height: 1.02;
+  text-wrap: balance;
   letter-spacing: -0.03em;
 }
 
@@ -3828,14 +3829,30 @@ select {
   margin-top: -150svh;
 }
 
-/* Once someone starts searching, the story is gone and the search is the whole page. */
+/* Once someone starts searching, the story is gone and the search is the whole page,
+   under the standard solid nav (a see-through nav floating over the search bar overlaps
+   it, worst of all when a phone keyboard shifts the page). */
 .home-page--searching::after {
   display: none;
+}
+
+body:has(.home-page--searching) .topbar--overlay {
+  position: sticky;
+  border-bottom-color: color-mix(in srgb, var(--color-ink) 8%, transparent);
+  background: var(--color-white);
 }
 
 .home-page--searching > .search-page--home {
   position: static;
   margin-top: 0;
+  padding-top: 1.25rem;
+}
+
+@media (max-width: 900px) {
+  .home-page--searching > .search-page--home.search-page--map-view {
+    height: calc(100dvh - 72px);
+    padding-top: 0.75rem;
+  }
 }
 
 .search-page:not(.search-page--home) .search-container {

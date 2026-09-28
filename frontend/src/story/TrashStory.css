@@ -7,7 +7,10 @@
 .trash-story { position: relative; z-index: 1; font-family: var(--font-sans); pointer-events: none; }
 .trash-story * { box-sizing: border-box; }
 .trash-story #story { height: 790svh; } /* STORY_SCREENS + 1 screen, see animateStory.js */
-.trash-story #scene { background: var(--color-bg, #fdfdfc); position: sticky; top: 0; width: 100%; height: 100svh; pointer-events: auto; display: grid; place-items: center; overflow: hidden; }
+/* The scene is 100svh, the screen with a phone's toolbars showing; when they slide away the
+   screen grows taller than it. The shadow carries its backdrop further down so what's
+   pinned behind the story (the map) never shows through the gap. */
+.trash-story #scene { background: var(--color-bg, #fdfdfc); box-shadow: 0 40vh 0 var(--color-bg, #fdfdfc); position: sticky; top: 0; width: 100%; height: 100svh; pointer-events: auto; display: grid; place-items: center; overflow: hidden; }
 .trash-story #composition { position: absolute; left: 50%; top: 50%; flex: none; width: 840px; height: 780px; transform: translate(-50%, -50%) scale(var(--scale, 1)); transform-origin: center; }
 .trash-story canvas { display: block; position: absolute; inset: 0; width: 840px; height: 780px; pointer-events: none; }
 .trash-story #fire { z-index: 1; }
